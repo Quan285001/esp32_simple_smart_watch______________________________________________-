@@ -3,10 +3,13 @@
 #include <TFT_eSPI.h>
 #include "icons.h"
 #include "config.h"
-#include <time.h>
 #include <math.h>
 
 extern TFT_eSPI tft;
+
+// =====================================================
+// WEATHER FACE STATE
+// =====================================================
 
 static int selectedForecastIndex = 0;
 static bool forecastSelectionInitialized = false;
@@ -14,45 +17,49 @@ static bool forecastSelectionInitialized = false;
 static bool weatherAnimating = false;
 static uint32_t animationStartedAt = 0;
 
-static constexpr uint32_t WEATHER_ANIMATION_MS = 280;
+static constexpr uint32_t WEATHER_ANIMATION_MS = 420;
 static constexpr int WEATHER_SLIDE_DISTANCE = 47;
+
+static constexpr int PANEL_X = 15;
+static constexpr int PANEL_Y = 30;
+static constexpr int PANEL_W = 210;
+static constexpr int PANEL_H = 88;
+
+static constexpr int CARD_Y = 124;
+static constexpr int CARD_W = 42;
+static constexpr int CARD_H = 78;
+
+static const int cardCenterX[4] = {47, 94, 141, 188};
 
 static WeatherData animationWeather;
 static int animationOldIndex = 0;
 static int animationNewIndex = 0;
 
-static const int colX[4] = {47, 94, 141, 188};
-static const int boxWidth = 42;
-static const int boxHeight = 78;
-static const int boxY = 124;
+// =====================================================
+// ANIMATION HELPERS
+// =====================================================
 
-// =====================================================
-// COLOR / ANIMATION HELPERS
-// =====================================================
+static float clamp01(float value) {
+    if (value < 0.0f) return 0.0f;
+    if (value > 1.0f) return 1.0f;
+    return value;
+}
 
 static float easeOutCubic(float t) {
+    t = clamp01(t);
     float inv = 1.0f - t;
     return 1.0f - inv * inv * inv;
 }
 
-static uint16_t blendColor(
-    uint16_t from,
-    uint16_t to,
-    float amount
-) {
-    int r1 = (from >> 11) & 0x1F;
-    int g1 = (from >> 5) & 0x3F;
-    int b1 = from & 0x1F;
+static float easeInOutCubic(float t) {
+    t = clamp01(t);
 
-    int r2 = (to >> 11) & 0x1F;
-    int g2 = (to >> 5) & 0x3F;
-    int b2 = to & 0x1F;
+    if (t < 0.5f) {
+        return 4.0f * t * t * t;
+    }
 
-    int r = r1 + (int)((r2 - r1) * amount);
-    int g = g1 + (int)((g2 - g1) * amount);
-    int b = b1 + (int)((b2 - b1) * amount);
-
-    return (r << 11) | (g << 5) | b;
+    float v = -2.0f * t + 2.0f;
+    return 1.0f - (v * v * v) / 2.0f;
 }
 
 // =====================================================
@@ -67,18 +74,18 @@ static void drawTemperatureWithDegree(
     uint16_t color,
     uint16_t background
 ) {
-    char buf[8];
-    snprintf(buf, sizeof(buf), "%d", temp);
+    char buffer[8];
+    snprintf(buffer, sizeof(buffer), "%d", temp);
 
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(color, background);
-    tft.drawString(buf, x, y, font);
+    tft.drawString(buffer, x, y, font);
 
-    int textW = tft.textWidth(buf, font);
+    int textWidth = tft.textWidth(buffer, font);
 
-    int degreeX = x + textW + 3;
-    int degreeY = y + ((font >= 4) ? 5 : 3);
-    int radius = (font >= 4) ? 3 : 2;
+    int degreeX = x + textWidth + 3;
+    int degreeY = y + (font >= 4 ? 5 : 3);
+    int radius = font >= 4 ? 3 : 2;
 
     tft.drawCircle(
         degreeX + radius,
@@ -92,77 +99,104 @@ static void drawTemperatureWithDegree(
 }
 
 // =====================================================
-// MAIN WEATHER PANEL
+// MAIN WEATHER CONTENT
 // =====================================================
 
 static void drawMainWeatherContent(
-    const WeatherData& w,
+    const WeatherData& weather,
     int index,
-    int offsetY,
-    uint16_t textColor
+    int offsetY
 ) {
-    const HourlyForecast& f = w.hourly[index];
+    index = (index + 24) % 24;
+
+    const HourlyForecast& forecast = weather.hourly[index];
 
     const bool isNight =
-        (f.hour < 6 || f.hour >= 18);
+        forecast.hour < 6 || forecast.hour >= 18;
 
-    const int yOffset = offsetY;
+    const uint16_t panelColor = 0x1082;
 
+    // Icon
     drawWeatherIcon(
         tft,
         52,
-        74 + yOffset,
-        f.weatherCode,
+        74 + offsetY,
+        forecast.weatherCode,
         isNight
     );
 
+    // Main temperature
+    int temperature =
+        index == 0
+            ? weather.currentTemp
+            : forecast.temp;
+
     drawTemperatureWithDegree(
-        index == 0 ? w.currentTemp : f.temp,
+        temperature,
         90,
-        60 + yOffset,
+        60 + offsetY,
         4,
-        textColor,
-        0x1082
+        TFT_WHITE,
+        panelColor
     );
 
+    // Maximum temperature
     drawTemperatureWithDegree(
-        w.maxTemp,
+        weather.maxTemp,
         175,
-        63 + yOffset,
+        63 + offsetY,
         2,
-        textColor,
-        0x1082
+        0xFDE0,
+        panelColor
     );
 
+    // Minimum temperature
     drawTemperatureWithDegree(
-        w.minTemp,
+        weather.minTemp,
         175,
-        82 + yOffset,
+        82 + offsetY,
         2,
         0x7BEF,
+        panelColor
+    );
+
+    char timeLabel[8];
+
+    snprintf(
+        timeLabel,
+        sizeof(timeLabel),
+        "%02d:00",
+        forecast.hour
+    );
+
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(0xFDE0, panelColor);
+
+    tft.drawString(
+        timeLabel,
+        91,
+        98 + offsetY,
+        1
+    );
+}
+
+static void drawMainPanelBackground() {
+    tft.fillRoundRect(
+        PANEL_X,
+        PANEL_Y,
+        PANEL_W,
+        PANEL_H,
+        16,
         0x1082
     );
 
-    char label[16];
-    snprintf(label, sizeof(label), "%02d:00", f.hour);
-
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(0xFDE0, 0x1082);
-    tft.drawString(label, 91, 98 + yOffset, 1);
-}
-
-static void drawMainWeatherPanel(
-    const WeatherData& w,
-    int index
-) {
-    tft.fillRoundRect(15, 30, 210, 88, 16, 0x1082);
-    tft.drawRoundRect(15, 30, 210, 88, 16, 0x3186);
-
-    drawMainWeatherContent(
-        w,
-        index,
-        0,
-        TFT_WHITE
+    tft.drawRoundRect(
+        PANEL_X,
+        PANEL_Y,
+        PANEL_W,
+        PANEL_H,
+        16,
+        0x3186
     );
 }
 
@@ -171,108 +205,174 @@ static void drawMainWeatherPanel(
 // =====================================================
 
 static void drawForecastCard(
-    const HourlyForecast& f,
+    const HourlyForecast& forecast,
     int centerX,
     bool selected
 ) {
-    const int boxX = centerX - boxWidth / 2;
+    const int boxX = centerX - CARD_W / 2;
 
-    const uint16_t bgColor =
+    const uint16_t background =
         selected ? 0x2184 : 0x1082;
 
-    const uint16_t borderColor =
+    const uint16_t border =
         selected ? 0xFDE0 : 0x3186;
 
     tft.fillRoundRect(
         boxX,
-        boxY,
-        boxWidth,
-        boxHeight,
+        CARD_Y,
+        CARD_W,
+        CARD_H,
         10,
-        bgColor
+        background
     );
 
     tft.drawRoundRect(
         boxX,
-        boxY,
-        boxWidth,
-        boxHeight,
+        CARD_Y,
+        CARD_W,
+        CARD_H,
         10,
-        borderColor
+        border
     );
 
-    char tempBuf[8];
-    snprintf(tempBuf, sizeof(tempBuf), "%d", f.temp);
+    char temperature[8];
+
+    snprintf(
+        temperature,
+        sizeof(temperature),
+        "%d",
+        forecast.temp
+    );
 
     tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(TFT_WHITE, bgColor);
-    tft.drawString(tempBuf, centerX, boxY + 17, 1);
+    tft.setTextColor(TFT_WHITE, background);
+
+    tft.drawString(
+        temperature,
+        centerX,
+        CARD_Y + 17,
+        1
+    );
 
     int degreeX =
-        centerX + tft.textWidth(tempBuf) / 2 + 2;
+        centerX + tft.textWidth(temperature) / 2 + 2;
 
     tft.drawCircle(
         degreeX,
-        boxY + 14,
+        CARD_Y + 14,
         2,
         TFT_WHITE
     );
 
-    bool isNight =
-        (f.hour < 6 || f.hour >= 18);
+    const bool isNight =
+        forecast.hour < 6 || forecast.hour >= 18;
 
     drawWeatherMiniIcon(
         tft,
         centerX,
-        boxY + 42,
-        f.weatherCode,
+        CARD_Y + 42,
+        forecast.weatherCode,
         isNight
     );
 
-    char timeLabel[6];
-    snprintf(timeLabel, sizeof(timeLabel), "%02d:00", f.hour);
+    char timeLabel[8];
+
+    snprintf(
+        timeLabel,
+        sizeof(timeLabel),
+        "%02d:00",
+        forecast.hour
+    );
 
     tft.setTextDatum(MC_DATUM);
+
     tft.setTextColor(
         selected ? TFT_WHITE : 0x7BEF,
-        bgColor
+        background
     );
 
     tft.drawString(
         timeLabel,
         centerX,
-        boxY + 66,
+        CARD_Y + 66,
         1
     );
 }
 
 // =====================================================
-// STATIC WEATHER SCREEN
+// STATIC FORECAST ROW
 // =====================================================
 
 static void drawForecastRow(
-    const WeatherData& w,
+    const WeatherData& weather,
     int startIndex
 ) {
-    tft.fillRect(10, 120, 220, 90, TFT_BLACK);
+    tft.fillRect(
+        10,
+        120,
+        220,
+        90,
+        TFT_BLACK
+    );
 
-    for (int p = 0; p < 4; p++) {
-        int dataIndex = (startIndex + p) % 24;
+    for (int i = 0; i < 4; i++) {
+        int dataIndex = (startIndex + i) % 24;
 
         drawForecastCard(
-            w.hourly[dataIndex],
-            colX[p],
-            p == 0
+            weather.hourly[dataIndex],
+            cardCenterX[i],
+            i == 0
         );
     }
 }
 
-void drawWeatherFaceData(const WeatherData& w) {
-    if (!w.valid) {
-        tft.fillScreen(TFT_BLACK);
+// =====================================================
+// FOOTER
+// =====================================================
+
+static void drawWeatherFooter() {
+    tft.fillRect(0, 207, 240, 30, TFT_BLACK);
+
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(0x7BEF, TFT_BLACK);
+
+    tft.drawString(
+        "[Press: Next hour]",
+        120,
+        221,
+        1
+    );
+}
+
+// =====================================================
+// WEATHER SCREEN
+// =====================================================
+
+void drawWeatherFaceData(const WeatherData& weather) {
+    weatherAnimating = false;
+
+    tft.fillScreen(TFT_BLACK);
+
+    if (!weather.valid) {
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(TFT_WHITE, TFT_BLACK);
-        tft.drawString("Weather unavailable", 120, 115, 2);
+
+        tft.drawString(
+            "Weather unavailable",
+            120,
+            115,
+            2
+        );
+
+        tft.setTextColor(0x7BEF, TFT_BLACK);
+
+        tft.drawString(
+            "Waiting for connection",
+            120,
+            140,
+            1
+        );
+
         return;
     }
 
@@ -281,45 +381,40 @@ void drawWeatherFaceData(const WeatherData& w) {
         forecastSelectionInitialized = true;
     }
 
-    weatherAnimating = false;
+    selectedForecastIndex =
+        (selectedForecastIndex + 24) % 24;
 
-    tft.fillScreen(TFT_BLACK);
+    drawMainPanelBackground();
 
-    drawMainWeatherPanel(
-        w,
-        selectedForecastIndex
+    drawMainWeatherContent(
+        weather,
+        selectedForecastIndex,
+        0
     );
 
     drawForecastRow(
-        w,
+        weather,
         selectedForecastIndex
     );
 
-    tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(0x7BEF, TFT_BLACK);
-    tft.drawString(
-        "[Press: Next hour]",
-        120,
-        216,
-        1
-    );
+    drawWeatherFooter();
 }
 
 // =====================================================
-// START ANIMATION
+// START FORECAST ANIMATION
 // =====================================================
 
-void advanceWeatherForecast(const WeatherData& w) {
-    if (!w.valid) return;
-
-    if (weatherAnimating) return;
+void advanceWeatherForecast(const WeatherData& weather) {
+    if (!weather.valid || weatherAnimating) {
+        return;
+    }
 
     if (!forecastSelectionInitialized) {
         selectedForecastIndex = 0;
         forecastSelectionInitialized = true;
     }
 
-    animationWeather = w;
+    animationWeather = weather;
 
     animationOldIndex = selectedForecastIndex;
 
@@ -332,17 +427,21 @@ void advanceWeatherForecast(const WeatherData& w) {
 }
 
 // =====================================================
-// ANIMATION FRAME
-// Call this repeatedly from main loop.
+// ANIMATION UPDATE
 // =====================================================
 
-void updateWeatherFaceAnimation(const WeatherData& w) {
-    if (!weatherAnimating) return;
+void updateWeatherFaceAnimation(const WeatherData& weather) {
+    (void)weather;
 
-    uint32_t elapsed = millis() - animationStartedAt;
+    if (!weatherAnimating) {
+        return;
+    }
+
+    uint32_t elapsed =
+        millis() - animationStartedAt;
 
     float progress =
-        (float)elapsed / WEATHER_ANIMATION_MS;
+        clamp01((float)elapsed / WEATHER_ANIMATION_MS);
 
     if (progress >= 1.0f) {
         selectedForecastIndex = animationNewIndex;
@@ -352,79 +451,76 @@ void updateWeatherFaceAnimation(const WeatherData& w) {
         return;
     }
 
-    float eased = easeOutCubic(progress);
+    // -------------------------------------------------
+    // PHASE 1: OLD CONTENT FLOAT OUT
+    // PHASE 2: NEW CONTENT FLOAT IN
+    // -------------------------------------------------
 
-    // ---------------------------------------------
-    // FLOAT OUT / FLOAT IN - MAIN WEATHER PANEL
-    // ---------------------------------------------
+    const float splitPoint = 0.48f;
 
-    tft.fillRect(15, 30, 210, 88, 0x1082);
-    tft.drawRoundRect(15, 30, 210, 88, 16, 0x3186);
+    drawMainPanelBackground();
 
-    // Cũ bay lên.
-    int oldOffset = -(int)(eased * 28);
+    if (progress < splitPoint) {
+        float phase =
+            easeOutCubic(progress / splitPoint);
 
-    // Mới bay từ dưới lên.
-    int newOffset =
-        28 - (int)(eased * 28);
+        int offsetY =
+            -(int)(phase * 22.0f);
 
-    // Tạo hiệu ứng mờ giả lập bằng cách chuyển màu.
-    uint16_t oldColor =
-        blendColor(TFT_WHITE, 0x7BEF, eased);
-
-    uint16_t newColor =
-        blendColor(0x7BEF, TFT_WHITE, eased);
-
-    if (progress < 0.55f) {
         drawMainWeatherContent(
             animationWeather,
             animationOldIndex,
-            oldOffset,
-            oldColor
+            offsetY
         );
-    }
+    } else {
+        float phase =
+            easeOutCubic(
+                (progress - splitPoint) /
+                (1.0f - splitPoint)
+            );
 
-    if (progress > 0.35f) {
+        int offsetY =
+            22 - (int)(phase * 22.0f);
+
         drawMainWeatherContent(
             animationWeather,
             animationNewIndex,
-            newOffset,
-            newColor
+            offsetY
         );
     }
 
-    // ---------------------------------------------
-    // SLIDE FORECAST ROW - RIGHT TO LEFT
-    // ---------------------------------------------
+    // -------------------------------------------------
+    // FORECAST CARDS SLIDE RIGHT TO LEFT
+    // -------------------------------------------------
 
-    tft.fillRect(10, 120, 220, 90, TFT_BLACK);
+    tft.fillRect(
+        10,
+        120,
+        220,
+        90,
+        TFT_BLACK
+    );
 
-    for (int p = 0; p < 4; p++) {
+    float slideProgress =
+        easeInOutCubic(progress);
+
+    int slideOffset =
+        WEATHER_SLIDE_DISTANCE -
+        (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
+
+    for (int i = 0; i < 4; i++) {
         int dataIndex =
-            (animationNewIndex + p) % 24;
+            (animationNewIndex + i) % 24;
 
         int x =
-            colX[p] +
-            WEATHER_SLIDE_DISTANCE -
-            (int)(eased * WEATHER_SLIDE_DISTANCE);
+            cardCenterX[i] + slideOffset;
 
         drawForecastCard(
             animationWeather.hourly[dataIndex],
             x,
-            p == 0
+            i == 0
         );
     }
 
-    // ---------------------------------------------
-    // FOOTER
-    // ---------------------------------------------
-
-    tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(0x7BEF, TFT_BLACK);
-    tft.drawString(
-        "[Press: Next hour]",
-        120,
-        216,
-        1
-    );
+    drawWeatherFooter();
 }

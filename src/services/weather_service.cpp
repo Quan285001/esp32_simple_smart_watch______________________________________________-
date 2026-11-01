@@ -1,4 +1,3 @@
-//weather_service.cpp
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -6,6 +5,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
+
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
@@ -16,11 +16,14 @@
 // =====================================================
 
 WeatherData currentWeather = {
-    28, 32, 24, "Waiting for weather",
+    28,
+    32,
+    24,
+    "Waiting for weather",
     {
         {0,28,2},{1,28,2},{2,27,2},{3,27,2},
-        {4,27,2},{5,27,2},{6,28,1},{7,29,1},
-        {8,30,1},{9,31,0},{10,32,0},{11,32,0},
+        {4,27,2},{5,28,2},{6,28,1},{7,29,1},
+        {8,30,1},{9,31,1},{10,32,0},{11,32,0},
         {12,33,0},{13,33,0},{14,32,1},{15,31,2},
         {16,30,3},{17,29,3},{18,28,3},{19,28,2},
         {20,27,2},{21,27,2},{22,27,2},{23,27,2}
@@ -28,15 +31,13 @@ WeatherData currentWeather = {
     false
 };
 
-// Mutex bảo vệ currentWeather.
-// Local static initialization chỉ thực hiện một lần.
 static SemaphoreHandle_t getWeatherMutex() {
     static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
     return mutex;
 }
 
 // =====================================================
-// WEATHER CODE
+// WEATHER DESCRIPTION
 // =====================================================
 
 static String weatherDescription(int code) {
@@ -45,26 +46,16 @@ static String weatherDescription(int code) {
     if (code == 2) return "Partly cloudy";
     if (code == 3) return "Overcast";
 
-    if (code == 45 || code == 48)
-        return "Fog";
+    if (code == 45 || code == 48) return "Fog";
 
-    if (code >= 51 && code <= 57)
-        return "Drizzle";
+    if (code >= 51 && code <= 57) return "Drizzle";
+    if (code >= 61 && code <= 67) return "Rain";
+    if (code >= 71 && code <= 77) return "Snow";
 
-    if (code >= 61 && code <= 67)
-        return "Rain";
+    if (code >= 80 && code <= 82) return "Rain showers";
+    if (code >= 85 && code <= 86) return "Snow showers";
 
-    if (code >= 71 && code <= 77)
-        return "Snow";
-
-    if (code >= 80 && code <= 82)
-        return "Rain showers";
-
-    if (code >= 85 && code <= 86)
-        return "Snow showers";
-
-    if (code >= 95 && code <= 99)
-        return "Thunderstorm";
+    if (code >= 95 && code <= 99) return "Thunderstorm";
 
     return "Unknown";
 }
@@ -74,9 +65,10 @@ static String weatherDescription(int code) {
 // =====================================================
 
 void fetchHourlyWeather() {
-
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[WEATHER] Wi-Fi offline; keeping cached data.");
+        Serial.println(
+            "[WEATHER] Wi-Fi offline; keeping cached data."
+        );
         return;
     }
 
@@ -90,9 +82,10 @@ void fetchHourlyWeather() {
         "&forecast_days=2&timezone=Asia%2FHo_Chi_Minh";
 
     WiFiClientSecure client;
-    client.setInsecure(); // Chỉ phù hợp cho thử nghiệm.
+    client.setInsecure();
 
     HTTPClient http;
+
     http.setConnectTimeout(5000);
     http.setTimeout(5000);
 
@@ -104,7 +97,11 @@ void fetchHourlyWeather() {
     int status = http.GET();
 
     if (status != HTTP_CODE_OK) {
-        Serial.printf("[WEATHER] HTTP error: %d\n", status);
+        Serial.printf(
+            "[WEATHER] HTTP error: %d\n",
+            status
+        );
+
         http.end();
         return;
     }
@@ -117,13 +114,16 @@ void fetchHourlyWeather() {
     http.end();
 
     if (error) {
-        Serial.printf("[WEATHER] JSON error: %s\n", error.c_str());
+        Serial.printf(
+            "[WEATHER] JSON error: %s\n",
+            error.c_str()
+        );
         return;
     }
 
-    // =================================================
-    // VALIDATE JSON
-    // =================================================
+    // -------------------------------------------------
+    // VALIDATE RESPONSE
+    // -------------------------------------------------
 
     JsonVariantConst currentTemp =
         doc["current"]["temperature_2m"];
@@ -146,21 +146,24 @@ void fetchHourlyWeather() {
     JsonArrayConst dailyMin =
         doc["daily"]["temperature_2m_min"];
 
-    if (currentTemp.isNull() ||
+    if (
+        currentTemp.isNull() ||
         currentCode.isNull() ||
         times.size() == 0 ||
         temps.size() != times.size() ||
         codes.size() != times.size() ||
         dailyMax.size() == 0 ||
-        dailyMin.size() == 0) {
-
-        Serial.println("[WEATHER] Incomplete response; keeping cache.");
+        dailyMin.size() == 0
+    ) {
+        Serial.println(
+            "[WEATHER] Incomplete response; keeping cache."
+        );
         return;
     }
 
-    // =================================================
-    // CREATE NEW DATA
-    // =================================================
+    // -------------------------------------------------
+    // PREPARE NEW DATA
+    // -------------------------------------------------
 
     WeatherData next = getWeatherSnapshot();
 
@@ -171,30 +174,28 @@ void fetchHourlyWeather() {
     next.conditionText =
         weatherDescription(currentCode.as<int>());
 
-    // =================================================
+    // -------------------------------------------------
     // FIND CURRENT LOCAL HOUR
-    // =================================================
+    // -------------------------------------------------
 
     int firstIndex = -1;
 
-    struct tm now = {};
+    struct tm localTime = {};
 
-    if (getLocalTime(&now, 10)) {
-
+    if (getLocalTime(&localTime, 10)) {
         char target[20];
 
         snprintf(
             target,
             sizeof(target),
             "%04d-%02d-%02dT%02d",
-            now.tm_year + 1900,
-            now.tm_mon + 1,
-            now.tm_mday,
-            now.tm_hour
+            localTime.tm_year + 1900,
+            localTime.tm_mon + 1,
+            localTime.tm_mday,
+            localTime.tm_hour
         );
 
         for (size_t i = 0; i < times.size(); i++) {
-
             String stamp = times[i].as<String>();
 
             if (stamp.startsWith(target)) {
@@ -204,18 +205,19 @@ void fetchHourlyWeather() {
         }
     }
 
-    // Nếu chưa đồng bộ được giờ, bắt đầu từ đầu dữ liệu.
     if (firstIndex < 0) {
         firstIndex = 0;
-        Serial.println("[WEATHER] Local time unavailable; using first forecast hour.");
+
+        Serial.println(
+            "[WEATHER] Local time unavailable; using first forecast hour."
+        );
     }
 
-    // =================================================
-    // LOAD 24 CONSECUTIVE HOURS
-    // =================================================
+    // -------------------------------------------------
+    // LOAD 24 HOURS
+    // -------------------------------------------------
 
     for (int i = 0; i < 24; i++) {
-
         size_t index =
             static_cast<size_t>(firstIndex + i);
 
@@ -237,56 +239,69 @@ void fetchHourlyWeather() {
             codes[index].as<int>();
     }
 
-    // =================================================
-    // UPDATE SHARED DATA SAFELY
-    // =================================================
+    // -------------------------------------------------
+    // COMMIT DATA
+    // -------------------------------------------------
 
     SemaphoreHandle_t mutex = getWeatherMutex();
 
     if (mutex == nullptr) {
-        Serial.println("[WEATHER] Mutex allocation failed.");
+        Serial.println(
+            "[WEATHER] Mutex allocation failed."
+        );
         return;
     }
 
-    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-
+    if (
+        xSemaphoreTake(
+            mutex,
+            pdMS_TO_TICKS(1000)
+        ) == pdTRUE
+    ) {
         next.valid = true;
         currentWeather = next;
 
         xSemaphoreGive(mutex);
 
-        Serial.println("[WEATHER] Forecast updated successfully.");
-
+        Serial.println(
+            "[WEATHER] Forecast updated successfully."
+        );
     } else {
-
-        Serial.println("[WEATHER] Mutex timeout; update skipped.");
+        Serial.println(
+            "[WEATHER] Mutex timeout; update skipped."
+        );
     }
 }
 
 // =====================================================
-// SAFE WEATHER SNAPSHOT
+// SAFE SNAPSHOT
 // =====================================================
 
 WeatherData getWeatherSnapshot() {
+    WeatherData snapshot = {};
 
     SemaphoreHandle_t mutex = getWeatherMutex();
 
     if (mutex == nullptr) {
-        return currentWeather;
+        Serial.println(
+            "[WEATHER] Snapshot mutex allocation failed."
+        );
+        return snapshot;
     }
 
-    WeatherData snapshot;
-
-    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-
+    if (
+        xSemaphoreTake(
+            mutex,
+            pdMS_TO_TICKS(100)
+        ) == pdTRUE
+    ) {
         snapshot = currentWeather;
 
         xSemaphoreGive(mutex);
-
     } else {
-
-        Serial.println("[WEATHER] Snapshot mutex timeout.");
-        snapshot = currentWeather;
+        Serial.println(
+            "[WEATHER] Snapshot mutex timeout."
+        );
     }
 
     return snapshot;

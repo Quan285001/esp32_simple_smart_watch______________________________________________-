@@ -1,4 +1,3 @@
-//main.cpp
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -42,23 +41,17 @@ extern void drawMenuScreen(
 extern void drawWeatherFaceData(const WeatherData& w);
 extern void updateWeatherFaceAnimation(const WeatherData& w);
 
-extern void updateWeatherFaceAnimation(
-    const WeatherData& w
-);
-
 static uint32_t lastWeatherFetchMs = 0;
+static uint32_t lastWeatherRetryMs = 0;
 static uint32_t lastClockDrawMs = 0;
 static uint32_t lastMenuFrameMs = 0;
-static uint32_t lastWeatherFrameMs = 0; 
-static uint32_t lastWeatherRetryMs = 0;
-
-
+static uint32_t lastWeatherFrameMs = 0;
 
 static bool weatherFaceInitialized = false;
-static bool initialWeatherAttempted = false;
 static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
+
 static constexpr uint32_t WEATHER_RETRY_MS = 15000;
 
 // =====================================================
@@ -84,7 +77,6 @@ static void weatherFetchTask(void *parameter) {
 // =====================================================
 
 static bool scheduleWeatherFetch() {
-
     if (!wifiEnabled) {
         return false;
     }
@@ -130,23 +122,17 @@ static bool scheduleWeatherFetch() {
 // =====================================================
 
 void toggleWiFi() {
-
     if (wifiEnabled) {
-
         WiFi.disconnect(false, false);
         WiFi.mode(WIFI_OFF);
 
         wifiEnabled = false;
-
-        initialWeatherAttempted = false;
         previousWifiConnected = false;
 
         Serial.println(
             "[WIFI] Disabled; cached weather retained."
         );
-
     } else {
-
         wifiEnabled = true;
 
         WiFi.mode(WIFI_STA);
@@ -159,8 +145,8 @@ void toggleWiFi() {
 
         beginTimeService();
 
-        initialWeatherAttempted = false;
         lastWeatherFetchMs = 0;
+        lastWeatherRetryMs = 0;
 
         Serial.println(
             "[WIFI] Enabled; reconnecting."
@@ -173,35 +159,27 @@ void toggleWiFi() {
 // =====================================================
 
 void setup() {
-
     Serial.begin(115200);
 
     delay(250);
 
     Serial.println("\n[BOOT] ESP32-C3 Smart Watch");
 
-    // Button
     beginButtonManager();
 
     Serial.println("[BOOT] Button ready");
 
-    // Display
     tft.init();
-
     tft.setRotation(0);
-
     tft.fillScreen(TFT_BLACK);
 
     Serial.println("[BOOT] GC9A01 ready");
 
-    // Boot animation
     showBootTerminal();
 
     drawCurrentScreen(true);
 
-    // WiFi
     WiFi.mode(WIFI_STA);
-
     WiFi.setAutoReconnect(true);
 
     WiFi.begin(
@@ -221,7 +199,6 @@ void setup() {
 // =====================================================
 
 void loop() {
-
     const uint32_t now = millis();
 
     // -------------------------------------------------
@@ -238,38 +215,40 @@ void loop() {
         wifiEnabled &&
         WiFi.status() == WL_CONNECTED;
 
-    // WiFi vừa kết nối hoặc kết nối lại
     if (wifiConnected && !previousWifiConnected) {
-
         Serial.println("[WIFI] Connected.");
 
-        initialWeatherAttempted = false;
-
-        // Cho phép tải thời tiết ngay
         lastWeatherFetchMs = 0;
+        lastWeatherRetryMs = 0;
     }
 
-    // WiFi vừa mất kết nối
     if (!wifiConnected && previousWifiConnected) {
-
         Serial.println("[WIFI] Connection lost.");
-
-        initialWeatherAttempted = false;
     }
 
     previousWifiConnected = wifiConnected;
 
     // -------------------------------------------------
-    // INITIAL WEATHER FETCH + RETRY
+    // WEATHER SNAPSHOT
     // -------------------------------------------------
 
-    WeatherData weatherSnapshot = getWeatherSnapshot();
+    WeatherData weatherSnapshot =
+        getWeatherSnapshot();
+
+    weatherDataValid = weatherSnapshot.valid;
+
+    // -------------------------------------------------
+    // WEATHER RETRY
+    // -------------------------------------------------
 
     if (
         wifiConnected &&
         !weatherSnapshot.valid &&
         !weatherFetchRunning &&
-        now - lastWeatherRetryMs >= WEATHER_RETRY_MS
+        (
+            lastWeatherRetryMs == 0 ||
+            now - lastWeatherRetryMs >= WEATHER_RETRY_MS
+        )
     ) {
         if (scheduleWeatherFetch()) {
             lastWeatherRetryMs = now;
@@ -284,10 +263,15 @@ void loop() {
     // PERIODIC WEATHER UPDATE
     // -------------------------------------------------
 
-    if (wifiConnected && weatherSnapshot.valid && now - lastWeatherFetchMs >= WEATHER_REFRESH_MS) {
+    if (
+        wifiConnected &&
+        weatherSnapshot.valid &&
+        !weatherFetchRunning &&
+        now - lastWeatherFetchMs >= WEATHER_REFRESH_MS
+    ) {
         scheduleWeatherFetch();
     }
-    
+
     // -------------------------------------------------
     // MENU ANIMATION
     // -------------------------------------------------
@@ -296,12 +280,11 @@ void loop() {
         currentScreen == SCREEN_MENU &&
         now - lastMenuFrameMs >= 16
     ) {
-
         drawMenuScreen(
-        menuIndex,
-        currentMenuLevel,
-        wifiEnabled,
-        wifiConnected
+            menuIndex,
+            currentMenuLevel,
+            wifiEnabled,
+            wifiConnected
         );
 
         lastMenuFrameMs = now;
@@ -315,46 +298,29 @@ void loop() {
         currentScreen == SCREEN_CLOCK &&
         now - lastClockDrawMs >= 40
     ) {
-
         static int cachedSecond = -1;
-
         static struct tm cachedTime = {};
-
         static uint32_t secondStartedAt = 0;
 
         struct tm currentTime = {};
 
-        // Get synchronized time
         if (getLocalTime(&currentTime, 0)) {
-
             if (currentTime.tm_sec != cachedSecond) {
-
                 cachedSecond = currentTime.tm_sec;
-
                 cachedTime = currentTime;
-
                 secondStartedAt = now;
             }
-
         } else {
-
-            // Fallback clock when NTP is unavailable
             cachedTime.tm_hour = 12;
-
             cachedTime.tm_min = 0;
-
-            cachedTime.tm_sec =
-                (now / 1000) % 60;
-
+            cachedTime.tm_sec = (now / 1000) % 60;
             cachedTime.tm_wday = 0;
-
             cachedTime.tm_mday = 1;
 
             secondStartedAt =
                 now - (now % 1000);
         }
 
-        // Smooth second-hand movement
         uint32_t elapsed =
             now - secondStartedAt;
 
@@ -373,31 +339,26 @@ void loop() {
     }
 
     // -------------------------------------------------
-    // SMALL LOOP DELAY
+    // WEATHER FACE ANIMATION
     // -------------------------------------------------
 
-    delay(2);
-
     if (currentScreen != SCREEN_WEATHER) {
-    weatherFaceInitialized = false;
-    }
-    else if (now - lastWeatherFrameMs >= 16) {
+        weatherFaceInitialized = false;
+    } else if (now - lastWeatherFrameMs >= 16) {
+        WeatherData weather =
+            getWeatherSnapshot();
 
-        WeatherData weather = getWeatherSnapshot();
-
-        // Dữ liệu vừa tải xong: vẽ Weather Face lần đầu
         if (weather.valid && !weatherFaceInitialized) {
-
             drawWeatherFaceData(weather);
-
             weatherFaceInitialized = true;
         }
 
-        // Chạy animation khi đã có dữ liệu
         if (weatherFaceInitialized) {
             updateWeatherFaceAnimation(weather);
         }
 
         lastWeatherFrameMs = now;
     }
+
+    delay(2);
 }
