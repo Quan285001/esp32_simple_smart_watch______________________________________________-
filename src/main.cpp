@@ -278,7 +278,7 @@ void loop() {
 
     if (
         currentScreen == SCREEN_MENU &&
-        now - lastMenuFrameMs >= 16
+        now - lastMenuFrameMs >= 40
     ) {
         drawMenuScreen(
             menuIndex,
@@ -344,7 +344,7 @@ void loop() {
 
     if (currentScreen != SCREEN_WEATHER) {
         weatherFaceInitialized = false;
-    } else if (now - lastWeatherFrameMs >= 16) {
+    } else if (now - lastWeatherFrameMs >= 40) {
         WeatherData weather =
             getWeatherSnapshot();
 
