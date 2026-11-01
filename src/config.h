@@ -8,8 +8,8 @@ constexpr uint32_t BUTTON_HOLD_MS = 1000;
 
 // Wi-Fi credentials: điền mạng Wi-Fi của ông tại đây.
 // Không đưa mật khẩu thật lên GitHub công khai.
-#define WIFI_SSID "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID "Phuong Uyen"
+#define WIFI_PASSWORD "123456uyen"
 
 constexpr char NTP_SERVER[] = "pool.ntp.org";
 constexpr long GMT_OFFSET_SEC = 7 * 3600;

@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include <WiFi.h>
@@ -9,6 +8,7 @@
 #include "../services/weather_service.h"
 
 extern TFT_eSPI tft;
+extern void toggleWiFi();
 
 extern void drawAnalogClockFace(
     struct tm timeinfo,
@@ -19,7 +19,6 @@ extern void drawAnalogClockFace(
 
 extern void drawWeatherFaceData(const WeatherData &weather);
 extern void advanceWeatherForecast(const WeatherData &weather);
-
 extern void drawMenuScreen(
     int selectedIndex,
     bool wifiStatus,
@@ -54,10 +53,8 @@ void drawCurrentScreen(bool force) {
         drawWeatherFaceData(currentWeather);
 
     } else if (currentScreen == SCREEN_MENU) {
-        bool wifiStatus = WiFi.getMode() != WIFI_OFF;
-        bool wifiConnected = WiFi.status() == WL_CONNECTED;
-
-        drawMenuScreen(menuIndex, wifiStatus, wifiConnected);
+        const bool wifiConnected = wifiEnabled && WiFi.status() == WL_CONNECTED;
+        drawMenuScreen(menuIndex, wifiEnabled, wifiConnected);
     }
 }
 
@@ -93,7 +90,8 @@ void onButtonLongPress() {
                 break;
 
             case 2:
-                // Wi-Fi Mode: xử lý bật/tắt tại menu
+                // Bật/tắt Wi-Fi ngay trong menu; dữ liệu thời tiết đã tải vẫn được giữ.
+                toggleWiFi();
                 break;
 
             case 3:

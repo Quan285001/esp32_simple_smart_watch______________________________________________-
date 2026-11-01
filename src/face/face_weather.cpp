@@ -32,12 +32,7 @@ static void drawTemperatureWithDegree(
     int radius = (font >= 4) ? 3 : 2;
 
     // Vẽ một vòng tròn duy nhất
-    tft.drawCircle(
-        degreeX + radius,
-        degreeY,
-        radius,
-        color
-    );
+    tft.drawCircle( degreeX + radius ,degreeY ,radius ,color );
 
     // Vẽ chữ C độc lập theo kích thước font
     int cX = degreeX + radius * 2 + 4;
