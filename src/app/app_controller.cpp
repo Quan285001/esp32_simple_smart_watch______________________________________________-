@@ -25,6 +25,7 @@ extern void drawAnalogClockFace(
 
 extern void drawWeatherFaceData(const WeatherData &weather);
 extern void advanceWeatherForecast(const WeatherData &weather);
+extern void advanceWeatherForecast(const WeatherData& w);
 
 // Renderer mới: có thêm MenuLevel
 extern void drawMenuScreen(

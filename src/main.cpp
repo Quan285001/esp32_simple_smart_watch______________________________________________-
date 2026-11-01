@@ -39,14 +39,27 @@ extern void drawMenuScreen(
     bool wifiConnected
 );
 
+extern void drawWeatherFaceData(const WeatherData& w);
+extern void updateWeatherFaceAnimation(const WeatherData& w);
+
+extern void updateWeatherFaceAnimation(
+    const WeatherData& w
+);
+
 static uint32_t lastWeatherFetchMs = 0;
 static uint32_t lastClockDrawMs = 0;
 static uint32_t lastMenuFrameMs = 0;
+static uint32_t lastWeatherFrameMs = 0; 
+static uint32_t lastWeatherRetryMs = 0;
 
+
+
+static bool weatherFaceInitialized = false;
 static bool initialWeatherAttempted = false;
 static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
+static constexpr uint32_t WEATHER_RETRY_MS = 15000;
 
 // =====================================================
 // WEATHER TASK
@@ -247,17 +260,23 @@ void loop() {
     previousWifiConnected = wifiConnected;
 
     // -------------------------------------------------
-    // INITIAL WEATHER FETCH
+    // INITIAL WEATHER FETCH + RETRY
     // -------------------------------------------------
+
+    WeatherData weatherSnapshot = getWeatherSnapshot();
 
     if (
         wifiConnected &&
-        !initialWeatherAttempted
+        !weatherSnapshot.valid &&
+        !weatherFetchRunning &&
+        now - lastWeatherRetryMs >= WEATHER_RETRY_MS
     ) {
-
         if (scheduleWeatherFetch()) {
+            lastWeatherRetryMs = now;
 
-            initialWeatherAttempted = true;
+            Serial.println(
+                "[WEATHER] Retrying weather fetch..."
+            );
         }
     }
 
@@ -265,15 +284,10 @@ void loop() {
     // PERIODIC WEATHER UPDATE
     // -------------------------------------------------
 
-    if (
-        wifiConnected &&
-        initialWeatherAttempted &&
-        now - lastWeatherFetchMs >= WEATHER_REFRESH_MS
-    ) {
-
+    if (wifiConnected && weatherSnapshot.valid && now - lastWeatherFetchMs >= WEATHER_REFRESH_MS) {
         scheduleWeatherFetch();
     }
-
+    
     // -------------------------------------------------
     // MENU ANIMATION
     // -------------------------------------------------
@@ -363,4 +377,27 @@ void loop() {
     // -------------------------------------------------
 
     delay(2);
+
+    if (currentScreen != SCREEN_WEATHER) {
+    weatherFaceInitialized = false;
+    }
+    else if (now - lastWeatherFrameMs >= 16) {
+
+        WeatherData weather = getWeatherSnapshot();
+
+        // Dữ liệu vừa tải xong: vẽ Weather Face lần đầu
+        if (weather.valid && !weatherFaceInitialized) {
+
+            drawWeatherFaceData(weather);
+
+            weatherFaceInitialized = true;
+        }
+
+        // Chạy animation khi đã có dữ liệu
+        if (weatherFaceInitialized) {
+            updateWeatherFaceAnimation(weather);
+        }
+
+        lastWeatherFrameMs = now;
+    }
 }
