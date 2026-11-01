@@ -41,7 +41,7 @@ static constexpr int CARD_W = 42;
 static constexpr int CARD_H = 78;
 
 // Vị trí tâm của 4 thẻ dự báo.
-static const int cardCenterX[5] = {22, 66, 110, 154, 198};
+static const int cardCenterX[5] = {32, 76, 120, 164, 208};
 
 // Dữ liệu được lưu lại trong lúc animation.
 static WeatherData animationWeather;
@@ -424,21 +424,52 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         return;
     }
 
-    // Phase 1: the selected card rises toward the viewer.
-    constexpr float liftPhaseEnd = 0.42f;
-    if (progress < liftPhaseEnd) {
-        float liftProgress = easeOutCubic(progress / liftPhaseEnd);
+    // Phase 1: selected card pops forward (slight scale + tiny lift).
+    // Keep the movement mostly in scale; do not send the card off the top edge.
+    constexpr float popPhaseEnd = 0.38f;
+    if (progress < popPhaseEnd) {
+        float popProgress = easeOutCubic(progress / popPhaseEnd);
         drawForecastRow(animationWeather, animationOldIndex);
-        int lift = (int)(24.0f * liftProgress);
-        tft.fillRect(0, CARD_Y, 45, CARD_H, TFT_BLACK);
-        drawForecastCard(tft, animationWeather.hourly[animationOldIndex],
-                         cardCenterX[0], CARD_Y - lift, true);
+
+        const HourlyForecast& selected =
+            animationWeather.hourly[animationOldIndex];
+
+        const int centerX = cardCenterX[0];
+        const int cardY = CARD_Y - 3;
+        const int w = CARD_W + (int)(7.0f * popProgress);
+        const int h = CARD_H + (int)(8.0f * popProgress);
+        const int x = centerX - w / 2;
+        const int y = cardY - (int)(3.0f * popProgress);
+        const uint16_t bg = 0x2184;
+
+        // Draw the selected card above its normal-size version.
+        tft.fillRoundRect(x, y, w, h, 11, bg);
+        tft.drawRoundRect(x, y, w, h, 11, 0xFDE0);
+
+        char temperature[8];
+        snprintf(temperature, sizeof(temperature), "%d", selected.temp);
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextColor(TFT_WHITE, bg);
+        tft.drawString(temperature, centerX, y + 18, 1);
+
+        const bool isNight = selected.hour < 6 || selected.hour >= 18;
+        drawWeatherMiniIcon(tft, centerX, y + h / 2 + 1,
+                            selected.weatherCode, isNight);
+
+        char timeLabel[8];
+        snprintf(timeLabel, sizeof(timeLabel), "%02d:00", selected.hour);
+        tft.setTextColor(TFT_WHITE, bg);
+        tft.drawString(timeLabel, centerX, y + h - 11, 1);
         return;
     }
 
-    // Phase 2: the next forecast row slides in after the selected card lifts.
-    float slideProgress = easeInOutCubic((progress - liftPhaseEnd) / (1.0f - liftPhaseEnd));
-    int slideOffset = WEATHER_SLIDE_DISTANCE - (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
+    // Phase 2: the next row enters horizontally from the right.
+    // The selected card is no longer moved upward; it exits with the row transition.
+    float slideProgress = easeInOutCubic(
+        (progress - popPhaseEnd) / (1.0f - popPhaseEnd)
+    );
+    int slideOffset = WEATHER_SLIDE_DISTANCE -
+        (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
 
     if (initForecastSprite()) {
         drawForecastRowToSprite(animationWeather, animationNewIndex, slideOffset);
