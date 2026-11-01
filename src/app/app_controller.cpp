@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include <WiFi.h>
@@ -26,6 +25,8 @@ extern void drawAnalogClockFace(
 extern void drawWeatherFaceData(const WeatherData &weather);
 extern void advanceWeatherForecast(const WeatherData &weather);
 extern void advanceWeatherForecast(const WeatherData& w);
+extern void toggleWeatherDetails(const WeatherData& weather);
+extern bool scrollWeatherDetails(const WeatherData& weather);
 
 // Renderer mới: có thêm MenuLevel
 extern void drawMenuScreen(
@@ -321,6 +322,7 @@ void onButtonShortPress() {
 
         WeatherData snapshot = getWeatherSnapshot();
 
+        if (scrollWeatherDetails(snapshot)) return;
         advanceWeatherForecast(snapshot);
 
         return;
@@ -329,6 +331,22 @@ void onButtonShortPress() {
     currentScreen = SCREEN_WEATHER;
 
     drawCurrentScreen(true);
+}
+
+
+// =====================================================
+// BUTTON: DOUBLE PRESS
+// =====================================================
+void onButtonDoublePress() {
+    if (currentScreen == SCREEN_WEATHER) {
+        WeatherData snapshot = getWeatherSnapshot();
+        toggleWeatherDetails(snapshot);
+        return;
+    }
+
+    if (currentScreen == SCREEN_MENU) {
+        selectMenuItem();
+    }
 }
 
 // =====================================================

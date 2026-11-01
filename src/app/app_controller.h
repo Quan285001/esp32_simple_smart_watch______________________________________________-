@@ -4,6 +4,7 @@
 void drawCurrentScreen(bool force = false);
 
 void onButtonShortPress();
+void onButtonDoublePress();
 void onButtonLongPress();
 
 // Điều hướng menu

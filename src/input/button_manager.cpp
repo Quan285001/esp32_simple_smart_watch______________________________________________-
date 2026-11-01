@@ -11,33 +11,54 @@ static bool lastRawState = HIGH;
 static uint32_t lastChangeMs = 0;
 static uint32_t pressedAtMs = 0;
 static bool longPressHandled = false;
+static bool pendingSinglePress = false;
+static uint32_t pendingSingleAtMs = 0;
+static constexpr uint32_t DOUBLE_PRESS_MS = 280;
 
 void beginButtonManager() {
     pinMode(BUTTON_PIN, INPUT_PULLUP);
     stableState = digitalRead(BUTTON_PIN);
     lastRawState = stableState;
+    lastChangeMs = millis();
 }
 
 void updateButtonManager() {
-    const bool raw = digitalRead(BUTTON_PIN);
     const uint32_t now = millis();
+    const bool raw = digitalRead(BUTTON_PIN);
+
     if (raw != lastRawState) {
         lastRawState = raw;
         lastChangeMs = now;
     }
-    if ((now - lastChangeMs) < BUTTON_DEBOUNCE_MS || raw == stableState) {
-        if (stableState == LOW && !longPressHandled && (now - pressedAtMs) >= BUTTON_HOLD_MS) {
-            longPressHandled = true;
-            onButtonLongPress();
+
+    if (raw != stableState && (now - lastChangeMs) >= BUTTON_DEBOUNCE_MS) {
+        stableState = raw;
+
+        if (stableState == LOW) {
+            pressedAtMs = now;
+            longPressHandled = false;
+        } else if (!longPressHandled && (now - pressedAtMs) < BUTTON_HOLD_MS) {
+            if (pendingSinglePress && (now - pendingSingleAtMs) <= DOUBLE_PRESS_MS) {
+                pendingSinglePress = false;
+                onButtonDoublePress();
+            } else {
+                // If the previous click timed out, deliver it before queuing this one.
+                if (pendingSinglePress) onButtonShortPress();
+                pendingSinglePress = true;
+                pendingSingleAtMs = now;
+            }
         }
-        return;
     }
 
-    stableState = raw;
-    if (stableState == LOW) {
-        pressedAtMs = now;
-        longPressHandled = false;
-    } else {
-        if (!longPressHandled && (now - pressedAtMs) < BUTTON_HOLD_MS) onButtonShortPress();
+    if (stableState == LOW && !longPressHandled &&
+        (now - pressedAtMs) >= BUTTON_HOLD_MS) {
+        longPressHandled = true;
+        pendingSinglePress = false;
+        onButtonLongPress();
+    }
+
+    if (pendingSinglePress && (now - pendingSingleAtMs) > DOUBLE_PRESS_MS) {
+        pendingSinglePress = false;
+        onButtonShortPress();
     }
 }

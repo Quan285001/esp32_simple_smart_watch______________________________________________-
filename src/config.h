@@ -57,10 +57,19 @@ struct WeatherData {
     int currentTemp;
     int maxTemp;
     int minTemp;
-
     String conditionText;
-
     HourlyForecast hourly[24];
 
+    float windSpeed10m;
+    float surfacePressure;
+    float rain;
+    float sunshineDuration;
+    float daylightDuration;
+    String moonPhase;
+    String moonrise;
+    String moonset;
+    String sunrise;
+    String sunset;
+    bool detailsValid;
     bool valid;
 };
