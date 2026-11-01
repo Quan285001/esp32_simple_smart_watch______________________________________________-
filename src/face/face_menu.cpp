@@ -23,8 +23,21 @@ constexpr int BOX_X = 22;
 constexpr int BOX_W = 196;
 constexpr int BOX_H = 24;
 
-// Thời gian chuyển cảnh
 constexpr uint32_t ANIMATION_DURATION = 180;
+
+// Animation state
+bool initialized = false;
+bool animating = false;
+
+int currentY = 0;
+int targetY = 0;
+int animationFromY = 0;
+int previousIndex = -1;
+
+uint32_t animationStart = 0;
+
+bool previousWifiStatus = false;
+bool previousWifiConnected = false;
 
 int itemCenterY(int index) {
     return MENU_START_Y + index * MENU_ITEM_STEP;
@@ -34,15 +47,21 @@ int boxTop(int index) {
     return itemCenterY(index) - BOX_H / 2;
 }
 
+float easeOutCubic(float t) {
+    float inv = 1.0f - t;
+    return 1.0f - inv * inv * inv;
+}
+
 void drawMenuStatic(bool wifiStatus, bool wifiConnected) {
     tft.fillScreen(BG);
 
-    tft.setTextColor(TFT_WHITE, BG);
     tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(TFT_WHITE, BG);
     tft.drawString("MENU", 120, 20, 2);
+
     tft.drawFastHLine(60, 34, 120, 0x3186);
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; i++) {
         int y = itemCenterY(i);
 
         tft.setTextDatum(ML_DATUM);
@@ -58,10 +77,12 @@ void drawMenuStatic(bool wifiStatus, bool wifiConnected) {
 
     tft.setTextDatum(MC_DATUM);
 
-    uint16_t connectionColor = !wifiStatus ? 0x7BEF :
+    uint16_t connectionColor =
+        !wifiStatus ? 0x7BEF :
         (wifiConnected ? GREEN : AMBER);
 
-    const char *connectionText = !wifiStatus ? "Wi-Fi Disabled" :
+    const char *connectionText =
+        !wifiStatus ? "Wi-Fi Disabled" :
         (wifiConnected ? "Connected" : "Connecting...");
 
     tft.setTextColor(connectionColor, BG);
@@ -71,110 +92,124 @@ void drawMenuStatic(bool wifiStatus, bool wifiConnected) {
     tft.drawString("[Press: Next | Hold: Select]", 120, 211, 1);
 }
 
+void drawMenuItem(int index, bool wifiStatus) {
+    int y = itemCenterY(index);
+
+    tft.setTextDatum(ML_DATUM);
+    tft.setTextColor(MUTED, BG);
+    tft.drawString(MENU_LABELS[index], 32, y, 2);
+
+    if (index == 2) {
+        tft.setTextDatum(MR_DATUM);
+        tft.setTextColor(wifiStatus ? GREEN : RED, BG);
+        tft.drawString(
+            wifiStatus ? "ON" : "OFF",
+            205, y, 2
+        );
+    }
+}
+
+void redrawAllMenuItems(bool wifiStatus) {
+    for (int i = 0; i < 4; i++) {
+        drawMenuItem(i, wifiStatus);
+    }
+}
+
 void drawSelectionBox(int topY) {
-    tft.fillRoundRect(BOX_X, topY, BOX_W, BOX_H, 5, PANEL);
-    tft.drawRoundRect(BOX_X, topY, BOX_W, BOX_H, 5, BORDER);
+    tft.fillRoundRect(
+        BOX_X, topY, BOX_W, BOX_H, 5, PANEL
+    );
+
+    tft.drawRoundRect(
+        BOX_X, topY, BOX_W, BOX_H, 5, BORDER
+    );
 }
 
 void drawSelectedLabel(int index, bool wifiStatus) {
+    int y = itemCenterY(index);
+
     tft.setTextDatum(ML_DATUM);
     tft.setTextColor(BORDER, PANEL);
-    tft.drawString(MENU_LABELS[index], 32, itemCenterY(index), 2);
+    tft.drawString(MENU_LABELS[index], 32, y, 2);
 
     if (index == 2) {
         tft.setTextDatum(MR_DATUM);
         tft.setTextColor(wifiStatus ? GREEN : RED, PANEL);
-        tft.drawString(wifiStatus ? "ON" : "OFF", 205,
-                       itemCenterY(index), 2);
+        tft.drawString(
+            wifiStatus ? "ON" : "OFF",
+            205, y, 2
+        );
     }
 }
 
-// Vẽ lại vùng box cũ mà không vẽ lại toàn màn hình
-void eraseSelectionBox(int topY) {
-    tft.fillRect(BOX_X, topY, BOX_W, BOX_H, BG);
+} // namespace
+
+// Reset trạng thái khi mở menu
+void resetMenuScreen() {
+    initialized = false;
+    animating = false;
+    previousIndex = -1;
 }
 
-// Ease-out cubic: đầu nhanh, cuối chậm
-float easeOutCubic(float t) {
-    float inv = 1.0f - t;
-    return 1.0f - inv * inv * inv;
-}
-
-void redrawUnderlyingItem(int topY, bool wifiStatus) {
-    for (int i = 0; i < 4; ++i) {
-        int center = itemCenterY(i);
-
-        if (center >= topY - 2 && center <= topY + BOX_H + 2) {
-            tft.setTextDatum(ML_DATUM);
-            tft.setTextColor(MUTED, BG);
-            tft.drawString(MENU_LABELS[i], 32, center, 2);
-
-            if (i == 2) {
-                tft.setTextDatum(MR_DATUM);
-                tft.setTextColor(wifiStatus ? GREEN : RED, BG);
-                tft.drawString(wifiStatus ? "ON" : "OFF", 205, center, 2);
-            }
-        }
-    }
-}
-}
-
-void drawMenuScreen(int selectedIndex, bool wifiStatus, bool wifiConnected) {
+// Main menu renderer
+void drawMenuScreen(
+    int selectedIndex,
+    bool wifiStatus,
+    bool wifiConnected
+) {
     selectedIndex = constrain(selectedIndex, 0, 3);
-
-    static bool initialized = false;
-    static int currentY = 0;
-    static int targetY = 0;
-    static int previousIndex = -1;
-
-    static uint32_t animationStart = 0;
-    static int animationFromY = 0;
-    static bool animating = false;
-
-    static bool previousWifiStatus = false;
-    static bool previousWifiConnected = false;
 
     bool wifiChanged =
         previousWifiStatus != wifiStatus ||
         previousWifiConnected != wifiConnected;
 
+    // Khởi tạo hoặc vẽ lại khi Wi-Fi thay đổi
     if (!initialized || wifiChanged) {
+        tft.startWrite();
+
         drawMenuStatic(wifiStatus, wifiConnected);
 
         currentY = boxTop(selectedIndex);
         targetY = currentY;
-        previousIndex = selectedIndex;
-        animating = false;
 
         drawSelectionBox(currentY);
+        drawSelectedLabel(selectedIndex, wifiStatus);
 
-        initialized = true;
+        tft.endWrite();
+
+        previousIndex = selectedIndex;
         previousWifiStatus = wifiStatus;
         previousWifiConnected = wifiConnected;
+
+        animating = false;
+        initialized = true;
         return;
     }
 
-    int newTargetY = boxTop(selectedIndex);
-
-    // Bắt đầu chuyển động khi người dùng chọn mục khác
-    if (selectedIndex != previousIndex && newTargetY != targetY) {
+    // Bắt đầu animation khi đổi mục
+    if (selectedIndex != previousIndex) {
         animationFromY = currentY;
-        targetY = newTargetY;
+        targetY = boxTop(selectedIndex);
         animationStart = millis();
+
         animating = true;
         previousIndex = selectedIndex;
     }
 
+    // Không có animation
     if (!animating) {
         return;
     }
 
+    // Tính tiến trình animation
     uint32_t elapsed = millis() - animationStart;
+
     float t = (float)elapsed / ANIMATION_DURATION;
 
-    if (t >= 1.0f) {
+    bool animationFinished = (t >= 1.0f);
+
+    if (animationFinished) {
         t = 1.0f;
-        animating = false;
     }
 
     float eased = easeOutCubic(t);
@@ -182,17 +217,34 @@ void drawMenuScreen(int selectedIndex, bool wifiStatus, bool wifiConnected) {
     int nextY = animationFromY +
         (int)((targetY - animationFromY) * eased);
 
-    if (nextY != currentY || !animating) {
-    tft.startWrite();
+    if (animationFinished) {
+        nextY = targetY;
+    }
 
-    eraseSelectionBox(currentY);
-    redrawUnderlyingItem(currentY, wifiStatus);
+    // Chỉ vẽ khi vị trí thực sự thay đổi
+    if (nextY != currentY || animationFinished) {
+        tft.startWrite();
 
-    currentY = nextY;
+        // Xóa toàn bộ vùng hộp cũ
+        tft.fillRect(
+            BOX_X, currentY,
+            BOX_W, BOX_H,
+            BG
+        );
 
-    drawSelectionBox(currentY);
-    drawSelectedLabel(selectedIndex, wifiStatus);
+        // Phục hồi tất cả chữ có thể bị hộp che
+        redrawAllMenuItems(wifiStatus);
 
-    tft.endWrite();
+        // Vẽ hộp tại vị trí mới
+        currentY = nextY;
+        drawSelectionBox(currentY);
+
+        // Chỉ hiện chữ nổi bật khi animation kết thúc
+        if (animationFinished) {
+            drawSelectedLabel(selectedIndex, wifiStatus);
+            animating = false;
+        }
+
+        tft.endWrite();
     }
 }

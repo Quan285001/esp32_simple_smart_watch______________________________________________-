@@ -14,6 +14,7 @@ extern void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRa
 extern void drawWeatherFaceData(const WeatherData &weather);
 extern void advanceWeatherForecast(const WeatherData &weather);
 extern void drawMenuScreen(int selectedIndex, bool wifiStatus, bool wifiConnected);
+extern void resetMenuScreen();
 
 void drawCurrentScreen(bool force) {
     static ScreenState previous = static_cast<ScreenState>(255);
@@ -60,9 +61,14 @@ void onButtonShortPress() {
     drawCurrentScreen(true);
 }
 
+
 void onButtonLongPress() {
     if (currentScreen != SCREEN_MENU) {
         screenBeforeMenu = currentScreen;
+
+        // Reset trạng thái vẽ và animation của menu
+        resetMenuScreen();
+
         currentScreen = SCREEN_MENU;
         menuIndex = 0;
     } else {
@@ -70,17 +76,21 @@ void onButtonLongPress() {
             case 0:
                 currentScreen = SCREEN_CLOCK;
                 break;
+
             case 1:
                 currentScreen = SCREEN_WEATHER;
                 break;
+
             case 2:
                 toggleWiFi();
                 break;
+
             case 3:
             default:
                 currentScreen = screenBeforeMenu;
                 break;
         }
     }
+
     drawCurrentScreen(true);
 }
