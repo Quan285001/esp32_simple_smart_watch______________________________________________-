@@ -92,24 +92,6 @@ void drawSelectedLabel(int index, bool wifiStatus) {
 // Vẽ lại vùng box cũ mà không vẽ lại toàn màn hình
 void eraseSelectionBox(int topY) {
     tft.fillRect(BOX_X, topY, BOX_W, BOX_H, BG);
-
-    for (int i = 0; i < 4; ++i) {
-        int center = itemCenterY(i);
-
-        // Chỉ vẽ lại chữ nằm trong vùng vừa xóa
-        if (center >= topY - 2 && center <= topY + BOX_H + 2) {
-            tft.setTextDatum(ML_DATUM);
-            tft.setTextColor(MUTED, BG);
-            tft.drawString(MENU_LABELS[i], 32, center, 2);
-
-            if (i == 2) {
-                // Trạng thái Wi-Fi sẽ được vẽ lại phía dưới
-                tft.setTextDatum(MR_DATUM);
-                tft.setTextColor(MUTED, BG);
-                tft.drawString("", 205, center, 2);
-            }
-        }
-    }
 }
 
 // Ease-out cubic: đầu nhanh, cuối chậm
@@ -201,12 +183,16 @@ void drawMenuScreen(int selectedIndex, bool wifiStatus, bool wifiConnected) {
         (int)((targetY - animationFromY) * eased);
 
     if (nextY != currentY || !animating) {
-        eraseSelectionBox(currentY);
-        redrawUnderlyingItem(currentY, wifiStatus);
+    tft.startWrite();
 
-        currentY = nextY;
+    eraseSelectionBox(currentY);
+    redrawUnderlyingItem(currentY, wifiStatus);
 
-        drawSelectionBox(currentY);
-        drawSelectedLabel(selectedIndex, wifiStatus);
+    currentY = nextY;
+
+    drawSelectionBox(currentY);
+    drawSelectedLabel(selectedIndex, wifiStatus);
+
+    tft.endWrite();
     }
 }
