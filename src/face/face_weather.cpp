@@ -162,7 +162,7 @@ static void drawMainWeatherContent(const WeatherData& weather, int index, int of
 
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(0xFDE0, panelColor);
-    tft.drawString(timeLabel, 91, 98 + offsetY, 1);
+    tft.drawString(timeLabel, 110, 98 + offsetY, 1);
 }
 
 // =====================================================
@@ -202,7 +202,7 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
 
     display.setTextDatum(MC_DATUM);
     display.setTextColor(selected ? TFT_WHITE : 0x7BEF, background);
-    display.drawString(timeLabel, centerX + 20, cardY + 66, 1);
+    display.drawString(timeLabel, centerX, cardY + 66, 1);
 }
 
 // =====================================================
