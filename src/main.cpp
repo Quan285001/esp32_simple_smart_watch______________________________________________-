@@ -12,7 +12,9 @@ TFT_eSPI tft = TFT_eSPI();
 ScreenState currentScreen = SCREEN_CLOCK;
 ScreenState screenBeforeMenu = SCREEN_CLOCK;
 uint8_t menuIndex = 0;
+uint8_t forecastIndex = 0;
 bool weatherDataValid = false;
+bool wifiEnabled = true;
 
 extern void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int steps);
 extern void showBootTerminal();
@@ -20,6 +22,24 @@ extern void showBootTerminal();
 static uint32_t lastWeatherFetchMs = 0;
 static uint32_t lastClockDrawMs = 0;
 static bool initialWeatherAttempted = false;
+
+void toggleWiFi() {
+    if (wifiEnabled) {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        wifiEnabled = false;
+        Serial.println("[WIFI] Disabled; cached weather retained.");
+    } else {
+        wifiEnabled = true;
+        WiFi.mode(WIFI_STA);
+        WiFi.setAutoReconnect(true);
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+        beginTimeService();
+        initialWeatherAttempted = false;
+        lastWeatherFetchMs = 0;
+        Serial.println("[WIFI] Enabled; reconnecting.");
+    }
+}
 
 void setup() {
     Serial.begin(115200);
@@ -38,6 +58,7 @@ void setup() {
     drawCurrentScreen(true);
 
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     beginTimeService();
     Serial.println("[WIFI] Connecting in background");
@@ -46,14 +67,14 @@ void setup() {
 void loop() {
     updateButtonManager();
 
-    if (WiFi.status() == WL_CONNECTED && !initialWeatherAttempted) {
+    if (wifiEnabled && WiFi.status() == WL_CONNECTED && !initialWeatherAttempted) {
         initialWeatherAttempted = true;
         fetchHourlyWeather();
         lastWeatherFetchMs = millis();
         if (currentScreen == SCREEN_WEATHER) drawCurrentScreen(true);
     }
 
-    if (initialWeatherAttempted && WiFi.status() == WL_CONNECTED &&
+    if (wifiEnabled && initialWeatherAttempted && WiFi.status() == WL_CONNECTED &&
         millis() - lastWeatherFetchMs >= WEATHER_REFRESH_MS) {
         fetchHourlyWeather();
         lastWeatherFetchMs = millis();

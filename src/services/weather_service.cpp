@@ -33,7 +33,7 @@ static String weatherDescription(int code) {
 
 void fetchHourlyWeather() {
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[WEATHER] Skip: Wi-Fi is offline; keeping cached data.");
+        Serial.println("[WEATHER] Wi-Fi offline; keeping cached data.");
         return;
     }
 
@@ -45,7 +45,7 @@ void fetchHourlyWeather() {
         "&forecast_days=2&timezone=Asia%2FHo_Chi_Minh";
 
     WiFiClientSecure client;
-    client.setInsecure(); // Open-Meteo dùng HTTPS; xác thực chứng chỉ sẽ bổ sung sau.
+    client.setInsecure();
     HTTPClient http;
     http.setConnectTimeout(5000);
     http.setTimeout(5000);
@@ -81,23 +81,26 @@ void fetchHourlyWeather() {
     if (currentTemp.isNull() || currentCode.isNull() || times.size() == 0 ||
         temps.size() != times.size() || codes.size() != times.size() ||
         dailyMax.size() == 0 || dailyMin.size() == 0) {
-        Serial.println("[WEATHER] Response incomplete; keeping cached data.");
+        Serial.println("[WEATHER] Incomplete response; keeping cache.");
         return;
     }
 
-    // Build a temporary result first: invalid responses never overwrite good data.
     WeatherData next = currentWeather;
     next.currentTemp = currentTemp.as<int>();
     next.maxTemp = dailyMax[0].as<int>();
     next.minTemp = dailyMin[0].as<int>();
     next.conditionText = weatherDescription(currentCode.as<int>());
 
+    // Match the complete local date + hour, not just the hour number.
     int firstIndex = -1;
-    struct tm now;
+    struct tm now = {};
     if (getLocalTime(&now, 10)) {
+        char target[20];
+        snprintf(target, sizeof(target), "%04d-%02d-%02dT%02d",
+                 now.tm_year + 1900, now.tm_mon + 1, now.tm_mday, now.tm_hour);
         for (size_t i = 0; i < times.size(); ++i) {
             String stamp = times[i].as<String>();
-            if (stamp.length() >= 13 && stamp.substring(11, 13).toInt() == now.tm_hour) {
+            if (stamp.startsWith(target)) {
                 firstIndex = static_cast<int>(i);
                 break;
             }
@@ -105,8 +108,11 @@ void fetchHourlyWeather() {
     }
     if (firstIndex < 0) firstIndex = 0;
 
+    // Open-Meteo returns chronological timestamps over two local days.
+    // Use consecutive array entries so 23:00 -> 00:00 crosses the date boundary.
     for (int i = 0; i < 24; ++i) {
-        const size_t index = static_cast<size_t>((firstIndex + i) % times.size());
+        const size_t index = static_cast<size_t>(firstIndex + i);
+        if (index >= times.size()) break;
         String stamp = times[index].as<String>();
         next.hourly[i].hour = stamp.length() >= 13 ? stamp.substring(11, 13).toInt() : i;
         next.hourly[i].temp = temps[index].as<int>();
@@ -115,5 +121,5 @@ void fetchHourlyWeather() {
 
     next.valid = true;
     currentWeather = next;
-    Serial.println("[WEATHER] TP.HCM forecast updated.");
+    Serial.println("[WEATHER] TP.HCM hourly forecast updated.");
 }
