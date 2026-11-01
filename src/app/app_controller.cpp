@@ -10,34 +10,20 @@
 extern TFT_eSPI tft;
 extern void toggleWiFi();
 
-extern void drawAnalogClockFace(
-    struct tm timeinfo,
-    int millisValue,
-    int heartRate,
-    int steps
-);
-
+extern void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int steps);
 extern void drawWeatherFaceData(const WeatherData &weather);
 extern void advanceWeatherForecast(const WeatherData &weather);
-extern void drawMenuScreen(
-    int selectedIndex,
-    bool wifiStatus,
-    bool wifiConnected
-);
+extern void drawMenuScreen(int selectedIndex, bool wifiStatus, bool wifiConnected);
 
 void drawCurrentScreen(bool force) {
     static ScreenState previous = static_cast<ScreenState>(255);
 
-    if (!force && currentScreen == SCREEN_CLOCK &&
-        previous == SCREEN_CLOCK) {
-        return;
-    }
+    if (!force && currentScreen == SCREEN_CLOCK && previous == SCREEN_CLOCK) return;
 
     previous = currentScreen;
 
     if (currentScreen == SCREEN_CLOCK) {
         struct tm timeinfo = {};
-
         if (!getLocalTime(&timeinfo, 10)) {
             timeinfo.tm_hour = 12;
             timeinfo.tm_min = 0;
@@ -45,16 +31,16 @@ void drawCurrentScreen(bool force) {
             timeinfo.tm_wday = 0;
             timeinfo.tm_mday = 1;
         }
-
         tft.fillScreen(TFT_BLACK);
         drawAnalogClockFace(timeinfo, 0, 0, 0);
 
     } else if (currentScreen == SCREEN_WEATHER) {
-        drawWeatherFaceData(currentWeather);
+        WeatherData snapshot = getWeatherSnapshot();
+        drawWeatherFaceData(snapshot);
 
     } else if (currentScreen == SCREEN_MENU) {
-        const bool wifiConnected = wifiEnabled && WiFi.status() == WL_CONNECTED;
-        drawMenuScreen(menuIndex, wifiEnabled, wifiConnected);
+        const bool connected = wifiEnabled && WiFi.status() == WL_CONNECTED;
+        drawMenuScreen(menuIndex, wifiEnabled, connected);
     }
 }
 
@@ -63,7 +49,8 @@ void onButtonShortPress() {
         menuIndex = (menuIndex + 1) % 4;
 
     } else if (currentScreen == SCREEN_WEATHER) {
-        advanceWeatherForecast(currentWeather);
+        WeatherData snapshot = getWeatherSnapshot();
+        advanceWeatherForecast(snapshot);
         return;
 
     } else {
@@ -78,28 +65,22 @@ void onButtonLongPress() {
         screenBeforeMenu = currentScreen;
         currentScreen = SCREEN_MENU;
         menuIndex = 0;
-
     } else {
         switch (menuIndex) {
             case 0:
                 currentScreen = SCREEN_CLOCK;
                 break;
-
             case 1:
                 currentScreen = SCREEN_WEATHER;
                 break;
-
             case 2:
-                // Bật/tắt Wi-Fi ngay trong menu; dữ liệu thời tiết đã tải vẫn được giữ.
                 toggleWiFi();
                 break;
-
             case 3:
             default:
                 currentScreen = screenBeforeMenu;
                 break;
         }
     }
-
     drawCurrentScreen(true);
 }

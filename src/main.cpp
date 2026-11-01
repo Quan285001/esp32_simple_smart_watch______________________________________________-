@@ -18,10 +18,40 @@ bool wifiEnabled = true;
 
 extern void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int steps);
 extern void showBootTerminal();
+extern void drawMenuScreen(int selectedIndex, bool wifiStatus, bool wifiConnected);
 
 static uint32_t lastWeatherFetchMs = 0;
 static uint32_t lastClockDrawMs = 0;
+static uint32_t lastMenuFrameMs = 0;
 static bool initialWeatherAttempted = false;
+static volatile bool weatherFetchRunning = false;
+
+static void weatherFetchTask(void *parameter) {
+    (void)parameter;
+    Serial.println("[WEATHER] Background fetch started.");
+    fetchHourlyWeather();
+    Serial.println("[WEATHER] Background fetch finished.");
+    weatherFetchRunning = false;
+    vTaskDelete(nullptr);
+}
+
+static void scheduleWeatherFetch() {
+    if (weatherFetchRunning || !wifiEnabled || WiFi.status() != WL_CONNECTED) return;
+
+    weatherFetchRunning = true;
+    BaseType_t created = xTaskCreate(
+        weatherFetchTask,
+        "weatherFetch",
+        8192,
+        nullptr,
+        1,
+        nullptr
+    );
+    if (created != pdPASS) {
+        weatherFetchRunning = false;
+        Serial.println("[WEATHER] Could not create background task.");
+    }
+}
 
 void toggleWiFi() {
     if (wifiEnabled) {
@@ -65,20 +95,26 @@ void setup() {
 }
 
 void loop() {
+    // Poll nút liên tục; không để HTTP request chặn thao tác.
     updateButtonManager();
 
     if (wifiEnabled && WiFi.status() == WL_CONNECTED && !initialWeatherAttempted) {
         initialWeatherAttempted = true;
-        fetchHourlyWeather();
         lastWeatherFetchMs = millis();
-        if (currentScreen == SCREEN_WEATHER) drawCurrentScreen(true);
+        scheduleWeatherFetch();
     }
 
-    if (wifiEnabled && initialWeatherAttempted && WiFi.status() == WL_CONNECTED &&
+    if (wifiEnabled && initialWeatherAttempted &&
         millis() - lastWeatherFetchMs >= WEATHER_REFRESH_MS) {
-        fetchHourlyWeather();
         lastWeatherFetchMs = millis();
-        if (currentScreen == SCREEN_WEATHER) drawCurrentScreen(true);
+        scheduleWeatherFetch();
+    }
+
+    // Renderer menu cần được gọi liên tục để animation tiến triển.
+    if (currentScreen == SCREEN_MENU && millis() - lastMenuFrameMs >= 16) {
+        const bool connected = wifiEnabled && WiFi.status() == WL_CONNECTED;
+        drawMenuScreen(menuIndex, wifiEnabled, connected);
+        lastMenuFrameMs = millis();
     }
 
     if (currentScreen == SCREEN_CLOCK && millis() - lastClockDrawMs >= 40) {
@@ -108,5 +144,5 @@ void loop() {
         lastClockDrawMs = millis();
     }
 
-    delay(5);
+    delay(2);
 }
