@@ -41,7 +41,7 @@ static constexpr int CARD_W = 42;
 static constexpr int CARD_H = 78;
 
 // Vị trí tâm của 4 thẻ dự báo.
-static const int cardCenterX[5] = {32, 76, 120, 164, 208};
+static const int cardCenterX[4] = {37, 92, 148, 203};
 
 // Dữ liệu được lưu lại trong lúc animation.
 static WeatherData animationWeather;
@@ -215,11 +215,11 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
 // 7. FORECAST ROW RENDERING
 // =====================================================
 
-// Vẽ 5 thẻ forecast vào sprite rồi đẩy lên màn hình.
+// Vẽ 4 thẻ forecast vào sprite rồi đẩy lên màn hình.
 static void drawForecastRowToSprite(const WeatherData& weather, int startIndex, int slideOffset) {
     forecastSprite.fillSprite(TFT_BLACK);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         int dataIndex = (startIndex + i) % 24;
         int centerX = cardCenterX[i] - 10 + slideOffset;
 
@@ -424,8 +424,7 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         return;
     }
 
-    // Phase 1: selected card pops forward (slight scale + tiny lift).
-    // Keep the movement mostly in scale; do not send the card off the top edge.
+    // Phase 1: selected card gets a brief lift/highlight without scaling.
     constexpr float popPhaseEnd = 0.38f;
     if (progress < popPhaseEnd) {
         float popProgress = easeOutCubic(progress / popPhaseEnd);
@@ -435,14 +434,13 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
             animationWeather.hourly[animationOldIndex];
 
         const int centerX = cardCenterX[0];
-        const int cardY = CARD_Y - 3;
-        const int w = CARD_W + (int)(7.0f * popProgress);
-        const int h = CARD_H + (int)(8.0f * popProgress);
+        const int w = CARD_W;
+        const int h = CARD_H;
         const int x = centerX - w / 2;
-        const int y = cardY - (int)(3.0f * popProgress);
+        const int y = CARD_Y - (int)(3.0f * popProgress);
         const uint16_t bg = 0x2184;
 
-        // Draw the selected card above its normal-size version.
+        // Redraw the selected card at its normal size with a small upward lift.
         tft.fillRoundRect(x, y, w, h, 11, bg);
         tft.drawRoundRect(x, y, w, h, 11, 0xFDE0);
 
