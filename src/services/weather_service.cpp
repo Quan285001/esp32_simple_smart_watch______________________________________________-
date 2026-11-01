@@ -106,12 +106,40 @@ void fetchHourlyWeather() {
         return;
     }
 
+    String payload = http.getString();
+
+    Serial.printf(
+        "[WEATHER] HTTP status: %d\n",
+        status
+    );
+
+    Serial.printf(
+        "[WEATHER] Response length: %u bytes\n",
+        (unsigned int)payload.length()
+    );
+
+    if (payload.length() == 0) {
+        Serial.println("[WEATHER] Empty response.");
+        http.end();
+        return;
+    }
+
+    Serial.println("[WEATHER] Response preview:");
+
+    Serial.println(payload.substring(0, 300));
+
     JsonDocument doc;
 
     DeserializationError error =
-        deserializeJson(doc, http.getStream());
+        deserializeJson(doc, payload);
 
     http.end();
+
+    if (error) {
+        Serial.printf("[WEATHER] JSON error: %s\n",error.c_str()
+    );
+    return;
+}
 
     if (error) {
         Serial.printf(
