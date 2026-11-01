@@ -1,3 +1,4 @@
+//main.cpp
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -16,6 +17,7 @@ ScreenState currentScreen = SCREEN_CLOCK;
 ScreenState screenBeforeMenu = SCREEN_CLOCK;
 
 uint8_t menuIndex = 0;
+MenuLevel currentMenuLevel = MENU_MAIN;
 uint8_t forecastIndex = 0;
 
 bool weatherDataValid = false;
@@ -32,6 +34,7 @@ extern void showBootTerminal();
 
 extern void drawMenuScreen(
     int selectedIndex,
+    MenuLevel level,
     bool wifiStatus,
     bool wifiConnected
 );
@@ -281,9 +284,10 @@ void loop() {
     ) {
 
         drawMenuScreen(
-            menuIndex,
-            wifiEnabled,
-            wifiConnected
+        menuIndex,
+        currentMenuLevel,
+        wifiEnabled,
+        wifiConnected
         );
 
         lastMenuFrameMs = now;
