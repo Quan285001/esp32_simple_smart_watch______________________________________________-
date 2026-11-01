@@ -123,3 +123,7 @@ void fetchHourlyWeather() {
     currentWeather = next;
     Serial.println("[WEATHER] TP.HCM hourly forecast updated.");
 }
+
+WeatherData getWeatherSnapshot() {
+    return currentWeather;
+}
