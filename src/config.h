@@ -40,7 +40,8 @@ constexpr uint32_t WEATHER_REFRESH_MS =
 enum ScreenState : uint8_t {
     SCREEN_CLOCK,
     SCREEN_WEATHER,
-    SCREEN_MENU
+    SCREEN_MENU,
+    SCREEN_INFO
 };
 
 // =====================================================
