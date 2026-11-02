@@ -249,10 +249,7 @@ void selectMenuItem() {
         switch (menuIndex) {
 
             case 0:
-                // Bluetooth placeholder
-                Serial.println(
-                    "[BT] Bluetooth interface is not implemented yet."
-                );
+                toggleBluetooth();
                 break;
 
             case 1:
@@ -260,6 +257,10 @@ void selectMenuItem() {
                 break;
 
             case 2:
+                scanWifiNetworks();
+                break;
+
+            case 3:
                 goBackMenu();
                 return;
 
