@@ -10,6 +10,7 @@
 #include "../config.h"
 #include "../services/time_service.h"
 #include "../services/weather_service.h"
+#include "../services/ble_service.h"
 
 extern TFT_eSPI tft;
 
@@ -253,10 +254,9 @@ void selectMenuItem() {
         switch (menuIndex) {
 
             case 0:
-                // Bluetooth placeholder
-                Serial.println(
-                    "[BT] Bluetooth interface is not implemented yet."
-                );
+                toggleBLE();
+                resetMenuScreen();
+                Serial.println(isBLEEnabled() ? "[BT] Bluetooth enabled." : "[BT] Bluetooth disabled.");
                 break;
 
             case 1:
