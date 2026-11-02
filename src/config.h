@@ -15,10 +15,6 @@ constexpr char WEATHER_DEFAULT_LAT[] = "10.8231";
 constexpr char WEATHER_DEFAULT_LON[] = "106.6297";
 
 enum ScreenState : uint8_t { SCREEN_CLOCK, SCREEN_WEATHER, SCREEN_MENU };
-enum MenuLevel : uint8_t { MENU_MAIN, MENU_CONNECTIVITY, MENU_SYSTEM };
-constexpr uint8_t MAIN_MENU_COUNT = 4;
-constexpr uint8_t CONNECTIVITY_MENU_COUNT = 4;
-constexpr uint8_t SYSTEM_MENU_COUNT = 5;
 
 struct HourlyForecast {
     int hour = 0;
