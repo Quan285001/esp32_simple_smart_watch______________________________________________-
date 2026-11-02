@@ -2,6 +2,7 @@
 #include <TFT_eSPI.h>
 #include "config.h"
 #include <math.h>
+#include <time.h>
 
 extern TFT_eSPI tft;
 
