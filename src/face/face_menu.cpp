@@ -17,8 +17,8 @@ constexpr uint16_t RED      = 0xF800;
 constexpr uint16_t AMBER    = 0xFDE0;
 constexpr uint16_t WHITE    = 0xFFFF;
 
-constexpr int MENU_START_Y = 59;
-constexpr int MENU_ITEM_STEP = 27;
+constexpr int MENU_START_Y = 52;
+constexpr int MENU_ITEM_STEP = 24;
 
 constexpr int BOX_X = 22;
 constexpr int BOX_W = 196;
