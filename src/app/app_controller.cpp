@@ -15,6 +15,7 @@ extern TFT_eSPI tft;
 
 extern void toggleWiFi();
 extern void toggleBluetooth();
+extern bool requestWeatherRefresh();
 extern void scanWifiNetworks();
 
 extern void drawAnalogClockFace(
@@ -196,11 +197,8 @@ void syncWeather() {
         return;
     }
 
-    // Tạm thời thực hiện trực tiếp.
-    // Sẽ chuyển sang tác vụ nền khi tích hợp renderer hoàn chỉnh.
-    fetchHourlyWeather();
-
-    Serial.println("[WEATHER] Manual update finished.");
+    if (requestWeatherRefresh()) Serial.println("[WEATHER] Manual background update scheduled.");
+    else Serial.println("[WEATHER] Refresh is already running or unavailable.");
 }
 
 void showDeviceInfo() {
