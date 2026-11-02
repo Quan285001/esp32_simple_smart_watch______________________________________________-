@@ -258,6 +258,7 @@ void setup() {
     float savedLat = prefs.getFloat("lat", NAN);
     float savedLon = prefs.getFloat("lon", NAN);
     prefs.end();
+    loadWeatherCache();
     WiFi.begin(savedSsid.c_str(), savedPass.c_str());
     if (isfinite(savedLat) && isfinite(savedLon)) setWeatherCoordinates(savedLat, savedLon);
 
