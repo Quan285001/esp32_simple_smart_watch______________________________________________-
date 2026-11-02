@@ -44,6 +44,7 @@ const char *const SYSTEM_LABELS[] = {
     "Sync Time",
     "Sync Weather",
     "Device Info",
+    "Light Sleep",
     "Restart",
     "Back"
 };
