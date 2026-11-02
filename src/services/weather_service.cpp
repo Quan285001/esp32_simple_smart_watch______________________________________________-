@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <Preferences.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -53,6 +54,93 @@ static void invalidateWeatherData() {
     } else {
         Serial.println("[WEATHER] Mutex timeout while invalidating data.");
     }
+}
+
+// =====================================================
+// PERSISTENT WEATHER CACHE
+// =====================================================
+
+static void saveWeatherCache(const WeatherData& data) {
+    JsonDocument doc;
+    doc["currentTemp"] = data.currentTemp;
+    doc["maxTemp"] = data.maxTemp;
+    doc["minTemp"] = data.minTemp;
+    doc["conditionText"] = data.conditionText;
+    doc["windSpeed10m"] = data.windSpeed10m;
+    doc["surfacePressure"] = data.surfacePressure;
+    doc["rain"] = data.rain;
+    doc["sunshineDuration"] = data.sunshineDuration;
+    doc["daylightDuration"] = data.daylightDuration;
+    doc["moonPhase"] = data.moonPhase;
+    doc["moonrise"] = data.moonrise;
+    doc["moonset"] = data.moonset;
+    doc["sunrise"] = data.sunrise;
+    doc["sunset"] = data.sunset;
+    doc["detailsValid"] = data.detailsValid;
+
+    JsonArray hourly = doc["hourly"].to<JsonArray>();
+    for (int i = 0; i < 24; ++i) {
+        JsonObject item = hourly.add<JsonObject>();
+        item["hour"] = data.hourly[i].hour;
+        item["temp"] = data.hourly[i].temp;
+        item["weatherCode"] = data.hourly[i].weatherCode;
+    }
+
+    String payload;
+    serializeJson(doc, payload);
+    Preferences prefs;
+    if (prefs.begin("weather", false)) {
+        prefs.putString("cache", payload);
+        prefs.putULong("savedAt", static_cast<uint32_t>(time(nullptr)));
+        prefs.end();
+    }
+}
+
+bool loadWeatherCache() {
+    Preferences prefs;
+    if (!prefs.begin("weather", true)) return false;
+    String payload = prefs.getString("cache", "");
+    prefs.end();
+    if (payload.isEmpty()) return false;
+
+    JsonDocument doc;
+    if (deserializeJson(doc, payload)) return false;
+    JsonArrayConst hourly = doc["hourly"].as<JsonArrayConst>();
+    if (hourly.size() != 24 || doc["conditionText"].isNull()) return false;
+
+    WeatherData cached = {};
+    cached.currentTemp = doc["currentTemp"] | 0;
+    cached.maxTemp = doc["maxTemp"] | 0;
+    cached.minTemp = doc["minTemp"] | 0;
+    cached.conditionText = doc["conditionText"].as<String>();
+    cached.windSpeed10m = doc["windSpeed10m"] | 0.0f;
+    cached.surfacePressure = doc["surfacePressure"] | 0.0f;
+    cached.rain = doc["rain"] | 0.0f;
+    cached.sunshineDuration = doc["sunshineDuration"] | 0.0f;
+    cached.daylightDuration = doc["daylightDuration"] | 0.0f;
+    cached.moonPhase = doc["moonPhase"] | "N/A";
+    cached.moonrise = doc["moonrise"] | "N/A";
+    cached.moonset = doc["moonset"] | "N/A";
+    cached.sunrise = doc["sunrise"] | "N/A";
+    cached.sunset = doc["sunset"] | "N/A";
+    cached.detailsValid = doc["detailsValid"] | false;
+
+    for (int i = 0; i < 24; ++i) {
+        cached.hourly[i].hour = hourly[i]["hour"] | i;
+        cached.hourly[i].temp = hourly[i]["temp"] | 0;
+        cached.hourly[i].weatherCode = hourly[i]["weatherCode"] | 0;
+    }
+    cached.valid = true;
+
+    SemaphoreHandle_t mutex = getWeatherMutex();
+    if (mutex == nullptr ||
+        xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        return false;
+    }
+    currentWeather = cached;
+    xSemaphoreGive(mutex);
+    Serial.println("[WEATHER] Persistent cache restored.");
+    return true;
 }
 
 // =====================================================
@@ -380,6 +468,7 @@ bool fetchHourlyWeather() {
         Serial.println(
             "[WEATHER] Forecast updated successfully."
         );
+        saveWeatherCache(next);
         return true;
     } else {
         Serial.println(
