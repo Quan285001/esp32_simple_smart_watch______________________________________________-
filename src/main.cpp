@@ -171,6 +171,8 @@ static bool scheduleWeatherFetch() {
     lastWeatherFetchMs = millis();
     return true;
 }
+bool requestWeatherRefresh() { return scheduleWeatherFetch(); }
+
 static void handleBleCommand(const char* raw) {
     String command(raw);
     Serial.printf("[BLE] Command: %s\n", command.c_str());
