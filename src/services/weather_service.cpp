@@ -83,14 +83,12 @@ static String weatherDescription(int code) {
 // FETCH WEATHER
 // =====================================================
 
-void fetchHourlyWeather() {
-    invalidateWeatherData();
-
+bool fetchHourlyWeather() {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println(
             "[WEATHER] Wi-Fi offline; weather data remains invalid."
         );
-        return;
+        return false;
     }
 
     String url =
@@ -112,7 +110,7 @@ void fetchHourlyWeather() {
 
     if (!http.begin(client, url)) {
         Serial.println("[WEATHER] HTTP begin failed.");
-        return;
+        return false;
     }
 
     int status = http.GET();
@@ -124,7 +122,7 @@ void fetchHourlyWeather() {
         );
 
         http.end();
-        return;
+        return false;
     }
 
     String payload = http.getString();
@@ -142,7 +140,7 @@ void fetchHourlyWeather() {
     if (payload.length() == 0) {
         Serial.println("[WEATHER] Empty response.");
         http.end();
-        return;
+        return false;
     }
 
     Serial.println("[WEATHER] Response preview:");
@@ -159,7 +157,7 @@ void fetchHourlyWeather() {
     if (error) {
         Serial.printf("[WEATHER] JSON error: %s\n",error.c_str()
     );
-    return;
+    return false;
 }
 
     if (error) {
@@ -167,7 +165,7 @@ void fetchHourlyWeather() {
             "[WEATHER] JSON error: %s\n",
             error.c_str()
         );
-        return;
+        return false;
     }
 
     // -------------------------------------------------
@@ -222,7 +220,7 @@ void fetchHourlyWeather() {
         Serial.println(
             "[WEATHER] Incomplete response; weather data remains invalid."
         );
-        return;
+        return false;
     }
 
     // -------------------------------------------------
@@ -282,7 +280,7 @@ void fetchHourlyWeather() {
 
     if (static_cast<size_t>(firstIndex) + 24 > times.size()) {
         Serial.println("[WEATHER] Not enough hourly entries for a 24-hour forecast.");
-        return;
+        return false;
     }
 
     // -------------------------------------------------
@@ -374,7 +372,7 @@ void fetchHourlyWeather() {
         Serial.println(
             "[WEATHER] Mutex allocation failed."
         );
-        return;
+        return false;
     }
 
     if (
@@ -391,6 +389,7 @@ void fetchHourlyWeather() {
         Serial.println(
             "[WEATHER] Forecast updated successfully."
         );
+        return true;
     } else {
         Serial.println(
             "[WEATHER] Mutex timeout; update skipped."
