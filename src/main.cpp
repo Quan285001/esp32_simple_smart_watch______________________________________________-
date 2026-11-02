@@ -48,6 +48,7 @@ extern void updateWeatherFaceAnimation(const WeatherData& w);
 
 static uint32_t lastWeatherFetchMs = 0;
 static uint32_t lastWeatherRetryMs = 0;
+static uint32_t lastManualWeatherRequestMs = 0;
 static uint32_t lastClockDrawMs = 0;
 static uint32_t lastMenuFrameMs = 0;
 static uint32_t lastWeatherFrameMs = 0;
@@ -58,6 +59,7 @@ static bool previousWifiConnected = false;
 static volatile bool weatherFetchRunning = false;
 
 static constexpr uint32_t WEATHER_RETRY_MS = 15000;
+static constexpr uint32_t WEATHER_MANUAL_COOLDOWN_MS = 10000;
 static constexpr uint32_t WIFI_RETRY_MS = 15000;
 static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
@@ -106,9 +108,10 @@ static void weatherFetchTask(void *parameter) {
 
     Serial.println("[WEATHER] Background fetch started.");
 
-    fetchHourlyWeather();
+    const bool success = fetchHourlyWeather();
 
-    Serial.println("[WEATHER] Background fetch finished.");
+    sendBLENotification(success ? "WEATHER_OK" : "WEATHER_FAILED");
+    Serial.println(success ? "[WEATHER] Background fetch finished successfully." : "[WEATHER] Background fetch failed.");
 
     weatherFetchRunning = false;
 
@@ -158,6 +161,26 @@ static bool scheduleWeatherFetch() {
     Serial.println("[WEATHER] Fetch scheduled.");
 
     return true;
+}
+
+// Manual BLE requests use the same single-flight scheduler as automatic updates.
+// Return: 0=scheduled, 1=already running, 2=Wi-Fi unavailable, 3=cooldown.
+uint8_t requestWeatherFetch() {
+    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
+    if (weatherFetchRunning) return 1;
+
+    const uint32_t now = millis();
+    if (lastManualWeatherRequestMs != 0 &&
+        now - lastManualWeatherRequestMs < WEATHER_MANUAL_COOLDOWN_MS) {
+        return 3;
+    }
+
+    if (!scheduleWeatherFetch()) {
+        return weatherFetchRunning ? 1 : 2;
+    }
+
+    lastManualWeatherRequestMs = now;
+    return 0;
 }
 
 // =====================================================
