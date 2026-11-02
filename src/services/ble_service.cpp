@@ -14,6 +14,7 @@ static constexpr char CHARACTERISTIC_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b2
 static BLECharacteristic *commandCharacteristic = nullptr;
 static QueueHandle_t commandQueue = nullptr;
 static volatile bool clientConnected = false;
+static bool bleInitialized = false;
 
 class ServerCallbacks final : public BLEServerCallbacks {
     void onConnect(BLEServer *) override {
@@ -40,6 +41,10 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
 };
 
 void beginBLE() {
+    if (bleInitialized) {
+        Serial.println("[BLE] Already enabled.");
+        return;
+    }
     if (commandQueue == nullptr) {
         commandQueue = xQueueCreate(5, 256);
     }
@@ -75,7 +80,28 @@ void beginBLE() {
     advertising->setScanResponse(true);
     advertising->start();
 
+    bleInitialized = true;
     Serial.println("[BLE] Advertising as ESP32_Watch_C3.");
+}
+
+void toggleBLE() {
+    if (bleInitialized) {
+        BLEAdvertising *advertising = BLEDevice::getAdvertising();
+        if (advertising != nullptr) advertising->stop();
+
+        clientConnected = false;
+        commandCharacteristic = nullptr;
+        BLEDevice::deinit(true);
+        bleInitialized = false;
+        Serial.println("[BLE] Bluetooth disabled.");
+        return;
+    }
+
+    beginBLE();
+}
+
+bool isBLEEnabled() {
+    return bleInitialized;
 }
 
 bool readBLECommand(String &command) {
