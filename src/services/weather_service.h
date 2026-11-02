@@ -6,5 +6,6 @@
 
 WeatherData getWeatherSnapshot();
 bool fetchHourlyWeather();
+bool loadWeatherCache();
 
 void setWeatherCoordinates(float latitude, float longitude);
