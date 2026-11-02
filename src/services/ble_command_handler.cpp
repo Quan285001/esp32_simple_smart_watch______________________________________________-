@@ -9,6 +9,7 @@
 
 extern bool wifiEnabled;
 extern void requestLightSleep();
+extern uint8_t requestWeatherFetch();
 
 static void handleCommand(const String &cmd) {
     if (cmd.startsWith("SYNC_TIME:")) {
@@ -22,10 +23,11 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd == "SYNC_WEATHER") {
-        if (wifiEnabled && WiFi.status() == WL_CONNECTED) {
-            fetchHourlyWeather();
-            sendBLENotification("WEATHER_OK");
-        } else sendBLENotification("ERR_WIFI");
+        const uint8_t result = requestWeatherFetch();
+        if (result == 0) sendBLENotification("WEATHER_STARTED");
+        else if (result == 1) sendBLENotification("WEATHER_BUSY");
+        else if (result == 2) sendBLENotification("ERR_WIFI");
+        else sendBLENotification("WEATHER_COOLDOWN");
         return;
     }
 
