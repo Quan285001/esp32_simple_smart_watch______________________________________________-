@@ -265,18 +265,9 @@ void loop() {
         wifiEnabled &&
         wifiStatus == WL_CONNECTED;
 
-    if (wifiConnected && lastWifiStatusLogMs == 0) {
-        Serial.printf(
-            "[WIFI] Connected. IP: %s, RSSI: %d dBm\n",
-            WiFi.localIP().toString().c_str(),
-            WiFi.RSSI()
-        );
-        lastWifiStatusLogMs = now;
-    }
-
     if (wifiConnected && !previousWifiConnected) {
         Serial.printf(
-            "[WIFI] Connected. IP: %s, RSSI: %d dBm\\n",
+            "[WIFI] Connected. IP: %s, RSSI: %d dBm\n",
             WiFi.localIP().toString().c_str(),
             WiFi.RSSI()
         );
