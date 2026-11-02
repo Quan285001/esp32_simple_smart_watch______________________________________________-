@@ -17,7 +17,7 @@
 
 // Start with no fabricated weather values. Data becomes valid only after a
 // complete, validated API response has been received.
-WeatherData currentWeather = {};
+WeatherData currentWeather = {};\n\nstatic String weatherLatitude = WEATHER_LATITUDE;\nstatic String weatherLongitude = WEATHER_LONGITUDE;\n\nvoid setWeatherCoordinates(float latitude, float longitude) {\n    if (!isfinite(latitude) || !isfinite(longitude) ||\n        latitude < -90.0f || latitude > 90.0f ||\n        longitude < -180.0f || longitude > 180.0f) return;\n    weatherLatitude = String(latitude, 4);\n    weatherLongitude = String(longitude, 4);\n    Serial.printf("[GPS] Weather coordinates updated: %s, %s\\n",\n                  weatherLatitude.c_str(), weatherLongitude.c_str());\n}
 
 static SemaphoreHandle_t getWeatherMutex() {
     static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
