@@ -14,6 +14,8 @@
 extern TFT_eSPI tft;
 
 extern void toggleWiFi();
+extern void toggleBluetooth();
+extern void scanWifiNetworks();
 
 extern void drawAnalogClockFace(
     struct tm timeinfo,
