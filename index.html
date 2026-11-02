@@ -50,7 +50,8 @@ input:focus,select:focus{border-color:var(--accent)}
 <h2>ĐỒNG BỘ</h2>
 <div class="stack">
 <button onclick="syncTime()">Đồng bộ thời gian</button>
-<button onclick="syncWeather()">Cập nhật thời tiết</button>
+<button id="weatherBtn" onclick="syncWeather()">Cập nhật thời tiết</button>
+<div id="weatherStatus" class="note">Chưa yêu cầu cập nhật</div>
 </div>
 </section>
 
@@ -134,7 +135,23 @@ async function syncTime(){
 }
 
 async function syncWeather(){
-  if(await sendBLECommand("SYNC_WEATHER"))setStatus("Đã yêu cầu cập nhật thời tiết",true);
+  const button=document.getElementById("weatherBtn");
+  const status=document.getElementById("weatherStatus");
+  if(!bleCharacteristic){setStatus("Chưa kết nối Bluetooth",false);return}
+  button.disabled=true;
+  status.textContent="Đang gửi yêu cầu...";
+  if(!await sendBLECommand("SYNC_WEATHER")){
+    button.disabled=false;
+    status.textContent="Không gửi được yêu cầu";
+    return;
+  }
+  status.textContent="Đang chờ ESP32...";
+  window.setTimeout(()=>{
+    if(button.disabled){
+      button.disabled=false;
+      status.textContent="Không nhận được phản hồi · kiểm tra kết nối";
+    }
+  },20000);
 }
 
 function toggleLocation(){
@@ -185,13 +202,35 @@ async function requestWiFiScan(){
 
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
+  const weatherMessages={
+    WEATHER_STARTED:["Đang tải dự báo thời tiết...",true,false],
+    WEATHER_BUSY:["Đang có một lượt cập nhật chạy · vui lòng chờ",false,true],
+    WEATHER_COOLDOWN:["Vừa cập nhật gần đây · thử lại sau ít giây",false,true],
+    WEATHER_OK:["Cập nhật thời tiết thành công",true,true],
+    WEATHER_FAILED:["Cập nhật thất bại · giữ dữ liệu cũ",false,true],
+    ERR_WIFI:["Wi-Fi chưa kết nối",false,true]
+  };
+  if(weatherMessages[chunk]){
+    const [message,ok,finished]=weatherMessages[chunk];
+    document.getElementById("weatherStatus").textContent=message;
+    if(finished)document.getElementById("weatherBtn").disabled=false;
+    if(chunk==="WEATHER_STARTED")window.setTimeout(()=>{
+      const button=document.getElementById("weatherBtn");
+      if(button.disabled){
+        button.disabled=false;
+        document.getElementById("weatherStatus").textContent="Hết thời gian chờ phản hồi";
+      }
+    },120000);
+    return;
+  }
+
   receivedData+=chunk;
   if(receivedData.endsWith("]")){
     try{
       const networks=JSON.parse(receivedData);
       if(Array.isArray(networks))populateWifiDropdown(networks);
       receivedData="";
-    }catch(error){console.error(error)}
+    }catch(error){console.error(error);receivedData=""}
   }else if(receivedData.length>4096){receivedData=""}
 }
 
