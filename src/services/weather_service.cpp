@@ -183,6 +183,7 @@ void setWeatherLocation(float latitude, float longitude) {
     if (p.begin("watch", false)) {
         p.putFloat("latitude", latitude);
         p.putFloat("longitude", longitude);
+        p.putString("locationName", "Phone location");
         p.end();
     }
 }
