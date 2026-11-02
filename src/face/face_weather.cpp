@@ -468,8 +468,8 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         const int centerX = cardCenterX[0];
         const int w = CARD_W;
         const int h = CARD_H;
-        const int x = centerX - w / 2;
-        const int y = CARD_Y - (int)(3.0f * popProgress);
+        const int x = centerX - (int)(47.0f * popProgress);
+        const int y = CARD_Y;
         const uint16_t bg = 0x2184;
 
         // Redraw the selected card at its normal size with a small upward lift.
