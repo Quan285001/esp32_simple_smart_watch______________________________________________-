@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include <sys/time.h>
 #include <ArduinoJson.h>
+#include <sys/time.h>
 
 #include "ble_service.h"
 #include "weather_service.h"
@@ -69,6 +70,8 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd == "SCAN_WIFI") {
+        const bool restoreWifiOff = !wifiEnabled;
+        if (restoreWifiOff) WiFi.mode(WIFI_STA);
         int count = WiFi.scanNetworks(false, true);
         JsonDocument doc;
         JsonArray list = doc.to<JsonArray>();
@@ -76,6 +79,7 @@ static void handleCommand(const String &cmd) {
         String json;
         serializeJson(doc, json);
         WiFi.scanDelete();
+        if (restoreWifiOff) WiFi.mode(WIFI_OFF);
         sendBLENotification(json);
         return;
     }
