@@ -261,23 +261,31 @@
         }
         try {
             const encoder = new TextEncoder();
-            await bleCharacteristic.writeValue(encoder.encode(cmd));
+            if (bleCharacteristic.writeValueWithResponse) {
+                await bleCharacteristic.writeValueWithResponse(encoder.encode(cmd));
+            } else {
+                await bleCharacteristic.writeValue(encoder.encode(cmd));
+            }
             console.log("Đã gửi lệnh:", cmd);
+            return true;
         } catch (error) {
             console.error("Lỗi gửi lệnh:", error);
             alert("Gửi lệnh thất bại!");
+            return false;
         }
     }
 
     async function syncTime() {
         const epochTime = Math.floor(Date.now() / 1000);
-        await sendBLECommand(`SYNC_TIME:${epochTime}`);
-        alert("Đã đồng bộ thời gian từ điện thoại/PC xuống đồng hồ!");
+        if (await sendBLECommand(`SYNC_TIME:${epochTime}`)) {
+            updateStatus("Đã gửi yêu cầu đồng bộ thời gian", true);
+        }
     }
 
     async function syncWeather() {
-        await sendBLECommand("SYNC_WEATHER");
-        alert("Đã yêu cầu cập nhật thời tiết!");
+        if (await sendBLECommand("SYNC_WEATHER")) {
+            updateStatus("Đã gửi yêu cầu cập nhật thời tiết", true);
+        }
     }
 
     // Hàm tìm tọa độ GPS thực tế của trình duyệt và điền vào ô input
@@ -312,8 +320,9 @@
             alert("Vui lòng bấm 'Tìm tọa độ GPS của tôi' hoặc nhập tọa độ trước!");
             return;
         }
-        await sendBLECommand(`GPS:${lat},${lon}`);
-        alert(`Đã gửi tọa độ (${lat}, ${lon}) xuống đồng hồ thành công!\nĐồng hồ sẽ cập nhật thời tiết theo vị trí mới.`);
+        if (await sendBLECommand(`GPS:${lat},${lon}`)) {
+            updateStatus(`Đã gửi tọa độ (${lat}, ${lon})`, true);
+        }
     }
 
     async function requestWiFiScan() {
@@ -335,11 +344,16 @@
         if (receivedData.endsWith("]")) {
             try {
                 const wifiList = JSON.parse(receivedData);
-                populateWifiDropdown(wifiList);
-                updateStatus("Quét Wi-Fi thành công!", true);
+                if (Array.isArray(wifiList)) {
+                    populateWifiDropdown(wifiList);
+                    updateStatus("Quét Wi-Fi thành công!", true);
+                }
+                receivedData = "";
             } catch (e) {
                 console.error("Lỗi parse JSON:", e);
             }
+        } else if (receivedData.length > 4096) {
+            receivedData = "";
         }
     }
 
@@ -368,8 +382,9 @@
             alert("Vui lòng nhập hoặc chọn tên Wi-Fi!");
             return;
         }
-        await sendBLECommand(`WIFI:${ssid},${pass}`);
-        alert("Đã lưu Wi-Fi vào đồng hồ thành công!");
+        if (await sendBLECommand(`WIFI:${ssid},${pass}`)) {
+            updateStatus("Đã gửi cấu hình Wi-Fi xuống đồng hồ", true);
+        }
     }
 
     function updateStatus(msg, isConnected) {
