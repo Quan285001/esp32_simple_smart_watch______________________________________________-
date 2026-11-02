@@ -40,22 +40,6 @@ static SemaphoreHandle_t getWeatherMutex() {
 
 // Clear the published snapshot before a new request. Any failed request leaves
 // the UI in an explicit unavailable state instead of showing stale/demo values.
-static void invalidateWeatherData() {
-    SemaphoreHandle_t mutex = getWeatherMutex();
-    if (mutex == nullptr) {
-        currentWeather = {};
-        Serial.println("[WEATHER] Mutex allocation failed while invalidating data.");
-        return;
-    }
-
-    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-        currentWeather = {};
-        xSemaphoreGive(mutex);
-    } else {
-        Serial.println("[WEATHER] Mutex timeout while invalidating data.");
-    }
-}
-
 // =====================================================
 // PERSISTENT WEATHER CACHE
 // =====================================================
