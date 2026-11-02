@@ -17,7 +17,21 @@
 
 // Start with no fabricated weather values. Data becomes valid only after a
 // complete, validated API response has been received.
-WeatherData currentWeather = {};\n\nstatic String weatherLatitude = WEATHER_LATITUDE;\nstatic String weatherLongitude = WEATHER_LONGITUDE;\n\nvoid setWeatherCoordinates(float latitude, float longitude) {\n    if (!isfinite(latitude) || !isfinite(longitude) ||\n        latitude < -90.0f || latitude > 90.0f ||\n        longitude < -180.0f || longitude > 180.0f) return;\n    weatherLatitude = String(latitude, 4);\n    weatherLongitude = String(longitude, 4);\n    Serial.printf("[GPS] Weather coordinates updated: %s, %s\\n",\n                  weatherLatitude.c_str(), weatherLongitude.c_str());\n}
+WeatherData currentWeather = {};
+
+static String weatherLatitude = WEATHER_LATITUDE;
+static String weatherLongitude = WEATHER_LONGITUDE;
+
+void setWeatherCoordinates(float latitude, float longitude) {
+    if (!isfinite(latitude) || !isfinite(longitude) ||
+        latitude < -90.0f || latitude > 90.0f ||
+        longitude < -180.0f || longitude > 180.0f) return;
+    weatherLatitude = String(latitude, 4);
+    weatherLongitude = String(longitude, 4);
+    Serial.printf("[GPS] Weather coordinates updated: %s, %s\
+",
+                  weatherLatitude.c_str(), weatherLongitude.c_str());
+}
 
 static SemaphoreHandle_t getWeatherMutex() {
     static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
@@ -106,7 +120,8 @@ void fetchHourlyWeather() {
 
     if (status != HTTP_CODE_OK) {
         Serial.printf(
-            "[WEATHER] HTTP error: %d\n",
+            "[WEATHER] HTTP error: %d
+",
             status
         );
 
@@ -117,12 +132,14 @@ void fetchHourlyWeather() {
     String payload = http.getString();
 
     Serial.printf(
-        "[WEATHER] HTTP status: %d\n",
+        "[WEATHER] HTTP status: %d
+",
         status
     );
 
     Serial.printf(
-        "[WEATHER] Response length: %u bytes\n",
+        "[WEATHER] Response length: %u bytes
+",
         (unsigned int)payload.length()
     );
 
@@ -144,14 +161,16 @@ void fetchHourlyWeather() {
     http.end();
 
     if (error) {
-        Serial.printf("[WEATHER] JSON error: %s\n",error.c_str()
+        Serial.printf("[WEATHER] JSON error: %s
+",error.c_str()
     );
     return;
 }
 
     if (error) {
         Serial.printf(
-            "[WEATHER] JSON error: %s\n",
+            "[WEATHER] JSON error: %s
+",
             error.c_str()
         );
         return;
