@@ -14,6 +14,7 @@
 extern TFT_eSPI tft;
 
 extern void toggleWiFi();
+extern void requestLightSleep();
 
 extern void drawAnalogClockFace(
     struct tm timeinfo,
@@ -290,12 +291,16 @@ void selectMenuItem() {
                 return;
 
             case 3:
+                requestLightSleep();
+                break;
+
+            case 4:
                 Serial.println("[SYSTEM] Restarting...");
                 delay(100);
                 ESP.restart();
                 break;
 
-            case 4:
+            case 5:
                 goBackMenu();
                 return;
 
