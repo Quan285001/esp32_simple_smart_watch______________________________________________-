@@ -505,7 +505,7 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         drawForecastRowToSprite(animationWeather, animationNewIndex, slideOffset);
     } else {
         tft.fillRect(10, 120, 220, 90, TFT_BLACK);
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 4; i++) {
             int dataIndex = (animationNewIndex + i) % 24;
             int x = cardCenterX[i] + slideOffset;
             drawForecastCard(tft, animationWeather.hourly[dataIndex], x, CARD_Y, i == 0);
