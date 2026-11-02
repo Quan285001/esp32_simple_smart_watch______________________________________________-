@@ -239,7 +239,7 @@ void loop() {
     if (wifiEnabled && wifiStatus != WL_CONNECTED) {
         if (now - lastWifiRetryMs >= WIFI_RETRY_MS) {
             Serial.printf(
-                "[WIFI] Still not connected (status=%s, code=%d); retrying.\\n",
+                "[WIFI] Still not connected (status=%s, code=%d); retrying.\n",
                 wifiStatusName(wifiStatus),
                 static_cast<int>(wifiStatus)
             );
@@ -253,7 +253,7 @@ void loop() {
             now - lastWifiStatusLogMs >= WIFI_STATUS_LOG_MS
         ) {
             Serial.printf(
-                "[WIFI] Status: %s (code=%d).\\n",
+                "[WIFI] Status: %s (code=%d).\n",
                 wifiStatusName(wifiStatus),
                 static_cast<int>(wifiStatus)
             );
@@ -267,7 +267,7 @@ void loop() {
 
     if (wifiConnected && lastWifiStatusLogMs == 0) {
         Serial.printf(
-            "[WIFI] Connected. IP: %s, RSSI: %d dBm\\n",
+            "[WIFI] Connected. IP: %s, RSSI: %d dBm\n",
             WiFi.localIP().toString().c_str(),
             WiFi.RSSI()
         );
@@ -275,7 +275,11 @@ void loop() {
     }
 
     if (wifiConnected && !previousWifiConnected) {
-        Serial.println("[WIFI] Connected.");
+        Serial.printf(
+            "[WIFI] Connected. IP: %s, RSSI: %d dBm\\n",
+            WiFi.localIP().toString().c_str(),
+            WiFi.RSSI()
+        );
 
         lastWeatherFetchMs = 0;
         lastWeatherRetryMs = 0;
