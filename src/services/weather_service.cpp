@@ -196,8 +196,15 @@ void fetchHourlyWeather() {
         times.size() < 24 ||
         temps.size() != times.size() ||
         codes.size() != times.size() ||
+        windSpeeds.size() != times.size() ||
+        pressures.size() != times.size() ||
+        rainValues.size() != times.size() ||
         dailyMax.size() == 0 ||
-        dailyMin.size() == 0
+        dailyMin.size() == 0 ||
+        sunshine.size() == 0 ||
+        daylight.size() == 0 ||
+        sunrise.size() == 0 ||
+        sunset.size() == 0
     ) {
         Serial.println(
             "[WEATHER] Incomplete response; keeping cache."
