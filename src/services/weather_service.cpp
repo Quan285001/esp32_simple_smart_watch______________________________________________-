@@ -15,25 +15,31 @@
 // SHARED WEATHER DATA
 // =====================================================
 
-WeatherData currentWeather = {
-    28,
-    32,
-    24,
-    "Waiting for weather",
-    {
-        {0,28,2},{1,28,2},{2,27,2},{3,27,2},
-        {4,27,2},{5,28,2},{6,28,1},{7,29,1},
-        {8,30,1},{9,31,1},{10,32,0},{11,32,0},
-        {12,33,0},{13,33,0},{14,32,1},{15,31,2},
-        {16,30,3},{17,29,3},{18,28,3},{19,28,2},
-        {20,27,2},{21,27,2},{22,27,2},{23,27,2}
-    },
-    false
-};
+// Start with no fabricated weather values. Data becomes valid only after a
+// complete, validated API response has been received.
+WeatherData currentWeather = {};
 
 static SemaphoreHandle_t getWeatherMutex() {
     static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
     return mutex;
+}
+
+// Clear the published snapshot before a new request. Any failed request leaves
+// the UI in an explicit unavailable state instead of showing stale/demo values.
+static void invalidateWeatherData() {
+    SemaphoreHandle_t mutex = getWeatherMutex();
+    if (mutex == nullptr) {
+        currentWeather = {};
+        Serial.println("[WEATHER] Mutex allocation failed while invalidating data.");
+        return;
+    }
+
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        currentWeather = {};
+        xSemaphoreGive(mutex);
+    } else {
+        Serial.println("[WEATHER] Mutex timeout while invalidating data.");
+    }
 }
 
 // =====================================================
@@ -65,6 +71,8 @@ static String weatherDescription(int code) {
 // =====================================================
 
 void fetchHourlyWeather() {
+    invalidateWeatherData();
+
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println(
             "[WEATHER] Wi-Fi offline; keeping cached data."
@@ -185,7 +193,7 @@ void fetchHourlyWeather() {
     if (
         currentTemp.isNull() ||
         currentCode.isNull() ||
-        times.size() == 0 ||
+        times.size() < 24 ||
         temps.size() != times.size() ||
         codes.size() != times.size() ||
         dailyMax.size() == 0 ||
@@ -201,7 +209,10 @@ void fetchHourlyWeather() {
     // PREPARE NEW DATA
     // -------------------------------------------------
 
-    WeatherData next = getWeatherSnapshot();
+    // Build from an empty structure so failed/omitted optional fields cannot
+    // inherit values from an earlier successful response.
+    WeatherData next = {};
+    next.detailsValid = false;
 
     next.currentTemp = currentTemp.as<int>();
     next.maxTemp = dailyMax[0].as<int>();
@@ -247,6 +258,11 @@ void fetchHourlyWeather() {
         Serial.println(
             "[WEATHER] Local time unavailable; using first forecast hour."
         );
+    }
+
+    if (static_cast<size_t>(firstIndex) + 24 > times.size()) {
+        Serial.println("[WEATHER] Not enough hourly entries for a 24-hour forecast.");
+        return;
     }
 
     // -------------------------------------------------
