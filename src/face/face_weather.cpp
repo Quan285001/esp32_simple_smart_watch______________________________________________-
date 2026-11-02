@@ -295,12 +295,13 @@ static void drawWeatherDetailsContent(int scrollOffset = 0) {
     for (int row = 0; row < 5; ++row) {
         int item = weatherDetailsScroll + row;
         if (item >= 9) break;
-        int y = 111 + row * 17 - scrollOffset;
+        int y = 3 + row * 17 - scrollOffset;
         tft.setTextColor(0x7BEF, 0x1082);
-        tft.drawString(labels[item], 32, y, 1);
+        tft.drawString(labels[item], 4, y, 1);
         tft.setTextColor(TFT_WHITE, 0x1082);
-        tft.drawRightString(values[item].length() ? values[item] : "N/A", 207, y, 1);
+        tft.drawRightString(values[item], 179, y, 1);
     }
+
     tft.resetViewport();
     tft.setTextColor(0x7BEF, 0x1082);
     tft.drawCentreString("Press: scroll  Double: close", 120, 204, 1);
