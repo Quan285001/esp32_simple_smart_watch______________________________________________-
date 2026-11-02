@@ -71,7 +71,8 @@ input:focus,select:focus{border-color:var(--accent)}
 <section>
 <h2>WI-FI</h2>
 <div class="stack">
-<button onclick="requestWiFiScan()">Quét mạng Wi-Fi</button>
+<button id="wifiScanBtn" onclick="requestWiFiScan()">Quét mạng Wi-Fi</button>
+<div id="wifiScanStatus" class="note">Chưa quét mạng</div>
 <select id="wifiSelect" onchange="onWifiSelected()"><option value="">Chọn mạng Wi-Fi</option></select>
 <input id="ssid" autocomplete="off" placeholder="Tên mạng (SSID)">
 <input id="pass" type="password" autocomplete="new-password" placeholder="Mật khẩu">
@@ -89,6 +90,7 @@ let latestPosition=null;
 let lastSentPosition=null;
 let receivedData="";
 let weatherResponseTimer=null;
+let bleWriteQueue=Promise.resolve();
 
 async function connectBLE(){
   if(!navigator.bluetooth){setStatus("Trình duyệt không hỗ trợ Web Bluetooth",false);return}
@@ -103,8 +105,8 @@ async function connectBLE(){
     bleCharacteristic.addEventListener("characteristicvaluechanged",handleNotifications);
     setStatus("Đã kết nối",true);
     document.getElementById("connectBtn").textContent="Đã kết nối";
-    if(latestPosition)sendLatestPosition(true);
-    requestWiFiScan();
+    if(latestPosition)await sendLatestPosition(true);
+    await requestWiFiScan();
   }catch(error){console.error(error);setStatus("Kết nối thất bại",false)}
 }
 
@@ -116,12 +118,27 @@ function onDisconnected(){
 
 async function sendBLECommand(command){
   if(!bleCharacteristic){setStatus("Hãy kết nối Bluetooth trước",false);return false}
-  try{
-    const bytes=new TextEncoder().encode(command);
-    if(bleCharacteristic.writeValueWithResponse)await bleCharacteristic.writeValueWithResponse(bytes);
-    else await bleCharacteristic.writeValue(bytes);
-    return true;
-  }catch(error){console.error(error);setStatus("Không gửi được lệnh",false);return false}
+  const writeOperation=async()=>{
+    if(!bleCharacteristic){setStatus("Kết nối Bluetooth đã ngắt",false);return false}
+    try{
+      const bytes=new TextEncoder().encode(command);
+      if(bleCharacteristic.properties.write && bleCharacteristic.writeValueWithResponse){
+        await bleCharacteristic.writeValueWithResponse(bytes);
+      }else if(bleCharacteristic.properties.writeWithoutResponse && bleCharacteristic.writeValueWithoutResponse){
+        await bleCharacteristic.writeValueWithoutResponse(bytes);
+      }else{
+        await bleCharacteristic.writeValue(bytes);
+      }
+      return true;
+    }catch(error){
+      console.error("BLE write failed:",command,error);
+      setStatus("Không gửi được lệnh: "+command,false);
+      return false;
+    }
+  };
+  const result=bleWriteQueue.then(writeOperation,writeOperation);
+  bleWriteQueue=result.then(()=>undefined,()=>undefined);
+  return result;
 }
 
 function setStatus(message,connected){
@@ -197,9 +214,16 @@ async function sleepWatch(){
 }
 
 async function requestWiFiScan(){
-  if(!bleCharacteristic)return;
+  const button=document.getElementById("wifiScanBtn");
+  const status=document.getElementById("wifiScanStatus");
+  if(!bleCharacteristic){status.textContent="Hãy kết nối Bluetooth trước";return}
   receivedData="";
-  await sendBLECommand("SCAN_WIFI");
+  button.disabled=true;
+  status.textContent="Đang gửi lệnh quét...";
+  const sent=await sendBLECommand("SCAN_WIFI");
+  button.disabled=false;
+  if(sent)status.textContent="Đã gửi lệnh · đang chờ danh sách mạng";
+  else status.textContent="Gửi lệnh thất bại · thử kết nối lại Bluetooth";
 }
 
 function handleNotifications(event){
@@ -231,7 +255,11 @@ function handleNotifications(event){
   if(receivedData.endsWith("]")){
     try{
       const networks=JSON.parse(receivedData);
-      if(Array.isArray(networks))populateWifiDropdown(networks);
+      if(Array.isArray(networks)){
+        populateWifiDropdown(networks);
+        document.getElementById("wifiScanStatus").textContent="Tìm thấy "+networks.length+" mạng Wi-Fi";
+        document.getElementById("wifiScanBtn").disabled=false;
+      }
       receivedData="";
     }catch(error){console.error(error);receivedData=""}
   }else if(receivedData.length>4096){receivedData=""}
