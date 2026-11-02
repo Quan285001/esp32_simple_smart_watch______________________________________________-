@@ -30,11 +30,11 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *characteristic) override {
         if (commandQueue == nullptr) return;
 
-        String value = characteristic->getValue();
-        if (value.length() == 0 || value.length() >= 256) return;
+        std::string value = characteristic->getValue();
+        if (value.empty() || value.size() >= 256) return;
 
         char buffer[256] = {};
-        memcpy(buffer, value.c_str(), value.length());
+        memcpy(buffer, value.data(), value.size());
         xQueueSend(commandQueue, buffer, 0);
     }
 };
