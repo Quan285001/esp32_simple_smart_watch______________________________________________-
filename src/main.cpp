@@ -2,7 +2,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <TFT_eSPI.h>
-
 #include "config.h"
 #include "app/app_state.h"
 #include "app/app_controller.h"
