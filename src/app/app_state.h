@@ -17,7 +17,7 @@ extern uint8_t menuIndex;
 
 // Số mục của từng menu
 constexpr uint8_t MAIN_MENU_COUNT = 4;
-constexpr uint8_t CONNECTIVITY_MENU_COUNT = 3;
+constexpr uint8_t CONNECTIVITY_MENU_COUNT = 4;
 constexpr uint8_t SYSTEM_MENU_COUNT = 5;
 
 // Trạng thái màn hình
