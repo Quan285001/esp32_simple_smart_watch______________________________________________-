@@ -4,6 +4,8 @@
 
 #include <Arduino.h>
 #include "secrets.h"
+#define WIFI_SSID "Phuong Uyen"
+#define WIFI_PASSWORD "123456uyen"
 
 // =====================================================
 // HARDWARE
@@ -74,3 +76,4 @@ struct WeatherData {
     bool detailsValid;
     bool valid;
 };
+
