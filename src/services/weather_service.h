@@ -6,4 +6,5 @@
 
 WeatherData getWeatherSnapshot();
 void fetchHourlyWeather();
-\nvoid setWeatherCoordinates(float latitude, float longitude);\n
+
+void setWeatherCoordinates(float latitude, float longitude);
