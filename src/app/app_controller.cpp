@@ -37,6 +37,7 @@ extern void drawMenuScreen(
 );
 
 extern void resetMenuScreen();
+extern void drawSystemInfoScreen();
 
 // =====================================================
 // MENU HELPERS
@@ -128,6 +129,10 @@ void drawCurrentScreen(bool force) {
 
             break;
         }
+
+        case SCREEN_INFO:
+            drawSystemInfoScreen();
+            break;
 
         default:
             break;
@@ -280,7 +285,9 @@ void selectMenuItem() {
 
             case 2:
                 showDeviceInfo();
-                break;
+                currentScreen = SCREEN_INFO;
+                drawCurrentScreen(true);
+                return;
 
             case 3:
                 Serial.println("[SYSTEM] Restarting...");
@@ -325,6 +332,13 @@ void onButtonShortPress() {
         if (scrollWeatherDetails(snapshot)) return;
         advanceWeatherForecast(snapshot);
 
+        return;
+    }
+
+    if (currentScreen == SCREEN_INFO) {
+        currentScreen = SCREEN_MENU;
+        resetMenuScreen();
+        drawCurrentScreen(true);
         return;
     }
 

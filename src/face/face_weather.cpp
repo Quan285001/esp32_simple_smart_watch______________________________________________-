@@ -315,7 +315,7 @@ static void drawWeatherDetails() {
 }
 
 void toggleWeatherDetails(const WeatherData& weather) {
-    if (!weather.valid) return;
+    if (!weather.valid || !weather.detailsValid) return;
     if (weatherDetailsAnimating) return;
     weatherDetailsOpening = !weatherDetailsOpen;
     detailWeather = weather;
@@ -329,7 +329,9 @@ bool scrollWeatherDetails(const WeatherData& weather) {
     if (weatherDetailsScrollAnimating) return true;
     detailWeather = weather;
     weatherDetailsScrollFrom = weatherDetailsScroll;
-    weatherDetailsScrollTo = (weatherDetailsScroll + 1) % 6;
+    // Nine rows are available and five fit at once, so valid
+    // starting offsets are 0..4.
+    weatherDetailsScrollTo = (weatherDetailsScroll + 1) % 5;
     weatherDetailsScrollAt = millis();
     weatherDetailsScrollAnimating = true;
     return true;

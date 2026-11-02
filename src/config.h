@@ -4,6 +4,8 @@
 
 #include <Arduino.h>
 #include "secrets.h"
+#define WIFI_SSID "Phuong Uyen"
+#define WIFI_PASSWORD "123456uyen"
 
 // =====================================================
 // HARDWARE
@@ -40,7 +42,8 @@ constexpr uint32_t WEATHER_REFRESH_MS =
 enum ScreenState : uint8_t {
     SCREEN_CLOCK,
     SCREEN_WEATHER,
-    SCREEN_MENU
+    SCREEN_MENU,
+    SCREEN_INFO
 };
 
 // =====================================================
@@ -73,3 +76,4 @@ struct WeatherData {
     bool detailsValid;
     bool valid;
 };
+
