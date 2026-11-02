@@ -133,12 +133,22 @@ void toggleWiFi() {
         previousWifiConnected = false;
         Serial.println("[WIFI] Disabled; cached weather retained");
     } else {
-        wifiEnabled = connectSavedWiFi();
-        if (!wifiEnabled) Serial.println("[WIFI] Save credentials from phone first");
+        // Enable the Wi-Fi radio even when no network credentials are saved.
+        // This allows the user to scan for networks or provision credentials later.
+        WiFi.mode(WIFI_STA);
+        WiFi.setAutoReconnect(true);
+        wifiEnabled = true;
+
+        if (!connectSavedWiFi()) {
+            Serial.println("[WIFI] Enabled; no saved credentials. Ready for network scan/phone setup");
+        }
     }
 }
 void scanWifiNetworks() {
-    if (!wifiEnabled) WiFi.mode(WIFI_STA);
+    if (!wifiEnabled) {
+        WiFi.mode(WIFI_STA);
+        wifiEnabled = true;
+    }
     int count = WiFi.scanNetworks(false, true);
     if (count < 0) {
         bleNotify("SCAN:ERROR");
