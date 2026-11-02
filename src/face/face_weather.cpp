@@ -19,7 +19,16 @@ static bool weatherDetailsAnimating = false;
 static bool weatherDetailsOpening = false;
 static uint32_t weatherDetailsAnimationAt = 0;
 static int weatherDetailsScroll = 0;
+static int weatherDetailsScrollFrom = 0;
+static int weatherDetailsScrollTo = 0;
+static bool weatherDetailsScrollAnimating = false;
+static uint32_t weatherDetailsScrollAt = 0;
 static WeatherData detailWeather;
+
+static constexpr int DETAIL_CARD_X = 16, DETAIL_CARD_Y = 124;
+static constexpr int DETAIL_CARD_W = 42, DETAIL_CARD_H = 78;
+static constexpr int DETAIL_PANEL_X = 20, DETAIL_PANEL_Y = 20;
+static constexpr int DETAIL_PANEL_W = 200, DETAIL_PANEL_H = 200;
 
 // Trạng thái animation.
 static bool weatherAnimating = false;
@@ -241,7 +250,7 @@ static void drawForecastRow(const WeatherData& weather, int startIndex) {
     // Phương án dự phòng nếu không đủ RAM tạo sprite.
     tft.fillRect(10, 120, 220, 90, TFT_BLACK);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         int dataIndex = (startIndex + i) % 24;
         drawForecastCard(tft, weather.hourly[dataIndex], cardCenterX[i], CARD_Y, i == 0);
     }
@@ -264,27 +273,17 @@ static void drawWeatherFooter() {
 // 8A. WEATHER DETAIL CARD
 // =====================================================
 
-static void drawWeatherDetails() {
-    tft.fillScreen(TFT_BLACK);
-    tft.fillRoundRect(20, 20, 200, 200, 15, 0x1082);
-    tft.drawRoundRect(20, 20, 200, 200, 15, 0x7BEF);
-
+static void drawWeatherDetailsContent(int scrollOffset = 0) {
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(TFT_WHITE, 0x1082);
     tft.drawString("WEATHER DETAILS", 32, 28, 2);
-
     drawTemperatureWithDegree(detailWeather.currentTemp, 34, 51, 4, TFT_WHITE, 0x1082);
     tft.setTextColor(0xFDE0, 0x1082);
     tft.drawString(detailWeather.moonPhase.length() ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
 
-    const char* labels[] = {
-        "Moonrise", "Moonset", "Sunrise", "Sunset",
-        "Sunshine", "Daylight", "Wind 10m",
-        "Pressure", "Rain"
-    };
+    const char* labels[] = {"Moonrise", "Moonset", "Sunrise", "Sunset", "Sunshine", "Daylight", "Wind 10m", "Pressure", "Rain"};
     String values[] = {
-        detailWeather.moonrise, detailWeather.moonset,
-        detailWeather.sunrise, detailWeather.sunset,
+        detailWeather.moonrise, detailWeather.moonset, detailWeather.sunrise, detailWeather.sunset,
         String(detailWeather.sunshineDuration / 3600.0f, 1) + " h",
         String(detailWeather.daylightDuration / 3600.0f, 1) + " h",
         String(detailWeather.windSpeed10m, 1) + " km/h",
@@ -292,21 +291,27 @@ static void drawWeatherDetails() {
         String(detailWeather.rain, 1) + " mm"
     };
 
-    tft.setTextColor(0xFFFF, 0x1082);
-    for (int row = 0; row < 4; ++row) {
+    tft.setViewport(28, 108, 184, 74, true);
+    for (int row = 0; row < 5; ++row) {
         int item = weatherDetailsScroll + row;
         if (item >= 9) break;
-        int y = 111 + row * 17;
+        int y = 111 + row * 17 - scrollOffset;
         tft.setTextColor(0x7BEF, 0x1082);
         tft.drawString(labels[item], 32, y, 1);
         tft.setTextColor(TFT_WHITE, 0x1082);
         tft.drawRightString(values[item].length() ? values[item] : "N/A", 207, y, 1);
     }
-
+    tft.resetViewport();
     tft.setTextColor(0x7BEF, 0x1082);
     tft.drawCentreString("Press: scroll  Double: close", 120, 204, 1);
-    tft.setTextColor(0x7BEF, 0x1082);
     tft.drawString("Powered by SunriseSunset.io", 31, 188, 1);
+}
+
+static void drawWeatherDetails() {
+    tft.fillScreen(TFT_BLACK);
+    tft.fillRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x1082);
+    tft.drawRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x7BEF);
+    drawWeatherDetailsContent();
 }
 
 void toggleWeatherDetails(const WeatherData& weather) {
@@ -320,10 +325,13 @@ void toggleWeatherDetails(const WeatherData& weather) {
 }
 
 bool scrollWeatherDetails(const WeatherData& weather) {
-    if (!weatherDetailsOpen) return false;
-    weatherDetailsScroll = (weatherDetailsScroll + 1) % 6;
+    if (!weatherDetailsOpen || weatherDetailsAnimating) return false;
+    if (weatherDetailsScrollAnimating) return true;
     detailWeather = weather;
-    drawWeatherDetails();
+    weatherDetailsScrollFrom = weatherDetailsScroll;
+    weatherDetailsScrollTo = (weatherDetailsScroll + 1) % 6;
+    weatherDetailsScrollAt = millis();
+    weatherDetailsScrollAnimating = true;
     return true;
 }
 
@@ -390,16 +398,24 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
     (void)weather;
 
     if (weatherDetailsAnimating) {
-        const uint32_t duration = 260;
+        const uint32_t duration = 420;
         float p = clamp01((float)(millis() - weatherDetailsAnimationAt) / duration);
         float eased = easeOutCubic(p);
-        int size = weatherDetailsOpening ? (int)(200.0f * eased) : (int)(200.0f * (1.0f - eased));
-        if (size < 2) size = 2;
-        int x = 120 - size / 2;
-        int y = 120 - size / 2;
+        float q = weatherDetailsOpening ? eased : 1.0f - eased;
+        const int x = (int)(DETAIL_CARD_X + (DETAIL_PANEL_X - DETAIL_CARD_X) * q);
+        const int y = (int)(DETAIL_CARD_Y + (DETAIL_PANEL_Y - DETAIL_CARD_Y) * q);
+        const int w = (int)(DETAIL_CARD_W + (DETAIL_PANEL_W - DETAIL_CARD_W) * q);
+        const int h = (int)(DETAIL_CARD_H + (DETAIL_PANEL_H - DETAIL_CARD_H) * q);
+        const int radius = (int)(10.0f + 5.0f * q);
+
         tft.fillScreen(TFT_BLACK);
-        tft.fillRoundRect(x, y, size, size, 14, 0x1082);
-        tft.drawRoundRect(x, y, size, size, 14, 0x7BEF);
+        tft.fillRoundRect(x, y, w, h, radius, 0x1082);
+        tft.drawRoundRect(x, y, w, h, radius, 0x7BEF);
+        if (q > 0.70f) {
+            tft.setViewport(DETAIL_PANEL_X + 2, DETAIL_PANEL_Y + 2, DETAIL_PANEL_W - 4, DETAIL_PANEL_H - 4, true);
+            drawWeatherDetailsContent();
+            tft.resetViewport();
+        }
         if (p >= 1.0f) {
             weatherDetailsAnimating = false;
             weatherDetailsOpen = weatherDetailsOpening;
@@ -409,7 +425,23 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         return;
     }
 
-    if (weatherDetailsOpen) return;
+    if (weatherDetailsOpen) {
+        if (weatherDetailsScrollAnimating) {
+            const uint32_t duration = 260;
+            float p = clamp01((float)(millis() - weatherDetailsScrollAt) / duration);
+            float eased = easeOutCubic(p);
+            tft.fillScreen(TFT_BLACK);
+            tft.fillRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x1082);
+            tft.drawRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x7BEF);
+            drawWeatherDetailsContent((int)(17.0f * eased));
+            if (p >= 1.0f) {
+                weatherDetailsScroll = weatherDetailsScrollTo;
+                weatherDetailsScrollAnimating = false;
+                drawWeatherDetails();
+            }
+        }
+        return;
+    }
     if (!weatherAnimating) return;
 
     // Tính tiến trình animation.
