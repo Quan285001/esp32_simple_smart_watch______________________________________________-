@@ -6,6 +6,7 @@
 
 extern TFT_eSPI tft;
 extern bool isBLEConnected();
+extern bool isBLEEnabled();
 
 namespace {
 
@@ -65,6 +66,7 @@ uint32_t animationStart = 0;
 
 bool previousWifiStatus = false;
 bool previousWifiConnected = false;
+bool previousBLEEnabled = false;
 
 // =====================================================
 // MENU DATA
@@ -164,9 +166,10 @@ void drawItemStatus(
 
         if (index == 0) {
 
+            const bool enabled = isBLEEnabled();
             const bool connected = isBLEConnected();
-            tft.setTextColor(connected ? GREEN : AMBER, background);
-            tft.drawString(connected ? "LINK" : "ADV", 205, itemCenterY(index), 1);
+            tft.setTextColor(!enabled ? RED : (connected ? GREEN : AMBER), background);
+            tft.drawString(!enabled ? "OFF" : (connected ? "LINK" : "ADV"), 205, itemCenterY(index), 1);
         }
 
         else if (index == 1) {
@@ -414,9 +417,11 @@ void drawMenuScreen(
         count - 1
     );
 
+    const bool bleEnabled = isBLEEnabled();
     bool wifiChanged =
         previousWifiStatus != wifiStatus ||
         previousWifiConnected != wifiConnected;
+    bool bleChanged = previousBLEEnabled != bleEnabled;
 
     bool menuChanged =
         previousLevel != level;
@@ -425,7 +430,7 @@ void drawMenuScreen(
     // INITIALIZE / REDRAW
     // -------------------------------------------------
 
-    if (!initialized || wifiChanged || menuChanged) {
+    if (!initialized || wifiChanged || bleChanged || menuChanged) {
 
         tft.startWrite();
 
@@ -454,6 +459,7 @@ void drawMenuScreen(
 
         previousWifiStatus = wifiStatus;
         previousWifiConnected = wifiConnected;
+        previousBLEEnabled = bleEnabled;
 
         animating = false;
         initialized = true;
