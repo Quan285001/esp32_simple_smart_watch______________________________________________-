@@ -88,6 +88,7 @@ let locationWatchId=null;
 let latestPosition=null;
 let lastSentPosition=null;
 let receivedData="";
+let weatherResponseTimer=null;
 
 async function connectBLE(){
   if(!navigator.bluetooth){setStatus("Trình duyệt không hỗ trợ Web Bluetooth",false);return}
@@ -146,12 +147,13 @@ async function syncWeather(){
     return;
   }
   status.textContent="Đang chờ ESP32...";
-  window.setTimeout(()=>{
+  clearTimeout(weatherResponseTimer);
+  weatherResponseTimer=window.setTimeout(()=>{
     if(button.disabled){
       button.disabled=false;
       status.textContent="Không nhận được phản hồi · kiểm tra kết nối";
     }
-  },20000);
+  },15000);
 }
 
 function toggleLocation(){
@@ -212,13 +214,14 @@ function handleNotifications(event){
   };
   if(weatherMessages[chunk]){
     const [message,ok,finished]=weatherMessages[chunk];
+    clearTimeout(weatherResponseTimer);
     document.getElementById("weatherStatus").textContent=message;
     if(finished)document.getElementById("weatherBtn").disabled=false;
-    if(chunk==="WEATHER_STARTED")window.setTimeout(()=>{
+    if(chunk==="WEATHER_STARTED")weatherResponseTimer=window.setTimeout(()=>{
       const button=document.getElementById("weatherBtn");
       if(button.disabled){
         button.disabled=false;
-        document.getElementById("weatherStatus").textContent="Hết thời gian chờ phản hồi";
+        document.getElementById("weatherStatus").textContent="Hết thời gian chờ cập nhật";
       }
     },120000);
     return;
