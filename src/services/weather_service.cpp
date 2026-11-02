@@ -334,7 +334,7 @@ void fetchHourlyWeather() {
                  dateInfo.tm_year + 1900, dateInfo.tm_mon + 1, dateInfo.tm_mday);
 
         String lunarUrl = String("https://api.sunrisesunset.io/json?lat=") +
-            weatherLatitude + "&lng=" + weatherLongitude
+            weatherLatitude + "&lng=" + weatherLongitude +
             "&date=" + dateText +
             "&timezone=Asia%2FHo_Chi_Minh&time_format=24";
 
