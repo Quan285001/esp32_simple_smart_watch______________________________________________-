@@ -50,9 +50,9 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
 
     sprFace.setTextDatum(MC_DATUM);
     sprFace.setTextColor(COLOR_TEXT_ACCENT, COLOR_INNER_BG);
-    sprFace.drawString("LOC", cx - 40, cy - 10, 1);
+    sprFace.drawString("UTC+7", cx - 40, cy - 10, 1);
     sprFace.setTextColor(COLOR_TEXT_MAIN, COLOR_INNER_BG);
-    sprFace.drawString("HCM", cx - 40, cy + 6, 2);
+    sprFace.drawString("LOCAL", cx - 40, cy + 6, 2);
 
     const char* days[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
     int wday = (timeinfo.tm_wday >= 0 && timeinfo.tm_wday < 7) ? timeinfo.tm_wday : 0;
