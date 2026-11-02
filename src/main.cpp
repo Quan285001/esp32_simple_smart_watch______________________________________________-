@@ -53,6 +53,23 @@ static bool previousWifiConnected = false;
 static volatile bool weatherFetchRunning = false;
 
 static constexpr uint32_t WEATHER_RETRY_MS = 15000;
+static constexpr uint32_t WIFI_RETRY_MS = 15000;
+static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
+
+static uint32_t lastWifiRetryMs = 0;
+static uint32_t lastWifiStatusLogMs = 0;
+
+static const char* wifiStatusName(wl_status_t status) {
+    switch (status) {
+        case WL_CONNECTED: return "CONNECTED";
+        case WL_NO_SSID_AVAIL: return "NO_SSID_AVAILABLE";
+        case WL_CONNECT_FAILED: return "CONNECT_FAILED";
+        case WL_CONNECTION_LOST: return "CONNECTION_LOST";
+        case WL_DISCONNECTED: return "DISCONNECTED";
+        case WL_IDLE_STATUS: return "IDLE";
+        default: return "UNKNOWN";
+    }
+}
 
 // =====================================================
 // WEATHER TASK
@@ -143,6 +160,9 @@ void toggleWiFi() {
             WIFI_PASSWORD
         );
 
+        lastWifiRetryMs = millis();
+        lastWifiStatusLogMs = 0;
+
         beginTimeService();
 
         lastWeatherFetchMs = 0;
@@ -187,6 +207,9 @@ void setup() {
         WIFI_PASSWORD
     );
 
+    lastWifiRetryMs = millis();
+    lastWifiStatusLogMs = 0;
+
     beginTimeService();
 
     Serial.println(
@@ -208,12 +231,48 @@ void loop() {
     updateButtonManager();
 
     // -------------------------------------------------
-    // WIFI CONNECTION MONITOR
+    // WIFI CONNECTION MONITOR + DIAGNOSTICS
     // -------------------------------------------------
+
+    const wl_status_t wifiStatus = WiFi.status();
+
+    if (wifiEnabled && wifiStatus != WL_CONNECTED) {
+        if (now - lastWifiRetryMs >= WIFI_RETRY_MS) {
+            Serial.printf(
+                "[WIFI] Still not connected (status=%s, code=%d); retrying.\\n",
+                wifiStatusName(wifiStatus),
+                static_cast<int>(wifiStatus)
+            );
+
+            WiFi.reconnect();
+            lastWifiRetryMs = now;
+        }
+
+        if (
+            lastWifiStatusLogMs == 0 ||
+            now - lastWifiStatusLogMs >= WIFI_STATUS_LOG_MS
+        ) {
+            Serial.printf(
+                "[WIFI] Status: %s (code=%d).\\n",
+                wifiStatusName(wifiStatus),
+                static_cast<int>(wifiStatus)
+            );
+            lastWifiStatusLogMs = now;
+        }
+    }
 
     const bool wifiConnected =
         wifiEnabled &&
-        WiFi.status() == WL_CONNECTED;
+        wifiStatus == WL_CONNECTED;
+
+    if (wifiConnected && lastWifiStatusLogMs == 0) {
+        Serial.printf(
+            "[WIFI] Connected. IP: %s, RSSI: %d dBm\\n",
+            WiFi.localIP().toString().c_str(),
+            WiFi.RSSI()
+        );
+        lastWifiStatusLogMs = now;
+    }
 
     if (wifiConnected && !previousWifiConnected) {
         Serial.println("[WIFI] Connected.");
