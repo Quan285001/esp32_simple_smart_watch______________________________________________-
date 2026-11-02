@@ -1,6 +1,9 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <Preferences.h>
+#include <esp_sleep.h>
+#include <driver/gpio.h>
 #include <TFT_eSPI.h>
 #include "config.h"
 #include "app/app_state.h"
@@ -8,6 +11,9 @@
 #include "input/button_manager.h"
 #include "services/time_service.h"
 #include "services/weather_service.h"
+#include "services/ble_service.h"
+
+extern void handleBLECommands();
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -57,6 +63,27 @@ static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
 static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
+static bool lightSleepRequested = false;
+
+void requestLightSleep() { lightSleepRequested = true; }
+
+static void enterLightSleep() {
+    lightSleepRequested = false;
+    while (digitalRead(BUTTON_PIN) == LOW) delay(10);
+    tft.fillScreen(TFT_BLACK);
+    delay(30);
+    gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    Serial.println("[POWER] Light sleep: press hardware button to wake.");
+    esp_light_sleep_start();
+    gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
+    tft.init();
+    tft.setRotation(0);
+    tft.fillScreen(TFT_BLACK);
+    beginButtonManager();
+    drawCurrentScreen(true);
+    Serial.println("[POWER] Wake complete.");
+}
 
 static const char* wifiStatusName(wl_status_t status) {
     switch (status) {
@@ -201,10 +228,17 @@ void setup() {
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
 
-    WiFi.begin(
-        WIFI_SSID,
-        WIFI_PASSWORD
-    );
+    Preferences prefs;
+    prefs.begin("watch", true);
+    String savedSsid = prefs.getString("ssid", WIFI_SSID);
+    String savedPass = prefs.getString("pass", WIFI_PASSWORD);
+    float savedLat = prefs.getFloat("lat", NAN);
+    float savedLon = prefs.getFloat("lon", NAN);
+    prefs.end();
+    WiFi.begin(savedSsid.c_str(), savedPass.c_str());
+    if (isfinite(savedLat) && isfinite(savedLon)) setWeatherCoordinates(savedLat, savedLon);
+
+    beginBLE();
 
     lastWifiRetryMs = millis();
     lastWifiStatusLogMs = 0;
@@ -228,6 +262,11 @@ void loop() {
     // -------------------------------------------------
 
     updateButtonManager();
+    handleBLECommands();
+    if (lightSleepRequested) {
+        enterLightSleep();
+        return;
+    }
 
     // -------------------------------------------------
     // WIFI CONNECTION MONITOR + DIAGNOSTICS
