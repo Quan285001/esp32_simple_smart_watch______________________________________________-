@@ -28,8 +28,7 @@ void setWeatherCoordinates(float latitude, float longitude) {
         longitude < -180.0f || longitude > 180.0f) return;
     weatherLatitude = String(latitude, 4);
     weatherLongitude = String(longitude, 4);
-    Serial.printf("[GPS] Weather coordinates updated: %s, %s\
-",
+    Serial.printf("[GPS] Weather coordinates updated: %s, %s\\n",
                   weatherLatitude.c_str(), weatherLongitude.c_str());
 }
 
@@ -96,8 +95,8 @@ void fetchHourlyWeather() {
 
     String url =
         String("https://api.open-meteo.com/v1/forecast?latitude=") +
-        WEATHER_LATITUDE +
-        "&longitude=" + WEATHER_LONGITUDE +
+        weatherLatitude +
+        "&longitude=" + weatherLongitude +
         "&current=temperature_2m,weather_code" +
         "&hourly=temperature_2m,weather_code,wind_speed_10m,surface_pressure,precipitation" +
         "&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,sunrise,sunset" +
@@ -120,8 +119,7 @@ void fetchHourlyWeather() {
 
     if (status != HTTP_CODE_OK) {
         Serial.printf(
-            "[WEATHER] HTTP error: %d
-",
+            "[WEATHER] HTTP error: %d\n",
             status
         );
 
@@ -132,14 +130,12 @@ void fetchHourlyWeather() {
     String payload = http.getString();
 
     Serial.printf(
-        "[WEATHER] HTTP status: %d
-",
+        "[WEATHER] HTTP status: %d\n",
         status
     );
 
     Serial.printf(
-        "[WEATHER] Response length: %u bytes
-",
+        "[WEATHER] Response length: %u bytes\n",
         (unsigned int)payload.length()
     );
 
@@ -161,16 +157,14 @@ void fetchHourlyWeather() {
     http.end();
 
     if (error) {
-        Serial.printf("[WEATHER] JSON error: %s
-",error.c_str()
+        Serial.printf("[WEATHER] JSON error: %s\n",error.c_str()
     );
     return;
 }
 
     if (error) {
         Serial.printf(
-            "[WEATHER] JSON error: %s
-",
+            "[WEATHER] JSON error: %s\n",
             error.c_str()
         );
         return;
@@ -340,7 +334,7 @@ void fetchHourlyWeather() {
                  dateInfo.tm_year + 1900, dateInfo.tm_mon + 1, dateInfo.tm_mday);
 
         String lunarUrl = String("https://api.sunrisesunset.io/json?lat=") +
-            WEATHER_LATITUDE + "&lng=" + WEATHER_LONGITUDE +
+            weatherLatitude + "&lng=" + weatherLongitude
             "&date=" + dateText +
             "&timezone=Asia%2FHo_Chi_Minh&time_format=24";
 
