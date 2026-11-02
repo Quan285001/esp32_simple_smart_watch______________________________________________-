@@ -75,7 +75,7 @@ void fetchHourlyWeather() {
 
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println(
-            "[WEATHER] Wi-Fi offline; keeping cached data."
+            "[WEATHER] Wi-Fi offline; weather data remains invalid."
         );
         return;
     }
@@ -207,7 +207,7 @@ void fetchHourlyWeather() {
         sunset.size() == 0
     ) {
         Serial.println(
-            "[WEATHER] Incomplete response; keeping cache."
+            "[WEATHER] Incomplete response; weather data remains invalid."
         );
         return;
     }
@@ -307,6 +307,10 @@ void fetchHourlyWeather() {
     if (daylight.size() > 0) next.daylightDuration = daylight[0].as<float>();
     if (sunrise.size() > 0) next.sunrise = sunrise[0].as<String>().substring(11, 16);
     if (sunset.size() > 0) next.sunset = sunset[0].as<String>().substring(11, 16);
+
+    // The Open-Meteo detail fields above are already validated and usable.
+    // Lunar data is optional; its endpoint must not block the expanded panel.
+    next.detailsValid = true;
 
     // Fetch lunar and local sunrise/sunset data. This is cached with the
     // same 30-minute weather refresh, not requested by the display loop.
