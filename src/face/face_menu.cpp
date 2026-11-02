@@ -5,6 +5,7 @@
 #include "../app/app_state.h"
 
 extern TFT_eSPI tft;
+extern bool isBLEConnected();
 
 namespace {
 
@@ -163,9 +164,9 @@ void drawItemStatus(
 
         if (index == 0) {
 
-            // Bluetooth placeholder
-            tft.setTextColor(AMBER, background);
-            tft.drawString("SOON", 205, itemCenterY(index), 1);
+            const bool connected = isBLEConnected();
+            tft.setTextColor(connected ? GREEN : AMBER, background);
+            tft.drawString(connected ? "LINK" : "ADV", 205, itemCenterY(index), 1);
         }
 
         else if (index == 1) {
