@@ -37,6 +37,7 @@ const char *const MAIN_LABELS[] = {
 const char *const CONNECTIVITY_LABELS[] = {
     "Bluetooth",
     "Wi-Fi",
+    "Scan Wi-Fi",
     "Back"
 };
 
