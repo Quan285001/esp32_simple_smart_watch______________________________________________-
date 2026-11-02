@@ -3,13 +3,11 @@
 #include <Preferences.h>
 #include <sys/time.h>
 #include <ArduinoJson.h>
-#include <sys/time.h>
 
 #include "ble_service.h"
 #include "weather_service.h"
 
 extern bool wifiEnabled;
-extern void toggleWiFi();
 extern void requestLightSleep();
 
 static void handleCommand(const String &cmd) {
