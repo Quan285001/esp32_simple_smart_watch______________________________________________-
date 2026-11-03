@@ -172,6 +172,12 @@ bool fetchHourlyWeather() {
         "&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,sunrise,sunset" +
         "&forecast_days=2&timezone=Asia%2FHo_Chi_Minh";
 
+    WeatherData next = {};
+    next.detailsValid = false;
+
+    // Keep the first HTTPS client and response/JSON allocations in a short
+    // scope so their destructors release resources before the Lunar TLS request.
+    {
     WiFiClientSecure client;
     client.setInsecure();
 
@@ -198,9 +204,6 @@ bool fetchHourlyWeather() {
     }
 
 
-    // Keep response and JSON allocations in a short scope so their destructors
-    // release the heap before the second TLS connection.
-    {
     String payload = http.getString();
 
     Serial.printf(
@@ -296,9 +299,6 @@ bool fetchHourlyWeather() {
 
     // Build from an empty structure so failed/omitted optional fields cannot
     // inherit values from an earlier successful response.
-    WeatherData next = {};
-    next.detailsValid = false;
-
     next.currentTemp = currentTemp.as<int>();
     next.maxTemp = dailyMax[0].as<int>();
     next.minTemp = dailyMin[0].as<int>();
