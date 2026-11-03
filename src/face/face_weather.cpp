@@ -450,7 +450,7 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
             float p = clamp01((float)(millis() - weatherDetailsScrollAt) / duration);
             float eased = easeOutCubic(p);
             // Animate only the list contents; do not clear/redraw the full display.
-            drawWeatherDetailsRows((int)(17.0f * eased));
+            drawWeatherDetailsRows((int)(14.0f * eased));
             if (p >= 1.0f) {
                 weatherDetailsScroll = weatherDetailsScrollTo;
                 weatherDetailsScrollAnimating = false;
