@@ -389,7 +389,7 @@ bool fetchHourlyWeather() {
     // Release the large Open-Meteo JSON allocations before the next TLS handshake.
     doc.clear();
     payload = String();
-    Serial.printf("[MEM] Free heap before Lunar TLS: %u bytes\\n",
+    Serial.printf("[MEM] Free heap before Lunar TLS: %u bytes\n",
                   (unsigned int)ESP.getFreeHeap());
 
     // SunriseSunset.io resolves today's date from the supplied coordinates.
