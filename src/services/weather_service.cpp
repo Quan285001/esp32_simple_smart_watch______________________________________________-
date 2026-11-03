@@ -197,6 +197,10 @@ bool fetchHourlyWeather() {
         return false;
     }
 
+
+    // Keep response and JSON allocations in a short scope so their destructors
+    // release the heap before the second TLS connection.
+    {
     String payload = http.getString();
 
     Serial.printf(
@@ -385,10 +389,8 @@ bool fetchHourlyWeather() {
     // The Open-Meteo detail fields above are already validated and usable.
     // Lunar data is optional; its endpoint must not block the expanded panel.
     next.detailsValid = true;
+    }
 
-    // Release the large Open-Meteo JSON allocations before the next TLS handshake.
-    doc.clear();
-    payload = String();
     Serial.printf("[MEM] Free heap before Lunar TLS: %u bytes\n",
                   (unsigned int)ESP.getFreeHeap());
 
