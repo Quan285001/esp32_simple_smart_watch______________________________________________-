@@ -76,6 +76,10 @@ static volatile bool weatherFetchRunning = false;
 
 // Countdown for the Weather face. Negative values are status codes:
 // -1 = Wi-Fi intentionally disabled, -2 = connecting, -3 = fetch in progress.
+/**
+ * @brief Implements the get weather refresh countdown seconds operation.
+
+ */
 int32_t getWeatherRefreshCountdownSeconds() {
     if (!wifiEnabled) return -1;
     if (WiFi.status() != WL_CONNECTED) return -2;
