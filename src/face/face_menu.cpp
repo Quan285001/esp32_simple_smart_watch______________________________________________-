@@ -117,6 +117,10 @@ const char *getMenuLabel(MenuLevel level, int index) {
     return "";
 }
 
+/**
+ * @brief Implements the get menu count operation.
+ * @param level Input or state used by this operation.
+ */
 int getMenuCount(MenuLevel level) {
 
     switch (level) {
@@ -159,6 +163,10 @@ int boxTop(int index) {
     return itemCenterY(index) - BOX_H / 2;
 }
 
+/**
+ * @brief Implements the ease out cubic operation.
+ * @param t Input or state used by this operation.
+ */
 float easeOutCubic(float t) {
     float inv = 1.0f - t;
     return 1.0f - inv * inv * inv;
@@ -168,6 +176,14 @@ float easeOutCubic(float t) {
 // STATUS
 // =====================================================
 
+/**
+ * @brief Implements the draw item status operation.
+ * @param level Input or state used by this operation.
+ * @param index Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param wifiConnected Input or state used by this operation.
+ * @param background Input or state used by this operation.
+ */
 /**
  * @brief Implements the draw item status operation.
  * @param level Input or state used by this operation.
@@ -195,6 +211,10 @@ void drawItemStatus(
             tft.drawString(enabled ? "ON" : "OFF", 205, itemCenterY(index), 1);
         }
 
+        /**
+         * @brief Implements the if operation.
+         * @param index Input or state used by this operation.
+         */
         else if (index == 1) {
 
             tft.setTextColor(
@@ -460,6 +480,13 @@ void resetMenuScreen() {
 
 /**
  * @brief Renders the menu and advances its selection animation when necessary.
+ * @param selectedIndex Input or state used by this operation.
+ * @param level Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param wifiConnected Input or state used by this operation.
+ */
+/**
+ * @brief Renders the menu and advances the selection animation.
  * @param selectedIndex Input or state used by this operation.
  * @param level Input or state used by this operation.
  * @param wifiStatus Input or state used by this operation.
