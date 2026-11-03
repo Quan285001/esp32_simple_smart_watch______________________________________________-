@@ -60,6 +60,10 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
     }
 };
 
+/**
+ * @brief Initializes the BLE server, GATT service, characteristic, and advertising.
+
+ */
 void beginBLE() {
     if (bleStackInitialized) {
         Serial.println("[BLE] Stack already initialized.");
