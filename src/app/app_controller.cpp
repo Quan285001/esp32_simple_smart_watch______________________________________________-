@@ -14,6 +14,16 @@
 
 extern TFT_eSPI tft;
 
+/**
+ * @brief Enables or disables the Wi-Fi station interface and updates the application state.
+ * @param timeinfo Input or state used by this operation.
+ * @param millisValue Input or state used by this operation.
+ * @param heartRate Input or state used by this operation.
+ * @param selectedIndex Input or state used by this operation.
+ * @param level Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param getMenuCount( Input or state used by this operation.
+ */
 extern void toggleWiFi();
 extern void requestLightSleep();
 
@@ -30,7 +40,7 @@ extern void advanceWeatherForecast(const WeatherData& w);
 extern void toggleWeatherDetails(const WeatherData& weather);
 extern bool scrollWeatherDetails(const WeatherData& weather);
 
-// Renderer mới: có thêm MenuLevel
+// Menu renderer supporting nested menu levels.
 extern void drawMenuScreen(
     int selectedIndex,
     MenuLevel level,
@@ -61,6 +71,10 @@ static uint8_t getMenuCount() {
     }
 }
 
+/**
+ * @brief Resets the menu cursor and invalidates the menu renderer state.
+
+ */
 static void resetMenuSelection() {
     menuIndex = 0;
     resetMenuScreen();
@@ -70,6 +84,10 @@ static void resetMenuSelection() {
 // DRAW CURRENT SCREEN
 // =====================================================
 
+/**
+ * @brief Renders the active screen, optionally forcing a complete redraw.
+ * @param force Input or state used by this operation.
+ */
 void drawCurrentScreen(bool force) {
     static ScreenState previous =
         static_cast<ScreenState>(255);
@@ -132,6 +150,10 @@ void drawCurrentScreen(bool force) {
             break;
         }
 
+        /**
+         * @brief Implements the draw system info screen operation.
+         * @param enterSubMenu( Input or state used by this operation.
+         */
         case SCREEN_INFO:
             drawSystemInfoScreen();
             break;
@@ -162,6 +184,10 @@ void enterSubMenu() {
     }
 }
 
+/**
+ * @brief Returns to the parent menu or the screen that was open before the menu.
+
+ */
 void goBackMenu() {
     if (currentMenuLevel == MENU_MAIN) {
         currentScreen = screenBeforeMenu;
@@ -179,6 +205,10 @@ void goBackMenu() {
 // SYSTEM FUNCTIONS
 // =====================================================
 
+/**
+ * @brief Starts NTP synchronization and reports whether local time is available.
+
+ */
 void syncTime() {
     Serial.println("[TIME] Starting NTP synchronization.");
 
@@ -193,6 +223,10 @@ void syncTime() {
     }
 }
 
+/**
+ * @brief Performs a manual weather update when Wi-Fi is connected.
+
+ */
 void syncWeather() {
     Serial.println("[WEATHER] Manual update requested.");
 
@@ -201,13 +235,17 @@ void syncWeather() {
         return;
     }
 
-    // Tạm thời thực hiện trực tiếp.
-    // Sẽ chuyển sang tác vụ nền khi tích hợp renderer hoàn chỉnh.
+    // Execute the request directly for now.
+    // This can be moved to a background task when the renderer integration is complete.
     fetchHourlyWeather();
 
     Serial.println("[WEATHER] Manual update finished.");
 }
 
+/**
+ * @brief Prints hardware and memory diagnostics to the serial console.
+
+ */
 void showDeviceInfo() {
     Serial.println("========== DEVICE INFO ==========");
     Serial.printf("Chip: ESP32-C3\n");
@@ -223,6 +261,10 @@ void showDeviceInfo() {
 // SELECT MENU ITEM
 // =====================================================
 
+/**
+ * @brief Executes the action associated with the selected item in the active menu.
+
+ */
 void selectMenuItem() {
 
     if (currentMenuLevel == MENU_MAIN) {
@@ -239,6 +281,10 @@ void selectMenuItem() {
                 currentMenuLevel = MENU_MAIN;
                 break;
 
+            /**
+             * @brief Enters the connectivity or system submenu based on the selected main-menu item.
+             * @param MENU_CONNECTIVITY Input or state used by this operation.
+             */
             case 2:
             case 3:
                 enterSubMenu();
@@ -253,6 +299,10 @@ void selectMenuItem() {
 
         switch (menuIndex) {
 
+            /**
+             * @brief Implements the toggle ble operation.
+             * @param MENU_SYSTEM Input or state used by this operation.
+             */
             case 0:
                 toggleBLE();
                 resetMenuScreen();
@@ -276,6 +326,10 @@ void selectMenuItem() {
 
         switch (menuIndex) {
 
+            /**
+             * @brief Starts NTP synchronization and reports whether local time is available.
+             * @param onButtonShortPress( Input or state used by this operation.
+             */
             case 0:
                 syncTime();
                 break;
@@ -356,6 +410,10 @@ void onButtonShortPress() {
 // =====================================================
 // BUTTON: DOUBLE PRESS
 // =====================================================
+/**
+ * @brief Handles a double button press according to the active screen.
+
+ */
 void onButtonDoublePress() {
     if (currentScreen == SCREEN_WEATHER) {
         WeatherData snapshot = getWeatherSnapshot();
@@ -372,9 +430,13 @@ void onButtonDoublePress() {
 // BUTTON: LONG PRESS
 // =====================================================
 
+/**
+ * @brief Opens the main menu or activates the selected menu item.
+
+ */
 void onButtonLongPress() {
 
-    // Đang ở màn hình chính: mở menu
+    // Open the menu when a face is active.
     if (currentScreen != SCREEN_MENU) {
 
         screenBeforeMenu = currentScreen;
@@ -390,6 +452,6 @@ void onButtonLongPress() {
         return;
     }
 
-    // Đang ở menu: chọn mục
+    // Activate the selected menu item.
     selectMenuItem();
 }
