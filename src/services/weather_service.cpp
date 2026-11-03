@@ -29,7 +29,7 @@ void setWeatherCoordinates(float latitude, float longitude) {
         longitude < -180.0f || longitude > 180.0f) return;
     weatherLatitude = String(latitude, 4);
     weatherLongitude = String(longitude, 4);
-    Serial.printf("[GPS] Weather coordinates updated: %s, %s\\n",
+    Serial.printf("[GPS] Weather coordinates updated: %s, %s\n",
                   weatherLatitude.c_str(), weatherLongitude.c_str());
 }
 
@@ -400,7 +400,7 @@ bool fetchHourlyWeather() {
 
     if (lunarHttp.begin(lunarClient, lunarUrl)) {
         int lunarStatus = lunarHttp.GET();
-        Serial.printf("[WEATHER] Lunar API HTTP status: %d\\n", lunarStatus);
+        Serial.printf("[WEATHER] Lunar API HTTP status: %d\n", lunarStatus);
 
         if (lunarStatus == HTTP_CODE_OK) {
             String lunarPayload = lunarHttp.getString();
@@ -409,9 +409,9 @@ bool fetchHourlyWeather() {
                 deserializeJson(lunarDoc, lunarPayload);
 
             if (lunarError) {
-                Serial.printf("[WEATHER] Lunar JSON error: %s\\n", lunarError.c_str());
+                Serial.printf("[WEATHER] Lunar JSON error: %s\n", lunarError.c_str());
             } else if (!lunarDoc["results"].is<JsonObjectConst>()) {
-                Serial.printf("[WEATHER] Lunar API response has no results object: %s\\n",
+                Serial.printf("[WEATHER] Lunar API response has no results object: %s\n",
                               lunarPayload.substring(0, 180).c_str());
             } else {
                 JsonObjectConst result = lunarDoc["results"];
@@ -425,12 +425,12 @@ bool fetchHourlyWeather() {
                 if (!result["sunrise"].isNull()) next.sunrise = result["sunrise"].as<String>();
                 if (!result["sunset"].isNull()) next.sunset = result["sunset"].as<String>();
 
-                Serial.printf("[WEATHER] Lunar data: moonrise=%s, moonset=%s, phase=%s\\n",
+                Serial.printf("[WEATHER] Lunar data: moonrise=%s, moonset=%s, phase=%s\n",
                               next.moonrise.c_str(), next.moonset.c_str(),
                               next.moonPhase.c_str());
             }
         } else {
-            Serial.printf("[WEATHER] Lunar API request failed: %s\\n",
+            Serial.printf("[WEATHER] Lunar API request failed: %s\n",
                           lunarHttp.errorToString(lunarStatus).c_str());
         }
         lunarHttp.end();
