@@ -4,6 +4,10 @@
 
 extern TFT_eSPI tft;
 
+/**
+ * @brief Renders device uptime, memory, Wi-Fi, IP address, and CPU information.
+
+ */
 void drawSystemInfoScreen() {
     constexpr uint16_t BG = 0x0000;
     constexpr uint16_t WHITE = 0xFFFF;
