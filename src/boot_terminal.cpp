@@ -9,6 +9,10 @@ static constexpr int LINE_HEIGHT = 15;
 
 void bootTerminalLog(const char* msg, uint16_t color);
 
+/**
+ * @brief Initializes the boot log screen and prints the initial startup diagnostics.
+
+ */
 void showBootTerminal() {
     currentY = 42;
     tft.fillScreen(TFT_BLACK);
@@ -23,6 +27,11 @@ void showBootTerminal() {
     bootTerminalLog(heapMsg, TFT_GREEN);
 }
 
+/**
+ * @brief Draws one boot message and writes it to the serial console.
+ * @param msg Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 void bootTerminalLog(const char* msg, uint16_t color) {
     if (currentY > 220) {
         // Keep the latest boot stages visible on the small round display.
