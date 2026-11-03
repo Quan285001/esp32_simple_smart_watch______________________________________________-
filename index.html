@@ -35,17 +35,20 @@ input:focus,select:focus{border-color:var(--accent)}
 </style>
 </head>
 <body>
+<!-- Main control dashboard -->
 <main>
 <header>
 <h1>Smartwatch</h1>
 <p>ESP32-C3 · BLE Control</p>
 </header>
 
+<!-- Bluetooth connection -->
 <section>
 <div id="status">Chưa kết nối</div>
 <button id="connectBtn" onclick="connectBLE()">Kết nối Bluetooth</button>
 </section>
 
+<!-- Time and weather synchronization -->
 <section>
 <h2>ĐỒNG BỘ</h2>
 <div class="stack">
@@ -55,6 +58,7 @@ input:focus,select:focus{border-color:var(--accent)}
 </div>
 </section>
 
+<!-- Device location tracking -->
 <section>
 <h2>VỊ TRÍ</h2>
 <button id="locationBtn" onclick="toggleLocation()">Bật cập nhật vị trí</button>
@@ -62,12 +66,14 @@ input:focus,select:focus{border-color:var(--accent)}
 <p class="note">Lấy vị trí từ dịch vụ định vị của trình duyệt/điện thoại và tự gửi sang đồng hồ khi có kết nối BLE. Cần cấp quyền vị trí và dùng HTTPS hoặc localhost.</p>
 </section>
 
+<!-- Device power controls -->
 <section>
 <h2>THIẾT BỊ</h2>
 <button onclick="sleepWatch()">Light Sleep</button>
 <p class="note">Để đánh thức đồng hồ, nhấn nút vật lý trên thiết bị.</p>
 </section>
 
+<!-- Wi-Fi discovery and credential configuration -->
 <section>
 <h2>WI-FI</h2>
 <div class="stack">
@@ -80,6 +86,7 @@ input:focus,select:focus{border-color:var(--accent)}
 </div>
 </section>
 </main>
+<!-- Web Bluetooth application logic -->
 <script>
 const SERVICE_UUID="4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const CHARACTERISTIC_UUID="beb5483e-36e1-4688-b7f5-ea07361b26a8";
@@ -92,6 +99,13 @@ let receivedData="";
 let weatherResponseTimer=null;
 let wifiScanResponseTimer=null;
 let bleWriteQueue=Promise.resolve();
+
+/**
+
+ * @brief Connects to the ESP32 watch over Web Bluetooth, subscribes to notifications, and initializes device synchronization.
+
+
+ */
 
 async function connectBLE(){
   if(!navigator.bluetooth){setStatus("Trình duyệt không hỗ trợ Web Bluetooth",false);return}
@@ -111,11 +125,26 @@ async function connectBLE(){
   }catch(error){console.error(error);setStatus("Kết nối thất bại",false)}
 }
 
+/**
+
+ * @brief Clears the active BLE characteristic and updates the connection status after the watch disconnects.
+
+
+ */
+
 function onDisconnected(){
   bleCharacteristic=null;
   document.getElementById("connectBtn").textContent="Kết nối Bluetooth";
   setStatus("Đã ngắt kết nối",false);
 }
+
+/**
+
+ * @brief Queues and sends a command to the watch, returning whether the GATT write succeeded.
+
+ * @param command Input used by this operation.
+
+ */
 
 async function sendBLECommand(command){
   if(!bleCharacteristic){setStatus("Hãy kết nối Bluetooth trước",false);return false}
@@ -142,16 +171,40 @@ async function sendBLECommand(command){
   return result;
 }
 
+/**
+
+ * @brief Updates the connection status message and its connected-state styling.
+
+ * @param message Input used by this operation.
+
+ * @param connected Input used by this operation.
+
+ */
+
 function setStatus(message,connected){
   const el=document.getElementById("status");
   el.textContent=message;
   el.classList.toggle("connected",connected);
 }
 
+/**
+
+ * @brief Sends the current browser time to the watch as a Unix timestamp.
+
+
+ */
+
 async function syncTime(){
   const epoch=Math.floor(Date.now()/1000);
   if(await sendBLECommand("SYNC_TIME:"+epoch))setStatus("Đã gửi thời gian",true);
 }
+
+/**
+
+ * @brief Requests a weather refresh and waits for a completion notification or timeout.
+
+
+ */
 
 async function syncWeather(){
   const button=document.getElementById("weatherBtn");
@@ -173,6 +226,13 @@ async function syncWeather(){
     }
   },15000);
 }
+
+/**
+
+ * @brief Starts or stops browser geolocation tracking and forwards position updates to the watch.
+
+
+ */
 
 function toggleLocation(){
   if(locationWatchId!==null){
@@ -196,6 +256,14 @@ function toggleLocation(){
   },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
 }
 
+/**
+
+ * @brief Sends the latest known coordinates when they have changed enough or a forced sync is requested.
+
+ * @param force Input used by this operation.
+
+ */
+
 async function sendLatestPosition(force){
   if(!latestPosition||!bleCharacteristic)return;
   const previous=lastSentPosition;
@@ -210,9 +278,23 @@ async function sendLatestPosition(force){
   }
 }
 
+/**
+
+ * @brief Requests Light Sleep mode on the watch.
+
+
+ */
+
 async function sleepWatch(){
   if(await sendBLECommand("SLEEP_ON"))setStatus("Đồng hồ đang chuyển sang Light Sleep",true);
 }
+
+/**
+
+ * @brief Requests a Wi-Fi scan and waits for the watch to return the discovered network list.
+
+
+ */
 
 async function requestWiFiScan(){
   const button=document.getElementById("wifiScanBtn");
@@ -234,6 +316,14 @@ async function requestWiFiScan(){
     status.textContent="Quá thời gian chờ phản hồi · thử quét lại";
   },30000);
 }
+
+/**
+
+ * @brief Processes BLE notifications, updates operation statuses, and assembles fragmented Wi-Fi scan results.
+
+ * @param event Input used by this operation.
+
+ */
 
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
@@ -285,6 +375,14 @@ function handleNotifications(event){
   }else if(receivedData.length>4096){receivedData=""}
 }
 
+/**
+
+ * @brief Rebuilds the Wi-Fi network selector using the networks returned by the watch.
+
+ * @param networks Input used by this operation.
+
+ */
+
 function populateWifiDropdown(networks){
   const select=document.getElementById("wifiSelect");
   select.innerHTML='<option value="">Chọn mạng Wi-Fi</option>';
@@ -296,9 +394,23 @@ function populateWifiDropdown(networks){
   });
 }
 
+/**
+
+ * @brief Copies the selected network name into the SSID input field.
+
+
+ */
+
 function onWifiSelected(){
   document.getElementById("ssid").value=document.getElementById("wifiSelect").value;
 }
+
+/**
+
+ * @brief Validates the Wi-Fi name and sends the credentials to the watch for storage and connection.
+
+
+ */
 
 async function sendWiFiConfig(){
   const ssid=document.getElementById("ssid").value.trim();
