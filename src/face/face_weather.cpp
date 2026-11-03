@@ -22,6 +22,9 @@ static bool weatherDetailsScrollAnimating = false;
 static uint32_t weatherDetailsScrollAt = 0;
 static WeatherData detailWeather;
 
+// Forward declaration: detail-view close returns to the main weather face.
+void drawWeatherFaceData(const WeatherData& weather);
+
 static constexpr int DETAIL_PANEL_X = 20, DETAIL_PANEL_Y = 20;
 static constexpr int DETAIL_PANEL_W = 200, DETAIL_PANEL_H = 200;
 
