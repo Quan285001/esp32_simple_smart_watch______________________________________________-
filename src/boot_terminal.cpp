@@ -7,6 +7,8 @@ extern TFT_eSPI tft;
 static int currentY = 42;
 static constexpr int LINE_HEIGHT = 15;
 
+void bootTerminalLog(const char* msg, uint16_t color);
+
 void showBootTerminal() {
     currentY = 42;
     tft.fillScreen(TFT_BLACK);
