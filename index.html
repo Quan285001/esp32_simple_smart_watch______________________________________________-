@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -44,45 +44,45 @@ input:focus,select:focus{border-color:var(--accent)}
 
 <!-- Bluetooth connection -->
 <section>
-<div id="status">Chưa kết nối</div>
-<button id="connectBtn" onclick="connectBLE()">Kết nối Bluetooth</button>
+<div id="status">Not connected</div>
+<button id="connectBtn" onclick="connectBLE()">Connect Bluetooth</button>
 </section>
 
 <!-- Time and weather synchronization -->
 <section>
-<h2>ĐỒNG BỘ</h2>
+<h2>SYNCHRONIZATION</h2>
 <div class="stack">
-<button onclick="syncTime()">Đồng bộ thời gian</button>
-<button id="weatherBtn" onclick="syncWeather()">Cập nhật thời tiết</button>
-<div id="weatherStatus" class="note">Chưa yêu cầu cập nhật</div>
+<button onclick="syncTime()">Sync Time</button>
+<button id="weatherBtn" onclick="syncWeather()">Update Weather</button>
+<div id="weatherStatus" class="note">No update requested</div>
 </div>
 </section>
 
 <!-- Device location tracking -->
 <section>
-<h2>VỊ TRÍ</h2>
-<button id="locationBtn" onclick="toggleLocation()">Bật cập nhật vị trí</button>
-<div id="locationValue" class="value">Chưa có dữ liệu vị trí</div>
-<p class="note">Lấy vị trí từ dịch vụ định vị của trình duyệt/điện thoại và tự gửi sang đồng hồ khi có kết nối BLE. Cần cấp quyền vị trí và dùng HTTPS hoặc localhost.</p>
+<h2>LOCATION</h2>
+<button id="locationBtn" onclick="toggleLocation()">Enable Location Updates</button>
+<div id="locationValue" class="value">No location data available</div>
+<p class="note">Get your location from the browser or phone and automatically send it to the watch when connected via BLE. Location permission and HTTPS (or localhost) are required.</p>
 </section>
 
 <!-- Device power controls -->
 <section>
-<h2>THIẾT BỊ</h2>
+<h2>DEVICE</h2>
 <button onclick="sleepWatch()">Light Sleep</button>
-<p class="note">Để đánh thức đồng hồ, nhấn nút vật lý trên thiết bị.</p>
+<p class="note">Press the physical button on the device to wake the watch.</p>
 </section>
 
 <!-- Wi-Fi discovery and credential configuration -->
 <section>
 <h2>WI-FI</h2>
 <div class="stack">
-<button id="wifiScanBtn" onclick="requestWiFiScan()">Quét mạng Wi-Fi</button>
-<div id="wifiScanStatus" class="note">Chưa quét mạng</div>
-<select id="wifiSelect" onchange="onWifiSelected()"><option value="">Chọn mạng Wi-Fi</option></select>
-<input id="ssid" autocomplete="off" placeholder="Tên mạng (SSID)">
-<input id="pass" type="password" autocomplete="new-password" placeholder="Mật khẩu">
-<button onclick="sendWiFiConfig()">Lưu cấu hình Wi-Fi</button>
+<button id="wifiScanBtn" onclick="requestWiFiScan()">Scan Wi-Fi Networks</button>
+<div id="wifiScanStatus" class="note">No networks scanned</div>
+<select id="wifiSelect" onchange="onWifiSelected()"><option value="">Select a Wi-Fi network</option></select>
+<input id="ssid" autocomplete="off" placeholder="Network Name (SSID)">
+<input id="pass" type="password" autocomplete="new-password" placeholder="Password">
+<button onclick="sendWiFiConfig()">Save Wi-Fi Configuration</button>
 </div>
 </section>
 </main>
@@ -104,9 +104,9 @@ let bleWriteQueue=Promise.resolve();
  * @brief Connects to the ESP32 watch over Web Bluetooth, subscribes to notifications, and initializes device synchronization.
  */
 async function connectBLE(){
-  if(!navigator.bluetooth){setStatus("Trình duyệt không hỗ trợ Web Bluetooth",false);return}
+  if(!navigator.bluetooth){setStatus("This browser does not support Web Bluetooth",false);return}
   try{
-    setStatus("Đang tìm đồng hồ...",false);
+    setStatus("Searching for your watch...",false);
     bluetoothDevice=await navigator.bluetooth.requestDevice({filters:[{namePrefix:"ESP32_Watch"}],optionalServices:[SERVICE_UUID]});
     bluetoothDevice.addEventListener("gattserverdisconnected",onDisconnected);
     const server=await bluetoothDevice.gatt.connect();
@@ -114,11 +114,11 @@ async function connectBLE(){
     bleCharacteristic=await service.getCharacteristic(CHARACTERISTIC_UUID);
     await bleCharacteristic.startNotifications();
     bleCharacteristic.addEventListener("characteristicvaluechanged",handleNotifications);
-    setStatus("Đã kết nối",true);
-    document.getElementById("connectBtn").textContent="Đã kết nối";
+    setStatus("Connected",true);
+    document.getElementById("connectBtn").textContent="Connected";
     if(latestPosition)await sendLatestPosition(true);
     await requestWiFiScan();
-  }catch(error){console.error(error);setStatus("Kết nối thất bại",false)}
+  }catch(error){console.error(error);setStatus("Connection failed",false)}
 }
 
 /**
@@ -126,8 +126,8 @@ async function connectBLE(){
  */
 function onDisconnected(){
   bleCharacteristic=null;
-  document.getElementById("connectBtn").textContent="Kết nối Bluetooth";
-  setStatus("Đã ngắt kết nối",false);
+  document.getElementById("connectBtn").textContent="Connect Bluetooth";
+  setStatus("Disconnected",false);
 }
 
 /**
@@ -135,9 +135,9 @@ function onDisconnected(){
  * @param command Input used by this operation.
  */
 async function sendBLECommand(command){
-  if(!bleCharacteristic){setStatus("Hãy kết nối Bluetooth trước",false);return false}
+  if(!bleCharacteristic){setStatus("Connect via Bluetooth first",false);return false}
   const writeOperation=async()=>{
-    if(!bleCharacteristic){setStatus("Kết nối Bluetooth đã ngắt",false);return false}
+    if(!bleCharacteristic){setStatus("Bluetooth connection lost",false);return false}
     try{
       const bytes=new TextEncoder().encode(command);
       if(bleCharacteristic.properties.write && bleCharacteristic.writeValueWithResponse){
@@ -150,7 +150,7 @@ async function sendBLECommand(command){
       return true;
     }catch(error){
       console.error("BLE write failed:",command,error);
-      setStatus("Không gửi được lệnh: "+command,false);
+      setStatus("Failed to send command: "+command,false);
       return false;
     }
   };
@@ -175,7 +175,7 @@ function setStatus(message,connected){
  */
 async function syncTime(){
   const epoch=Math.floor(Date.now()/1000);
-  if(await sendBLECommand("SYNC_TIME:"+epoch))setStatus("Đã gửi thời gian",true);
+  if(await sendBLECommand("SYNC_TIME:"+epoch))setStatus("Time sent",true);
 }
 
 /**
@@ -184,20 +184,20 @@ async function syncTime(){
 async function syncWeather(){
   const button=document.getElementById("weatherBtn");
   const status=document.getElementById("weatherStatus");
-  if(!bleCharacteristic){setStatus("Chưa kết nối Bluetooth",false);return}
+  if(!bleCharacteristic){setStatus("Not connected Bluetooth",false);return}
   button.disabled=true;
-  status.textContent="Đang gửi yêu cầu...";
+  status.textContent="Sending request...";
   if(!await sendBLECommand("SYNC_WEATHER")){
     button.disabled=false;
-    status.textContent="Không gửi được yêu cầu";
+    status.textContent="Failed to send request";
     return;
   }
-  status.textContent="Đang chờ ESP32...";
+  status.textContent="Waiting for ESP32...";
   clearTimeout(weatherResponseTimer);
   weatherResponseTimer=window.setTimeout(()=>{
     if(button.disabled){
       button.disabled=false;
-      status.textContent="Không nhận được phản hồi · kiểm tra kết nối";
+      status.textContent="No response received · check the connection";
     }
   },15000);
 }
@@ -209,21 +209,21 @@ function toggleLocation(){
   if(locationWatchId!==null){
     navigator.geolocation.clearWatch(locationWatchId);
     locationWatchId=null;
-    document.getElementById("locationBtn").textContent="Bật cập nhật vị trí";
+    document.getElementById("locationBtn").textContent="Enable Location Updates";
     return;
   }
-  if(!navigator.geolocation){setStatus("Thiết bị không hỗ trợ định vị",false);return}
-  document.getElementById("locationBtn").textContent="Đang cập nhật vị trí";
+  if(!navigator.geolocation){setStatus("This device does not support geolocation",false);return}
+  document.getElementById("locationBtn").textContent="Updating location";
   locationWatchId=navigator.geolocation.watchPosition(position=>{
     latestPosition={lat:position.coords.latitude,lon:position.coords.longitude};
     document.getElementById("locationValue").textContent=latestPosition.lat.toFixed(5)+", "+latestPosition.lon.toFixed(5);
     sendLatestPosition(false);
   },error=>{
     console.error(error);
-    setStatus("Không lấy được vị trí · kiểm tra quyền Location",false);
+    setStatus("Unable to get location · check location permissions",false);
     navigator.geolocation.clearWatch(locationWatchId);
     locationWatchId=null;
-    document.getElementById("locationBtn").textContent="Bật cập nhật vị trí";
+    document.getElementById("locationBtn").textContent="Enable Location Updates";
   },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
 }
 
@@ -241,7 +241,7 @@ async function sendLatestPosition(force){
   const command="GPS:"+latestPosition.lat.toFixed(6)+","+latestPosition.lon.toFixed(6);
   if(await sendBLECommand(command)){
     lastSentPosition={...latestPosition};
-    setStatus("Đã đồng bộ vị trí",true);
+    setStatus("Location synchronized",true);
   }
 }
 
@@ -249,7 +249,7 @@ async function sendLatestPosition(force){
  * @brief Requests Light Sleep mode on the watch.
  */
 async function sleepWatch(){
-  if(await sendBLECommand("SLEEP_ON"))setStatus("Đồng hồ đang chuyển sang Light Sleep",true);
+  if(await sendBLECommand("SLEEP_ON"))setStatus("Watch is entering Light Sleep",true);
 }
 
 /**
@@ -258,21 +258,21 @@ async function sleepWatch(){
 async function requestWiFiScan(){
   const button=document.getElementById("wifiScanBtn");
   const status=document.getElementById("wifiScanStatus");
-  if(!bleCharacteristic){status.textContent="Hãy kết nối Bluetooth trước";return}
+  if(!bleCharacteristic){status.textContent="Connect via Bluetooth first";return}
   clearTimeout(wifiScanResponseTimer);
   receivedData="";
   button.disabled=true;
-  status.textContent="Đang gửi yêu cầu quét Wi-Fi...";
+  status.textContent="Sending Wi-Fi scan request...";
   const sent=await sendBLECommand("SCAN_WIFI");
   if(!sent){
     button.disabled=false;
-    status.textContent="Không gửi được lệnh · kiểm tra kết nối Bluetooth";
+    status.textContent="Failed to send command · check the Bluetooth connection";
     return;
   }
-  status.textContent="Đã gửi lệnh · ESP32 đang quét mạng...";
+  status.textContent="Command sent · ESP32 is scanning for networks...";
   wifiScanResponseTimer=window.setTimeout(()=>{
     button.disabled=false;
-    status.textContent="Quá thời gian chờ phản hồi · thử quét lại";
+    status.textContent="Response timed out · try scanning again";
   },30000);
 }
 
@@ -283,22 +283,22 @@ async function requestWiFiScan(){
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
   if(chunk==="WIFI_SCAN_STARTED"){
-    document.getElementById("wifiScanStatus").textContent="ESP32 đã nhận lệnh · đang quét Wi-Fi...";
+    document.getElementById("wifiScanStatus").textContent="ESP32 received the command · scanning for Wi-Fi networks...";
     return;
   }
   if(chunk==="WIFI_SCAN_ERROR"){
     clearTimeout(wifiScanResponseTimer);
     document.getElementById("wifiScanBtn").disabled=false;
-    document.getElementById("wifiScanStatus").textContent="ESP32 không quét được Wi-Fi · xem Serial Monitor";
+    document.getElementById("wifiScanStatus").textContent="ESP32 could not scan for Wi-Fi · check the Serial Monitor";
     return;
   }
   const weatherMessages={
-    WEATHER_STARTED:["Đang tải dự báo thời tiết...",true,false],
-    WEATHER_BUSY:["Đang có một lượt cập nhật chạy · vui lòng chờ",false,true],
-    WEATHER_COOLDOWN:["Vừa cập nhật gần đây · thử lại sau ít giây",false,true],
-    WEATHER_OK:["Cập nhật thời tiết thành công",true,true],
-    WEATHER_FAILED:["Cập nhật thất bại · giữ dữ liệu cũ",false,true],
-    ERR_WIFI:["Wi-Fi chưa kết nối",false,true]
+    WEATHER_STARTED:["Loading weather forecast...",true,false],
+    WEATHER_BUSY:["An update is already in progress · please wait",false,true],
+    WEATHER_COOLDOWN:["Recently updated · try again in a few seconds",false,true],
+    WEATHER_OK:["Weather updated successfully",true,true],
+    WEATHER_FAILED:["Update failed · keeping cached data",false,true],
+    ERR_WIFI:["Wi-Fi is not connected",false,true]
   };
   if(weatherMessages[chunk]){
     const [message,ok,finished]=weatherMessages[chunk];
@@ -309,7 +309,7 @@ function handleNotifications(event){
       const button=document.getElementById("weatherBtn");
       if(button.disabled){
         button.disabled=false;
-        document.getElementById("weatherStatus").textContent="Hết thời gian chờ cập nhật";
+        document.getElementById("weatherStatus").textContent="Weather update timed out";
       }
     },120000);
     return;
@@ -322,7 +322,7 @@ function handleNotifications(event){
       if(Array.isArray(networks)){
         clearTimeout(wifiScanResponseTimer);
         populateWifiDropdown(networks);
-        document.getElementById("wifiScanStatus").textContent="Tìm thấy "+networks.length+" mạng Wi-Fi";
+        document.getElementById("wifiScanStatus").textContent="Found "+networks.length+" Wi-Fi networks";
         document.getElementById("wifiScanBtn").disabled=false;
       }
       receivedData="";
@@ -336,7 +336,7 @@ function handleNotifications(event){
  */
 function populateWifiDropdown(networks){
   const select=document.getElementById("wifiSelect");
-  select.innerHTML='<option value="">Chọn mạng Wi-Fi</option>';
+  select.innerHTML='<option value="">Select a Wi-Fi network</option>';
   networks.forEach(ssid=>{
     const option=document.createElement("option");
     option.value=ssid;
@@ -358,8 +358,8 @@ function onWifiSelected(){
 async function sendWiFiConfig(){
   const ssid=document.getElementById("ssid").value.trim();
   const pass=document.getElementById("pass").value;
-  if(!ssid){setStatus("Nhập tên Wi-Fi",false);return}
-  if(await sendBLECommand("WIFI:"+ssid+","+pass))setStatus("Đã gửi cấu hình Wi-Fi",true);
+  if(!ssid){setStatus("Enter a Wi-Fi network name",false);return}
+  if(await sendBLECommand("WIFI:"+ssid+","+pass))setStatus("Wi-Fi configuration sent",true);
 }
 </script>
 </body>
