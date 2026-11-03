@@ -334,16 +334,27 @@ void toggleWeatherDetails(const WeatherData& weather) {
         // Run the opening transition here, directly from the double-press
         // handler. This guarantees frames are rendered even if the main-loop
         // animation scheduler is delayed by button/event processing.
+        // Animate the panel from the first forecast card to the full detail panel.
+        // Keep the normal weather face visible behind the expanding panel.
+        weatherDetailsOpen = false;
         constexpr int frames = 18;
         for (int frame = 0; frame <= frames; ++frame) {
             const float progress = (float)frame / frames;
             const float eased = easeOutCubic(progress);
 
+            const int x = 12 + (int)(4.0f * eased);
+            const int y = 124 - (int)(104.0f * eased);
+            const int w = 42 + (int)(158.0f * eased);
+            const int h = 78 + (int)(122.0f * eased);
+            const int radius = 5 + (int)(10.0f * eased);
+
+            drawWeatherFaceData(weather);
             tft.fillRoundRect(x, y, w, h, radius, 0x1082);
             tft.drawRoundRect(x, y, w, h, radius, 0x7BEF);
-
             delay(16);
         }
+
+        weatherDetailsOpen = true;
 
         // Clear the previous weather face after the transition, then render
         // the detail panel on a clean black background.
@@ -361,12 +372,6 @@ void toggleWeatherDetails(const WeatherData& weather) {
         for (int frame = 0; frame <= frames; ++frame) {
             const float progress = (float)frame / frames;
             const float eased = easeInOutCubic(progress);
-
-            const int x = 16 - (int)(4.0f * eased);
-            const int y = 124 - (int)(104.0f * eased);
-            const int w = 42 + (int)(158.0f * eased);
-            const int h = 78 + (int)(122.0f * eased);
-            const int radius = 5 + (int)(10.0f * eased);
 
             // Reverse the opening geometry: start full-size, end at the card.
             const float reverse = 1.0f - eased;
