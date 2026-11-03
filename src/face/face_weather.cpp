@@ -291,7 +291,7 @@ static void drawWeatherDetailsRows(int scrollOffset = 0) {
     for (int row = 0; row < 5; ++row) {
         int item = weatherDetailsScroll + row;
         if (item >= 9) break;
-        int y = 3 + row * 17 - scrollOffset;
+        int y = 3 + row * 14 - scrollOffset;
         tft.setTextColor(0x7BEF, 0x1082);
         tft.drawString(labels[item], 4, y, 1);
         tft.setTextColor(TFT_WHITE, 0x1082);
@@ -336,13 +336,19 @@ void toggleWeatherDetails(const WeatherData& weather) {
 bool scrollWeatherDetails(const WeatherData& weather) {
     if (!weatherDetailsOpen || weatherDetailsAnimating) return false;
     if (weatherDetailsScrollAnimating) return true;
-    // Stop at the final page (Rain); do not wrap or start a no-op animation.
-    if (weatherDetailsScroll >= 4) return true;
+
     detailWeather = weather;
+
+    // Nine rows are shown five at a time. After the final page (Rain),
+    // the next press returns to the first page (Moonrise).
+    if (weatherDetailsScroll >= 4) {
+        weatherDetailsScroll = 0;
+        drawWeatherDetails();
+        return true;
+    }
+
     weatherDetailsScrollFrom = weatherDetailsScroll;
-    // Nine rows are available and five fit at once, so valid
-    // starting offsets are 0..4.
-    weatherDetailsScrollTo = min(weatherDetailsScroll + 1, 4);
+    weatherDetailsScrollTo = weatherDetailsScroll + 1;
     weatherDetailsScrollAt = millis();
     weatherDetailsScrollAnimating = true;
     return true;
