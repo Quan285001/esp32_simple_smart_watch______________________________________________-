@@ -1,4 +1,4 @@
-//button_manager.cpp
+// Button input manager implementation.
 
 #include <Arduino.h>
 #include "button_manager.h"
@@ -15,6 +15,10 @@ static bool pendingSinglePress = false;
 static uint32_t pendingSingleAtMs = 0;
 static constexpr uint32_t DOUBLE_PRESS_MS = 280;
 
+/**
+ * @brief Configures the BOOT button input and initializes the debouncing state.
+
+ */
 void beginButtonManager() {
     pinMode(BUTTON_PIN, INPUT_PULLUP);
     stableState = digitalRead(BUTTON_PIN);
@@ -22,6 +26,10 @@ void beginButtonManager() {
     lastChangeMs = millis();
 }
 
+/**
+ * @brief Samples the BOOT button and dispatches short, double, and long-press events.
+
+ */
 void updateButtonManager() {
     const uint32_t now = millis();
     const bool raw = digitalRead(BUTTON_PIN);
