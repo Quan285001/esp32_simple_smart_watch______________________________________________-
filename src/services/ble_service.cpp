@@ -148,6 +148,32 @@ void toggleBLE() {
     Serial.println("[BLE] Bluetooth ON (advertising restarted; stack retained).");
 }
 
+// Fully release the Bluetooth controller/host before light sleep.
+// beginBLE() can initialize a fresh stack after the device wakes.
+void shutdownBLEForSleep() {
+    if (bleAdvertising != nullptr) {
+        bleAdvertising->stop();
+    }
+
+    if (bleStackInitialized) {
+        BLEDevice::deinit(true);
+    }
+
+    bleAdvertising = nullptr;
+    commandCharacteristic = nullptr;
+    bleServer = nullptr;
+    clientConnected = false;
+    bleEnabled = false;
+    bleStackInitialized = false;
+
+    if (commandQueue != nullptr) {
+        vQueueDelete(commandQueue);
+        commandQueue = nullptr;
+    }
+
+    Serial.println("[BLE] Stack deinitialized for light sleep.");
+}
+
 bool isBLEEnabled() {
     return bleEnabled;
 }
