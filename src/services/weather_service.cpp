@@ -24,6 +24,11 @@ WeatherData currentWeather = {};
 static String weatherLatitude = WEATHER_LATITUDE;
 static String weatherLongitude = WEATHER_LONGITUDE;
 
+/**
+ * @brief Validates and updates the coordinates used for weather requests.
+ * @param latitude Input or state used by this operation.
+ * @param longitude Input or state used by this operation.
+ */
 void setWeatherCoordinates(float latitude, float longitude) {
     if (!isfinite(latitude) || !isfinite(longitude) ||
         latitude < -90.0f || latitude > 90.0f ||
@@ -34,6 +39,10 @@ void setWeatherCoordinates(float latitude, float longitude) {
                   weatherLatitude.c_str(), weatherLongitude.c_str());
 }
 
+/**
+ * @brief Returns the shared mutex protecting the published weather snapshot.
+
+ */
 static SemaphoreHandle_t getWeatherMutex() {
     static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
     return mutex;
@@ -45,6 +54,10 @@ static SemaphoreHandle_t getWeatherMutex() {
 // PERSISTENT WEATHER CACHE
 // =====================================================
 
+/**
+ * @brief Serializes the weather snapshot and stores it persistently in NVS.
+ * @param data Input or state used by this operation.
+ */
 static void saveWeatherCache(const WeatherData& data) {
     JsonDocument doc;
     doc["currentTemp"] = data.currentTemp;
@@ -81,6 +94,10 @@ static void saveWeatherCache(const WeatherData& data) {
     }
 }
 
+/**
+ * @brief Loads, validates, and publishes the previously saved weather snapshot.
+
+ */
 bool loadWeatherCache() {
     Preferences prefs;
     if (!prefs.begin("weather", true)) return false;
@@ -132,6 +149,10 @@ bool loadWeatherCache() {
 // WEATHER DESCRIPTION
 // =====================================================
 
+/**
+ * @brief Maps an Open-Meteo weather code to a human-readable condition.
+ * @param code Input or state used by this operation.
+ */
 static String weatherDescription(int code) {
     if (code == 0) return "Clear sky";
     if (code == 1) return "Mainly clear";
@@ -156,6 +177,10 @@ static String weatherDescription(int code) {
 // FETCH WEATHER
 // =====================================================
 
+/**
+ * @brief Fetches, validates, and publishes the current conditions and 24-hour forecast.
+
+ */
 bool fetchHourlyWeather() {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println(
@@ -439,6 +464,10 @@ bool fetchHourlyWeather() {
 // SAFE SNAPSHOT
 // =====================================================
 
+/**
+ * @brief Returns a thread-safe copy of the current weather data.
+
+ */
 WeatherData getWeatherSnapshot() {
     WeatherData snapshot = {};
 
@@ -473,6 +502,10 @@ WeatherData getWeatherSnapshot() {
 // FETCH OPTIONAL LUNAR DETAILS (SEPARATE BOOT STAGE)
 // =====================================================
 
+/**
+ * @brief Fetches optional sunrise, sunset, moonrise, moonset, and moon-phase details and merges them into the cached snapshot.
+
+ */
 bool fetchLunarDetails() {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("[LUNAR] Wi-Fi offline; keeping cached lunar data.");
