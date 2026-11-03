@@ -15,9 +15,6 @@ extern TFT_eSPI tft;
 static int selectedForecastIndex = 0;
 static bool forecastSelectionInitialized = false;
 static bool weatherDetailsOpen = false;
-static bool weatherDetailsAnimating = false;
-static bool weatherDetailsOpening = false;
-static uint32_t weatherDetailsAnimationAt = 0;
 static int weatherDetailsScroll = 0;
 static int weatherDetailsScrollFrom = 0;
 static int weatherDetailsScrollTo = 0;
@@ -25,8 +22,6 @@ static bool weatherDetailsScrollAnimating = false;
 static uint32_t weatherDetailsScrollAt = 0;
 static WeatherData detailWeather;
 
-static constexpr int DETAIL_CARD_X = 16, DETAIL_CARD_Y = 124;
-static constexpr int DETAIL_CARD_W = 42, DETAIL_CARD_H = 78;
 static constexpr int DETAIL_PANEL_X = 20, DETAIL_PANEL_Y = 20;
 static constexpr int DETAIL_PANEL_W = 200, DETAIL_PANEL_H = 200;
 
@@ -330,7 +325,6 @@ void toggleWeatherDetails(const WeatherData& weather) {
     // cleared the entire TFT repeatedly and caused visible flashing.
     detailWeather = weather;
     weatherDetailsOpen = !weatherDetailsOpen;
-    weatherDetailsAnimating = false;
 
     if (weatherDetailsOpen) {
         weatherDetailsScroll = 0;
@@ -341,7 +335,7 @@ void toggleWeatherDetails(const WeatherData& weather) {
 }
 
 bool scrollWeatherDetails(const WeatherData& weather) {
-    if (!weatherDetailsOpen || weatherDetailsAnimating) return false;
+    if (!weatherDetailsOpen) return false;
     if (weatherDetailsScrollAnimating) return true;
 
     detailWeather = weather;
