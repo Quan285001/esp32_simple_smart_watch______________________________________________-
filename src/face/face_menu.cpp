@@ -167,9 +167,8 @@ void drawItemStatus(
         if (index == 0) {
 
             const bool enabled = isBLEEnabled();
-            const bool connected = isBLEConnected();
-            tft.setTextColor(!enabled ? RED : (connected ? GREEN : AMBER), background);
-            tft.drawString(!enabled ? "OFF" : (connected ? "LINK" : "ADV"), 205, itemCenterY(index), 1);
+            tft.setTextColor(enabled ? GREEN : RED, background);
+            tft.drawString(enabled ? "ON" : "OFF", 205, itemCenterY(index), 1);
         }
 
         else if (index == 1) {
