@@ -40,6 +40,13 @@ void drawSmartWeatherIconSpr(int currentHour, int x, int y) {
  * @param heartRate Input or state used by this operation.
  * @param steps Input or state used by this operation.
  */
+/**
+ * @brief Renders the analog clock face and its clock hands.
+ * @param timeinfo Input or state used by this operation.
+ * @param millisValue Input or state used by this operation.
+ * @param heartRate Input or state used by this operation.
+ * @param steps Input or state used by this operation.
+ */
 void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int steps) {
     (void)heartRate;
     (void)steps;
