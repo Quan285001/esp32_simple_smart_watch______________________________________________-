@@ -11,11 +11,14 @@
 static constexpr char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 static constexpr char CHARACTERISTIC_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
+static BLEServer *bleServer = nullptr;
+static BLEAdvertising *bleAdvertising = nullptr;
 static BLECharacteristic *commandCharacteristic = nullptr;
 static QueueHandle_t commandQueue = nullptr;
+
 static volatile bool clientConnected = false;
-static bool bleInitialized = false;
-static volatile bool bleShuttingDown = false;
+static volatile bool bleEnabled = false;
+static bool bleStackInitialized = false;
 
 class ServerCallbacks final : public BLEServerCallbacks {
     void onConnect(BLEServer *) override {
@@ -24,8 +27,9 @@ class ServerCallbacks final : public BLEServerCallbacks {
 
     void onDisconnect(BLEServer *server) override {
         clientConnected = false;
-        // Do not restart advertising while the user is turning Bluetooth OFF.
-        if (!bleShuttingDown && server != nullptr) {
+
+        // Resume advertising only when Bluetooth is logically enabled.
+        if (bleEnabled && server != nullptr) {
             server->getAdvertising()->start();
         }
     }
@@ -45,39 +49,50 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
 };
 
 void beginBLE() {
-    if (bleInitialized) {
-        Serial.println("[BLE] Already enabled.");
+    if (bleStackInitialized) {
+        Serial.println("[BLE] Stack already initialized.");
         return;
     }
+
     if (commandQueue == nullptr) {
         commandQueue = xQueueCreate(5, 256);
     }
+
     if (commandQueue == nullptr) {
         Serial.println("[BLE] Command queue allocation failed.");
         return;
     }
 
-    bleShuttingDown = false;
+    Serial.println("[BLE] Initializing stack once...");
     BLEDevice::init("ESP32_Watch_C3");
-    Serial.println("[BLE] Before init");
-    BLEDevice::init("ESP32_Watch_C3");
-    Serial.println("[BLE] After init");
+    bleStackInitialized = true;
 
-    Serial.println("[BLE] Before setMTU");
-    BLEDevice::setMTU(185);
-    Serial.println("[BLE] After setMTU");
+    Serial.println("[BLE] Creating server...");
+    bleServer = BLEDevice::createServer();
+    if (bleServer == nullptr) {
+        Serial.println("[BLE] Server creation failed.");
+        return;
+    }
+    bleServer->setCallbacks(new ServerCallbacks());
 
-    Serial.println("[BLE] Before createServer");
-    BLEServer *server = BLEDevice::createServer();
-    Serial.println("[BLE] After createServer");
-    server->setCallbacks(new ServerCallbacks());
+    BLEService *service = bleServer->createService(SERVICE_UUID);
+    if (service == nullptr) {
+        Serial.println("[BLE] Service creation failed.");
+        return;
+    }
 
-    BLEService *service = server->createService(SERVICE_UUID);
     commandCharacteristic = service->createCharacteristic(
         CHARACTERISTIC_UUID,
         BLECharacteristic::PROPERTY_READ |
             BLECharacteristic::PROPERTY_WRITE |
-            BLECharacteristic::PROPERTY_NOTIFY);
+            BLECharacteristic::PROPERTY_WRITE_NR |
+            BLECharacteristic::PROPERTY_NOTIFY
+    );
+
+    if (commandCharacteristic == nullptr) {
+        Serial.println("[BLE] Characteristic creation failed.");
+        return;
+    }
 
     commandCharacteristic->addDescriptor(new BLE2902());
     commandCharacteristic->setCallbacks(new CharacteristicCallbacks());
@@ -85,40 +100,56 @@ void beginBLE() {
 
     service->start();
 
-    BLEAdvertising *advertising = BLEDevice::getAdvertising();
-    advertising->addServiceUUID(SERVICE_UUID);
-    advertising->setScanResponse(true);
-    advertising->start();
-
-    bleInitialized = true;
-    Serial.println("[BLE] Advertising as ESP32_Watch_C3.");
-    }
-
-void toggleBLE() {
-    if (bleInitialized) {
-        // Prevent the disconnect callback from restarting advertising.
-        bleShuttingDown = true;
-
-        BLEAdvertising *advertising = BLEDevice::getAdvertising();
-        if (advertising != nullptr) advertising->stop();
-
-        clientConnected = false;
-        commandCharacteristic = nullptr;
-
-        BLEDevice::deinit(true);
-        bleInitialized = false;
-        // Keep the guard set until beginBLE() starts a fresh BLE stack.
-
-        Serial.println("[BLE] Bluetooth OFF (stack deinit requested).");
+    bleAdvertising = BLEDevice::getAdvertising();
+    if (bleAdvertising == nullptr) {
+        Serial.println("[BLE] Advertising instance unavailable.");
         return;
     }
 
-    Serial.println("[BLE] Enabling Bluetooth...");
-    beginBLE();
+    bleAdvertising->addServiceUUID(SERVICE_UUID);
+    bleAdvertising->setScanResponse(true);
+
+    bleEnabled = true;
+    bleAdvertising->start();
+
+    Serial.println("[BLE] Advertising as ESP32_Watch_C3.");
+}
+
+void toggleBLE() {
+    if (!bleStackInitialized) {
+        Serial.println("[BLE] Stack not initialized; initializing now.");
+        beginBLE();
+        return;
+    }
+
+    if (bleEnabled) {
+        // Keep the BLE host/server alive. Only stop discoverability.
+        // This avoids deinit(true) followed by an unsafe stack reinitialization.
+        if (bleAdvertising != nullptr) {
+            bleAdvertising->stop();
+        }
+
+        bleEnabled = false;
+        Serial.println("[BLE] Bluetooth OFF (advertising stopped; stack retained).");
+        return;
+    }
+
+    if (bleAdvertising == nullptr) {
+        bleAdvertising = BLEDevice::getAdvertising();
+    }
+
+    if (bleAdvertising == nullptr) {
+        Serial.println("[BLE] Cannot enable: advertising instance unavailable.");
+        return;
+    }
+
+    bleEnabled = true;
+    bleAdvertising->start();
+    Serial.println("[BLE] Bluetooth ON (advertising restarted; stack retained).");
 }
 
 bool isBLEEnabled() {
-    return bleInitialized;
+    return bleEnabled;
 }
 
 bool readBLECommand(String &command) {
@@ -136,8 +167,7 @@ bool readBLECommand(String &command) {
 void sendBLENotification(const String &message) {
     if (!clientConnected || commandCharacteristic == nullptr) return;
 
-    // Keep each notification within the default ATT payload size. The web
-    // client concatenates notifications until it receives the closing ']'.
+    // Default ATT MTU carries 20 bytes of notification payload.
     for (size_t offset = 0; offset < message.length(); offset += 20) {
         String chunk = message.substring(offset, offset + 20);
         commandCharacteristic->setValue(chunk.c_str());
