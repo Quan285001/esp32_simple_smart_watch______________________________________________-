@@ -153,10 +153,6 @@ void drawCurrentScreen(bool force) {
             break;
         }
 
-        /**
-         * @brief Implements the draw system info screen operation.
-         * @param enterSubMenu( Input or state used by this operation.
-         */
         case SCREEN_INFO:
             drawSystemInfoScreen();
             break;
@@ -283,10 +279,6 @@ void selectMenuItem() {
                 currentMenuLevel = MENU_MAIN;
                 break;
 
-            /**
-             * @brief Enters the connectivity or system submenu based on the selected main-menu item.
-             * @param MENU_CONNECTIVITY Input or state used by this operation.
-             */
             case 2:
             case 3:
                 enterSubMenu();
@@ -305,10 +297,6 @@ void selectMenuItem() {
 
         switch (menuIndex) {
 
-            /**
-             * @brief Implements the toggle ble operation.
-             * @param MENU_SYSTEM Input or state used by this operation.
-             */
             case 0:
                 toggleBLE();
                 resetMenuScreen();
@@ -336,10 +324,6 @@ void selectMenuItem() {
 
         switch (menuIndex) {
 
-            /**
-             * @brief Starts NTP synchronization and reports whether local time is available.
-             * @param onButtonShortPress( Input or state used by this operation.
-             */
             case 0:
                 syncTime();
                 break;
