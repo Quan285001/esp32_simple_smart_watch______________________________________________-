@@ -192,6 +192,14 @@ float easeOutCubic(float t) {
  * @param wifiConnected Input or state used by this operation.
  * @param background Input or state used by this operation.
  */
+/**
+ * @brief Draws the connectivity status indicator beside a menu item.
+ * @param level Active menu level.
+ * @param index Menu item index.
+ * @param wifiStatus Whether Wi-Fi is enabled.
+ * @param wifiConnected Whether Wi-Fi is connected.
+ * @param background Background color behind the status label.
+ */
 void drawItemStatus(
     MenuLevel level,
     int index,
@@ -491,6 +499,13 @@ void resetMenuScreen() {
  * @param level Input or state used by this operation.
  * @param wifiStatus Input or state used by this operation.
  * @param wifiConnected Input or state used by this operation.
+ */
+/**
+ * @brief Renders the current menu state and advances the selection animation.
+ * @param selectedIndex Index of the currently selected menu item.
+ * @param level Active menu level.
+ * @param wifiStatus Whether Wi-Fi is enabled.
+ * @param wifiConnected Whether Wi-Fi is connected.
  */
 void drawMenuScreen(
     int selectedIndex,
