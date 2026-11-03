@@ -145,7 +145,7 @@ void drawWeatherFaceData(const WeatherData& weather) {
 // 10. START FORECAST ANIMATION
 // =====================================================
 
-// Được gọi khi người dùng nhấn nút chuyển giờ dự báo.
+// Called when the user presses the button to advance to the next forecast hour.
 /**
  * @brief Implements the advance weather forecast operation.
  * @param weather Input or state used by this operation.
@@ -170,7 +170,7 @@ void advanceWeatherForecast(const WeatherData& weather) {
 // 11. ANIMATION UPDATE
 // =====================================================
 
-// Cập nhật animation forecast.
+// Updates the forecast animation.
 /**
  * @brief Implements the update weather face animation operation.
  * @param weather Input or state used by this operation.
@@ -198,11 +198,11 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
     drawWeatherUpdateCountdown();
     if (!weatherAnimating) return;
 
-    // Tính tiến trình animation.
+    // Calculate the animation progress.
     uint32_t elapsed = millis() - animationStartedAt;
     float progress = clamp01((float)elapsed / WEATHER_ANIMATION_MS);
 
-    // Khi animation kết thúc, cập nhật panel và forecast.
+    // Commit the selected forecast and redraw the panel when the animation completes.
     if (progress >= 1.0f) {
         selectedForecastIndex = animationNewIndex;
         weatherAnimating = false;
