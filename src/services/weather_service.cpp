@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include <time.h>
 #include <Preferences.h>
+#include <esp_heap_caps.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -391,8 +392,12 @@ bool fetchHourlyWeather() {
     next.detailsValid = true;
     }
 
-    Serial.printf("[MEM] Free heap before Lunar TLS: %u bytes\n",
-                  (unsigned int)ESP.getFreeHeap());
+    Serial.printf(
+        "[MEM] Before Lunar TLS: free=%u, largest_block=%u, min_free=%u bytes\n",
+        (unsigned int)ESP.getFreeHeap(),
+        (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+        (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
+    );
 
     // SunriseSunset.io resolves today's date from the supplied coordinates.
     // This avoids making lunar data depend on a successful NTP sync.
@@ -402,6 +407,11 @@ bool fetchHourlyWeather() {
 
     WiFiClientSecure lunarClient;
     lunarClient.setInsecure();
+
+    // The default TLS record buffers are relatively large for this optional
+    // request. Smaller buffers reduce peak internal-RAM demand on ESP32-C3.
+    lunarClient.setBufferSizes(4096, 4096);
+
     HTTPClient lunarHttp;
     lunarHttp.setConnectTimeout(5000);
     lunarHttp.setTimeout(5000);
