@@ -5,6 +5,20 @@
 #include "../app/app_state.h"
 
 extern TFT_eSPI tft;
+/**
+ * @brief Implements the is bleconnected operation.
+ * @param "Clock" Input or state used by this operation.
+ * @param "Weather" Input or state used by this operation.
+ * @param "Connectivity" Input or state used by this operation.
+ * @param "Bluetooth" Input or state used by this operation.
+ * @param "Wi-Fi" Input or state used by this operation.
+ * @param Time" Input or state used by this operation.
+ * @param Weather" Input or state used by this operation.
+ * @param Info" Input or state used by this operation.
+ * @param Sleep" Input or state used by this operation.
+ * @param "Restart" Input or state used by this operation.
+ * @param level Input or state used by this operation.
+ */
 extern bool isBLEConnected();
 extern bool isBLEEnabled();
 
@@ -94,6 +108,10 @@ const char *getMenuLabel(MenuLevel level, int index) {
 
     switch (level) {
 
+        /**
+         * @brief Implements the if operation.
+         * @param level Input or state used by this operation.
+         */
         case MENU_MAIN:
             if (index < MAIN_MENU_COUNT)
                 return MAIN_LABELS[index];
@@ -135,11 +153,23 @@ int getMenuCount(MenuLevel level) {
 // LAYOUT
 // =====================================================
 
+/**
+ * @brief Implements the item center y operation.
+ * @param index Input or state used by this operation.
+ */
 int itemCenterY(int index) {
     return MENU_START_Y + index * MENU_ITEM_STEP;
 }
 
+/**
+ * @brief Implements the box top operation.
+ * @param index Input or state used by this operation.
+ */
 int boxTop(int index) {
+    /**
+     * @brief Implements the item center y operation.
+     * @param t Input or state used by this operation.
+     */
     return itemCenterY(index) - BOX_H / 2;
 }
 
@@ -152,6 +182,14 @@ float easeOutCubic(float t) {
 // STATUS
 // =====================================================
 
+/**
+ * @brief Implements the draw item status operation.
+ * @param level Input or state used by this operation.
+ * @param index Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param wifiConnected Input or state used by this operation.
+ * @param background Input or state used by this operation.
+ */
 void drawItemStatus(
     MenuLevel level,
     int index,
@@ -171,6 +209,10 @@ void drawItemStatus(
             tft.drawString(enabled ? "ON" : "OFF", 205, itemCenterY(index), 1);
         }
 
+        /**
+         * @brief Implements the if operation.
+         * @param 1 Input or state used by this operation.
+         */
         else if (index == 1) {
 
             tft.setTextColor(
@@ -193,6 +235,13 @@ void drawItemStatus(
 // DRAW MENU ITEM
 // =====================================================
 
+/**
+ * @brief Implements the draw menu item operation.
+ * @param level Input or state used by this operation.
+ * @param index Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param wifiConnected Input or state used by this operation.
+ */
 void drawMenuItem(
     MenuLevel level,
     int index,
@@ -221,6 +270,13 @@ void drawMenuItem(
     );
 }
 
+/**
+ * @brief Implements the draw selected label operation.
+ * @param level Input or state used by this operation.
+ * @param index Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param wifiConnected Input or state used by this operation.
+ */
 void drawSelectedLabel(
     MenuLevel level,
     int index,
@@ -249,6 +305,12 @@ void drawSelectedLabel(
     );
 }
 
+/**
+ * @brief Implements the redraw all menu items operation.
+ * @param level Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param wifiConnected Input or state used by this operation.
+ */
 void redrawAllMenuItems(
     MenuLevel level,
     bool wifiStatus,
@@ -272,6 +334,10 @@ void redrawAllMenuItems(
 // DRAW SELECTION BOX
 // =====================================================
 
+/**
+ * @brief Implements the draw selection box operation.
+ * @param topY Input or state used by this operation.
+ */
 void drawSelectionBox(int topY) {
 
     tft.fillRoundRect(
@@ -297,6 +363,12 @@ void drawSelectionBox(int topY) {
 // STATIC SCREEN
 // =====================================================
 
+/**
+ * @brief Implements the draw menu static operation.
+ * @param level Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param wifiConnected Input or state used by this operation.
+ */
 void drawMenuStatic(
     MenuLevel level,
     bool wifiStatus,
@@ -347,6 +419,10 @@ void drawMenuStatic(
         tft.drawString(status, 120, 190, 1);
     }
 
+    /**
+     * @brief Implements the if operation.
+     * @param MENU_SYSTEM Input or state used by this operation.
+     */
     else if (level == MENU_SYSTEM) {
 
         tft.setTextColor(MUTED, BG);
@@ -384,6 +460,10 @@ void drawMenuStatic(
 // RESET MENU
 // =====================================================
 
+/**
+ * @brief Invalidates menu animation and rendering state so the next frame is fully redrawn.
+
+ */
 void resetMenuScreen() {
 
     initialized = false;
@@ -397,6 +477,13 @@ void resetMenuScreen() {
 // MAIN MENU RENDERER
 // =====================================================
 
+/**
+ * @brief Renders the menu and advances its selection animation when necessary.
+ * @param selectedIndex Input or state used by this operation.
+ * @param level Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param wifiConnected Input or state used by this operation.
+ */
 void drawMenuScreen(
     int selectedIndex,
     MenuLevel level,
