@@ -366,9 +366,10 @@ void toggleWeatherDetails(const WeatherData& weather) {
     } else {
         weatherDetailsScrollAnimating = false;
 
-        // Restore the weather face as the background, then collapse the panel
-        // toward the first forecast card. Redrawing the background each frame
-        // prevents remnants of the larger panel from being left on screen.
+        // Restore the complete weather face once before the closing animation.
+        // Keep it as a stable background while only the detail panel collapses.
+        drawWeatherFaceData(weather);
+
         constexpr int frames = 18;
         for (int frame = 0; frame <= frames; ++frame) {
             const float progress = (float)frame / frames;
@@ -382,13 +383,10 @@ void toggleWeatherDetails(const WeatherData& weather) {
             const int closeH = 78 + (int)(122.0f * reverse);
             const int closeRadius = 5 + (int)(10.0f * reverse);
 
-            drawWeatherFaceData(weather);
             tft.fillRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x1082);
             tft.drawRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x7BEF);
             delay(16);
         }
-
-        drawWeatherFaceData(weather);
     }
 }
 
