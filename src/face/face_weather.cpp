@@ -383,6 +383,9 @@ void toggleWeatherDetails(const WeatherData& weather) {
             const int closeH = 78 + (int)(122.0f * reverse);
             const int closeRadius = 5 + (int)(10.0f * reverse);
 
+            // Restore the weather face without clearing to black, removing
+            // the previous frame's larger panel before drawing this frame.
+            renderWeatherFaceData(weather, false);
             tft.fillRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x1082);
             tft.drawRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x7BEF);
             delay(16);
@@ -416,10 +419,10 @@ bool scrollWeatherDetails(const WeatherData& weather) {
 // =====================================================
 
 // Vẽ toàn bộ giao diện khi mở màn hình Weather.
-void drawWeatherFaceData(const WeatherData& weather) {
+static void renderWeatherFaceData(const WeatherData& weather, bool clearScreen) {
     weatherAnimating = false;
     if (weatherDetailsOpen) { detailWeather = weather; drawWeatherDetails(); return; }
-    tft.fillScreen(TFT_BLACK);
+    if (clearScreen) tft.fillScreen(TFT_BLACK);
 
     if (!weather.valid) {
         tft.setTextDatum(MC_DATUM);
@@ -442,6 +445,11 @@ void drawWeatherFaceData(const WeatherData& weather) {
     drawMainWeatherContent(weather, selectedForecastIndex, 0);
     drawForecastRow(weather, selectedForecastIndex);
     drawWeatherFooter();
+}
+
+// Public renderer: normal screen transitions clear the display first.
+void drawWeatherFaceData(const WeatherData& weather) {
+    renderWeatherFaceData(weather, true);
 }
 
 // =====================================================
