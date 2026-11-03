@@ -5,4 +5,7 @@
 #include "config.h"
 
 WeatherData getWeatherSnapshot();
-void fetchHourlyWeather();
+bool fetchHourlyWeather();
+bool loadWeatherCache();
+
+void setWeatherCoordinates(float latitude, float longitude);

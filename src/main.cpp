@@ -1,6 +1,9 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <Preferences.h>
+#include <esp_sleep.h>
+#include <driver/gpio.h>
 #include <TFT_eSPI.h>
 #include "config.h"
 #include "app/app_state.h"
@@ -8,6 +11,9 @@
 #include "input/button_manager.h"
 #include "services/time_service.h"
 #include "services/weather_service.h"
+#include "services/ble_service.h"
+
+extern void handleBLECommands();
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -42,6 +48,7 @@ extern void updateWeatherFaceAnimation(const WeatherData& w);
 
 static uint32_t lastWeatherFetchMs = 0;
 static uint32_t lastWeatherRetryMs = 0;
+static uint32_t lastManualWeatherRequestMs = 0;
 static uint32_t lastClockDrawMs = 0;
 static uint32_t lastMenuFrameMs = 0;
 static uint32_t lastWeatherFrameMs = 0;
@@ -52,11 +59,33 @@ static bool previousWifiConnected = false;
 static volatile bool weatherFetchRunning = false;
 
 static constexpr uint32_t WEATHER_RETRY_MS = 15000;
+static constexpr uint32_t WEATHER_MANUAL_COOLDOWN_MS = 10000;
 static constexpr uint32_t WIFI_RETRY_MS = 15000;
 static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
 static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
+static bool lightSleepRequested = false;
+
+void requestLightSleep() { lightSleepRequested = true; }
+
+static void enterLightSleep() {
+    lightSleepRequested = false;
+    while (digitalRead(BUTTON_PIN) == LOW) delay(10);
+    tft.fillScreen(TFT_BLACK);
+    delay(30);
+    gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    Serial.println("[POWER] Light sleep: press hardware button to wake.");
+    esp_light_sleep_start();
+    gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
+    tft.init();
+    tft.setRotation(0);
+    tft.fillScreen(TFT_BLACK);
+    beginButtonManager();
+    drawCurrentScreen(true);
+    Serial.println("[POWER] Wake complete.");
+}
 
 static const char* wifiStatusName(wl_status_t status) {
     switch (status) {
@@ -79,9 +108,10 @@ static void weatherFetchTask(void *parameter) {
 
     Serial.println("[WEATHER] Background fetch started.");
 
-    fetchHourlyWeather();
+    const bool success = fetchHourlyWeather();
 
-    Serial.println("[WEATHER] Background fetch finished.");
+    sendBLENotification(success ? "WEATHER_OK" : "WEATHER_FAILED");
+    Serial.println(success ? "[WEATHER] Background fetch finished successfully." : "[WEATHER] Background fetch failed.");
 
     weatherFetchRunning = false;
 
@@ -131,6 +161,26 @@ static bool scheduleWeatherFetch() {
     Serial.println("[WEATHER] Fetch scheduled.");
 
     return true;
+}
+
+// Manual BLE requests use the same single-flight scheduler as automatic updates.
+// Return: 0=scheduled, 1=already running, 2=Wi-Fi unavailable, 3=cooldown.
+uint8_t requestWeatherFetch() {
+    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
+    if (weatherFetchRunning) return 1;
+
+    const uint32_t now = millis();
+    if (lastManualWeatherRequestMs != 0 &&
+        now - lastManualWeatherRequestMs < WEATHER_MANUAL_COOLDOWN_MS) {
+        return 3;
+    }
+
+    if (!scheduleWeatherFetch()) {
+        return weatherFetchRunning ? 1 : 2;
+    }
+
+    lastManualWeatherRequestMs = now;
+    return 0;
 }
 
 // =====================================================
@@ -201,10 +251,18 @@ void setup() {
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
 
-    WiFi.begin(
-        WIFI_SSID,
-        WIFI_PASSWORD
-    );
+    Preferences prefs;
+    prefs.begin("watch", true);
+    String savedSsid = prefs.getString("ssid", WIFI_SSID);
+    String savedPass = prefs.getString("pass", WIFI_PASSWORD);
+    float savedLat = prefs.getFloat("lat", NAN);
+    float savedLon = prefs.getFloat("lon", NAN);
+    prefs.end();
+    loadWeatherCache();
+    WiFi.begin(savedSsid.c_str(), savedPass.c_str());
+    if (isfinite(savedLat) && isfinite(savedLon)) setWeatherCoordinates(savedLat, savedLon);
+
+    beginBLE();
 
     lastWifiRetryMs = millis();
     lastWifiStatusLogMs = 0;
@@ -228,6 +286,11 @@ void loop() {
     // -------------------------------------------------
 
     updateButtonManager();
+    handleBLECommands();
+    if (lightSleepRequested) {
+        enterLightSleep();
+        return;
+    }
 
     // -------------------------------------------------
     // WIFI CONNECTION MONITOR + DIAGNOSTICS
@@ -271,7 +334,8 @@ void loop() {
             WiFi.RSSI()
         );
 
-        lastWeatherFetchMs = 0;
+        // Force the normal scheduler to refresh cache-backed data after reconnect.
+        lastWeatherFetchMs = now - WEATHER_REFRESH_MS;
         lastWeatherRetryMs = 0;
     }
 

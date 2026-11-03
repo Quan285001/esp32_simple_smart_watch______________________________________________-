@@ -15,9 +15,6 @@ extern TFT_eSPI tft;
 static int selectedForecastIndex = 0;
 static bool forecastSelectionInitialized = false;
 static bool weatherDetailsOpen = false;
-static bool weatherDetailsAnimating = false;
-static bool weatherDetailsOpening = false;
-static uint32_t weatherDetailsAnimationAt = 0;
 static int weatherDetailsScroll = 0;
 static int weatherDetailsScrollFrom = 0;
 static int weatherDetailsScrollTo = 0;
@@ -25,8 +22,9 @@ static bool weatherDetailsScrollAnimating = false;
 static uint32_t weatherDetailsScrollAt = 0;
 static WeatherData detailWeather;
 
-static constexpr int DETAIL_CARD_X = 16, DETAIL_CARD_Y = 124;
-static constexpr int DETAIL_CARD_W = 42, DETAIL_CARD_H = 78;
+// Forward declaration: detail-view close returns to the main weather face.
+void drawWeatherFaceData(const WeatherData& weather);
+
 static constexpr int DETAIL_PANEL_X = 20, DETAIL_PANEL_Y = 20;
 static constexpr int DETAIL_PANEL_W = 200, DETAIL_PANEL_H = 200;
 
@@ -273,14 +271,7 @@ static void drawWeatherFooter() {
 // 8A. WEATHER DETAIL CARD
 // =====================================================
 
-static void drawWeatherDetailsContent(int scrollOffset = 0) {
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(TFT_WHITE, 0x1082);
-    tft.drawString("WEATHER DETAILS", 32, 28, 2);
-    drawTemperatureWithDegree(detailWeather.currentTemp, 34, 51, 4, TFT_WHITE, 0x1082);
-    tft.setTextColor(0xFDE0, 0x1082);
-    tft.drawString(detailWeather.moonPhase.length() ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
-
+static void drawWeatherDetailsRows(int scrollOffset = 0) {
     const char* labels[] = {"Moonrise", "Moonset", "Sunrise", "Sunset", "Sunshine", "Daylight", "Wind 10m", "Pressure", "Rain"};
     String values[] = {
         detailWeather.moonrise, detailWeather.moonset, detailWeather.sunrise, detailWeather.sunset,
@@ -291,11 +282,14 @@ static void drawWeatherDetailsContent(int scrollOffset = 0) {
         String(detailWeather.rain, 1) + " mm"
     };
 
+    // Clear only the clipped list viewport; keep the panel and fixed header intact.
     tft.setViewport(28, 108, 184, 74, true);
+    tft.fillRect(0, 0, 184, 74, 0x1082);
+
     for (int row = 0; row < 5; ++row) {
         int item = weatherDetailsScroll + row;
         if (item >= 9) break;
-        int y = 3 + row * 17 - scrollOffset;
+        int y = 3 + row * 14 - scrollOffset;
         tft.setTextColor(0x7BEF, 0x1082);
         tft.drawString(labels[item], 4, y, 1);
         tft.setTextColor(TFT_WHITE, 0x1082);
@@ -303,6 +297,18 @@ static void drawWeatherDetailsContent(int scrollOffset = 0) {
     }
 
     tft.resetViewport();
+}
+
+static void drawWeatherDetailsContent(int scrollOffset = 0) {
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(TFT_WHITE, 0x1082);
+    tft.drawString("WEATHER DETAILS", 32, 28, 2);
+    drawTemperatureWithDegree(detailWeather.currentTemp, 34, 51, 4, TFT_WHITE, 0x1082);
+    tft.setTextColor(0xFDE0, 0x1082);
+    tft.drawString(detailWeather.moonPhase.length() ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
+
+    drawWeatherDetailsRows(scrollOffset);
+
     tft.setTextColor(0x7BEF, 0x1082);
     tft.drawCentreString("Press: scroll  Double: close", 120, 204, 1);
     tft.drawString("Powered by SunriseSunset.io", 31, 188, 1);
@@ -317,22 +323,70 @@ static void drawWeatherDetails() {
 
 void toggleWeatherDetails(const WeatherData& weather) {
     if (!weather.valid || !weather.detailsValid) return;
-    if (weatherDetailsAnimating) return;
-    weatherDetailsOpening = !weatherDetailsOpen;
+
     detailWeather = weather;
-    if (weatherDetailsOpening) weatherDetailsScroll = 0;
-    weatherDetailsAnimating = true;
-    weatherDetailsAnimationAt = millis();
+    weatherDetailsOpen = !weatherDetailsOpen;
+
+    if (weatherDetailsOpen) {
+        weatherDetailsScroll = 0;
+        weatherDetailsScrollAnimating = false;
+
+        // Run the opening transition here, directly from the double-press
+        // handler. This guarantees frames are rendered even if the main-loop
+        // animation scheduler is delayed by button/event processing.
+        // Animate the panel from the first forecast card to the full detail panel.
+        // Keep the normal weather face visible behind the expanding panel.
+        weatherDetailsOpen = false;
+        constexpr int frames = 18;
+        for (int frame = 0; frame <= frames; ++frame) {
+            const float progress = (float)frame / frames;
+            const float eased = easeOutCubic(progress);
+
+            const int x = 12 + (int)(4.0f * eased);
+            const int y = 124 - (int)(104.0f * eased);
+            const int w = 42 + (int)(158.0f * eased);
+            const int h = 78 + (int)(122.0f * eased);
+            const int radius = 5 + (int)(10.0f * eased);
+
+            // Draw only the expanding panel. Do not redraw the weather face
+            // here because drawWeatherFaceData() clears the whole screen.
+            tft.fillRoundRect(x, y, w, h, radius, 0x1082);
+            tft.drawRoundRect(x, y, w, h, radius, 0x7BEF);
+            delay(16);
+        }
+
+        weatherDetailsOpen = true;
+
+        // Clear the previous weather face after the transition, then render
+        // the detail panel on a clean black background.
+        tft.fillScreen(TFT_BLACK);
+        tft.fillRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x1082);
+        tft.drawRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x7BEF);
+        drawWeatherDetailsContent();
+    } else {
+        // Closing is intentionally immediate. Avoid the per-frame full-face
+        // redraw that caused ghost frames and SPI flicker on ESP32-C3.
+        weatherDetailsScrollAnimating = false;
+        drawWeatherFaceData(weather);
+    }
 }
 
 bool scrollWeatherDetails(const WeatherData& weather) {
-    if (!weatherDetailsOpen || weatherDetailsAnimating) return false;
+    if (!weatherDetailsOpen) return false;
     if (weatherDetailsScrollAnimating) return true;
+
     detailWeather = weather;
+
+    // Nine rows are shown five at a time. After the final page (Rain),
+    // the next press returns to the first page (Moonrise).
+    if (weatherDetailsScroll >= 4) {
+        weatherDetailsScroll = 0;
+        drawWeatherDetails();
+        return true;
+    }
+
     weatherDetailsScrollFrom = weatherDetailsScroll;
-    // Nine rows are available and five fit at once, so valid
-    // starting offsets are 0..4.
-    weatherDetailsScrollTo = (weatherDetailsScroll + 1) % 5;
+    weatherDetailsScrollTo = weatherDetailsScroll + 1;
     weatherDetailsScrollAt = millis();
     weatherDetailsScrollAnimating = true;
     return true;
@@ -343,10 +397,10 @@ bool scrollWeatherDetails(const WeatherData& weather) {
 // =====================================================
 
 // Vẽ toàn bộ giao diện khi mở màn hình Weather.
-void drawWeatherFaceData(const WeatherData& weather) {
+static void renderWeatherFaceData(const WeatherData& weather, bool clearScreen) {
     weatherAnimating = false;
     if (weatherDetailsOpen) { detailWeather = weather; drawWeatherDetails(); return; }
-    tft.fillScreen(TFT_BLACK);
+    if (clearScreen) tft.fillScreen(TFT_BLACK);
 
     if (!weather.valid) {
         tft.setTextDatum(MC_DATUM);
@@ -369,6 +423,11 @@ void drawWeatherFaceData(const WeatherData& weather) {
     drawMainWeatherContent(weather, selectedForecastIndex, 0);
     drawForecastRow(weather, selectedForecastIndex);
     drawWeatherFooter();
+}
+
+// Public renderer: normal screen transitions clear the display first.
+void drawWeatherFaceData(const WeatherData& weather) {
+    renderWeatherFaceData(weather, true);
 }
 
 // =====================================================
@@ -400,47 +459,18 @@ void advanceWeatherForecast(const WeatherData& weather) {
 void updateWeatherFaceAnimation(const WeatherData& weather) {
     (void)weather;
 
-    if (weatherDetailsAnimating) {
-        const uint32_t duration = 420;
-        float p = clamp01((float)(millis() - weatherDetailsAnimationAt) / duration);
-        float eased = easeOutCubic(p);
-        float q = weatherDetailsOpening ? eased : 1.0f - eased;
-        const int x = (int)(DETAIL_CARD_X + (DETAIL_PANEL_X - DETAIL_CARD_X) * q);
-        const int y = (int)(DETAIL_CARD_Y + (DETAIL_PANEL_Y - DETAIL_CARD_Y) * q);
-        const int w = (int)(DETAIL_CARD_W + (DETAIL_PANEL_W - DETAIL_CARD_W) * q);
-        const int h = (int)(DETAIL_CARD_H + (DETAIL_PANEL_H - DETAIL_CARD_H) * q);
-        const int radius = (int)(10.0f + 5.0f * q);
-
-        tft.fillScreen(TFT_BLACK);
-        tft.fillRoundRect(x, y, w, h, radius, 0x1082);
-        tft.drawRoundRect(x, y, w, h, radius, 0x7BEF);
-        if (q > 0.70f) {
-            tft.setViewport(DETAIL_PANEL_X + 2, DETAIL_PANEL_Y + 2, DETAIL_PANEL_W - 4, DETAIL_PANEL_H - 4, true);
-            drawWeatherDetailsContent();
-            tft.resetViewport();
-        }
-        if (p >= 1.0f) {
-            weatherDetailsAnimating = false;
-            weatherDetailsOpen = weatherDetailsOpening;
-            if (weatherDetailsOpen) drawWeatherDetails();
-            else drawWeatherFaceData(detailWeather);
-        }
-        return;
-    }
-
     if (weatherDetailsOpen) {
         if (weatherDetailsScrollAnimating) {
             const uint32_t duration = 260;
             float p = clamp01((float)(millis() - weatherDetailsScrollAt) / duration);
             float eased = easeOutCubic(p);
-            tft.fillScreen(TFT_BLACK);
-            tft.fillRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x1082);
-            tft.drawRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x7BEF);
-            drawWeatherDetailsContent((int)(17.0f * eased));
+            // Animate only the list contents; do not clear/redraw the full display.
+            drawWeatherDetailsRows((int)(14.0f * eased));
             if (p >= 1.0f) {
                 weatherDetailsScroll = weatherDetailsScrollTo;
                 weatherDetailsScrollAnimating = false;
-                drawWeatherDetails();
+                // Only refresh the list viewport; keep the header and panel stable.
+                drawWeatherDetailsRows(0);
             }
         }
         return;

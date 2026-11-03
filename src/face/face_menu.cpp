@@ -5,6 +5,8 @@
 #include "../app/app_state.h"
 
 extern TFT_eSPI tft;
+extern bool isBLEConnected();
+extern bool isBLEEnabled();
 
 namespace {
 
@@ -17,8 +19,8 @@ constexpr uint16_t RED      = 0xF800;
 constexpr uint16_t AMBER    = 0xFDE0;
 constexpr uint16_t WHITE    = 0xFFFF;
 
-constexpr int MENU_START_Y = 59;
-constexpr int MENU_ITEM_STEP = 27;
+constexpr int MENU_START_Y = 52;
+constexpr int MENU_ITEM_STEP = 24;
 
 constexpr int BOX_X = 22;
 constexpr int BOX_W = 196;
@@ -44,6 +46,7 @@ const char *const SYSTEM_LABELS[] = {
     "Sync Time",
     "Sync Weather",
     "Device Info",
+    "Light Sleep",
     "Restart",
     "Back"
 };
@@ -63,6 +66,7 @@ uint32_t animationStart = 0;
 
 bool previousWifiStatus = false;
 bool previousWifiConnected = false;
+bool previousBLEEnabled = false;
 
 // =====================================================
 // MENU DATA
@@ -162,9 +166,9 @@ void drawItemStatus(
 
         if (index == 0) {
 
-            // Bluetooth placeholder
-            tft.setTextColor(AMBER, background);
-            tft.drawString("SOON", 205, itemCenterY(index), 1);
+            const bool enabled = isBLEEnabled();
+            tft.setTextColor(enabled ? GREEN : RED, background);
+            tft.drawString(enabled ? "ON" : "OFF", 205, itemCenterY(index), 1);
         }
 
         else if (index == 1) {
@@ -412,9 +416,11 @@ void drawMenuScreen(
         count - 1
     );
 
+    const bool bleEnabled = isBLEEnabled();
     bool wifiChanged =
         previousWifiStatus != wifiStatus ||
         previousWifiConnected != wifiConnected;
+    bool bleChanged = previousBLEEnabled != bleEnabled;
 
     bool menuChanged =
         previousLevel != level;
@@ -423,7 +429,7 @@ void drawMenuScreen(
     // INITIALIZE / REDRAW
     // -------------------------------------------------
 
-    if (!initialized || wifiChanged || menuChanged) {
+    if (!initialized || wifiChanged || bleChanged || menuChanged) {
 
         tft.startWrite();
 
@@ -452,6 +458,7 @@ void drawMenuScreen(
 
         previousWifiStatus = wifiStatus;
         previousWifiConnected = wifiConnected;
+        previousBLEEnabled = bleEnabled;
 
         animating = false;
         initialized = true;
