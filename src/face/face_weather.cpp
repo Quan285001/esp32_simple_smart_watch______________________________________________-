@@ -7,6 +7,37 @@
 
 extern TFT_eSPI tft;
 
+extern int32_t getWeatherRefreshCountdownSeconds();
+
+// Show the next automatic refresh countdown at the top of the face.
+static int32_t lastCountdownDisplaySecond = INT32_MIN;
+
+static void drawWeatherUpdateCountdown(bool force = false) {
+    const int32_t seconds = getWeatherRefreshCountdownSeconds();
+    if (!force && seconds == lastCountdownDisplaySecond) return;
+    lastCountdownDisplaySecond = seconds;
+
+    char label[32];
+    if (seconds == -1) {
+        snprintf(label, sizeof(label), "Wi-Fi OFF");
+    } else if (seconds == -2) {
+        snprintf(label, sizeof(label), "Waiting for Wi-Fi");
+    } else if (seconds == -3) {
+        snprintf(label, sizeof(label), "Updating weather...");
+    } else {
+        const uint32_t minutes = static_cast<uint32_t>(seconds) / 60U;
+        const uint32_t remainder = static_cast<uint32_t>(seconds) % 60U;
+        snprintf(label, sizeof(label), "Next update %02lu:%02lu",
+                 static_cast<unsigned long>(minutes),
+                 static_cast<unsigned long>(remainder));
+    }
+
+    tft.fillRect(0, 11, 240, 18, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(0x7BEF, TFT_BLACK);
+    tft.drawString(label, 120, 20, 1);
+}
+
 // =====================================================
 // 1. WEATHER FACE STATE
 // =====================================================
@@ -401,6 +432,7 @@ static void renderWeatherFaceData(const WeatherData& weather, bool clearScreen) 
     weatherAnimating = false;
     if (weatherDetailsOpen) { detailWeather = weather; drawWeatherDetails(); return; }
     if (clearScreen) tft.fillScreen(TFT_BLACK);
+    drawWeatherUpdateCountdown(true);
 
     if (!weather.valid) {
         tft.setTextDatum(MC_DATUM);
@@ -475,6 +507,8 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         }
         return;
     }
+
+    drawWeatherUpdateCountdown();
     if (!weatherAnimating) return;
 
     // Tính tiến trình animation.
