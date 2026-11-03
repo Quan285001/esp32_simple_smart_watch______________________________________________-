@@ -13,6 +13,10 @@ extern int32_t getWeatherRefreshCountdownSeconds();
 // Show the next automatic refresh countdown at the top of the face.
 static int32_t lastCountdownDisplaySecond = INT32_MIN;
 
+/**
+ * @brief Implements the draw weather update countdown operation.
+ * @param force Input or state used by this operation.
+ */
 static void drawWeatherUpdateCountdown(bool force = false) {
     const int32_t seconds = getWeatherRefreshCountdownSeconds();
     if (!force && seconds == lastCountdownDisplaySecond) return;
@@ -100,6 +104,10 @@ static bool forecastSpriteReady = false;
 static bool forecastSpriteAttempted = false;
 
 // Initialize the sprite only once.
+/**
+ * @brief Implements the init forecast sprite operation.
+
+ */
 static bool initForecastSprite() {
     if (forecastSpriteReady) return true;
     if (forecastSpriteAttempted) return false;
@@ -125,6 +133,10 @@ static bool initForecastSprite() {
 
 // Clamp a value to the range from 0 to 1.
 
+/**
+ * @brief Initializes and renders the Weather screen using the supplied weather snapshot.
+ * @param weather Input or state used by this operation.
+ */
 void drawWeatherFaceData(const WeatherData& weather) {
     renderWeatherFaceData(weather, true);
 }
