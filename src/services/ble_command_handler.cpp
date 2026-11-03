@@ -15,6 +15,10 @@ extern bool wifiEnabled;
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
 
+/**
+ * @brief Parses and executes one BLE command.
+ * @param cmd Input or state used by this operation.
+ */
 static void handleCommand(const String &cmd) {
     if (cmd.startsWith("SYNC_TIME:")) {
         time_t epoch = static_cast<time_t>(cmd.substring(10).toInt());
