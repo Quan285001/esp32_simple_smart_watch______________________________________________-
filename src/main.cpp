@@ -322,6 +322,10 @@ void setup() {
         bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
         const bool weatherUpdated = fetchHourlyWeather();
         bootTerminalLog(weatherUpdated ? "[OK] Weather saved" : "[WARN] Using weather cache", weatherUpdated ? TFT_GREEN : TFT_YELLOW);
+        // If the live request failed but cache exists, retry after entering the UI.
+        lastWeatherFetchMs = weatherUpdated
+            ? millis()
+            : millis() - WEATHER_REFRESH_MS;
 
         // Stage 4: optional lunar request is a separate, later operation.
         if (weatherUpdated) {
