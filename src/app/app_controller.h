@@ -7,12 +7,12 @@ void onButtonShortPress();
 void onButtonDoublePress();
 void onButtonLongPress();
 
-// Điều hướng menu
+// Menu navigation.
 void enterSubMenu();
 void goBackMenu();
 void selectMenuItem();
 
-// Đồng bộ hệ thống
+// System synchronization.
 void syncTime();
 void syncWeather();
 void showDeviceInfo();
