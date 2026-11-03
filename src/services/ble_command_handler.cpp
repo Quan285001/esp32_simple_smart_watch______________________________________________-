@@ -74,14 +74,14 @@ static void handleCommand(const String &cmd) {
         sendBLENotification("WIFI_SCAN_STARTED");
 
         const bool restoreWifiOff = !wifiEnabled;
-        Serial.printf("[WIFI] Starting scan (restore_off=%s, mode=%d, status=%d).\\n",
+        Serial.printf("[WIFI] Starting scan (restore_off=%s, mode=%d, status=%d).\n",
                       restoreWifiOff ? "true" : "false",
                       static_cast<int>(WiFi.getMode()),
                       static_cast<int>(WiFi.status()));
 
         if (restoreWifiOff) WiFi.mode(WIFI_STA);
         int count = WiFi.scanNetworks(false, true);
-        Serial.printf("[WIFI] Scan finished; result=%d.\\n", count);
+        Serial.printf("[WIFI] Scan finished; result=%d.\n", count);
 
         if (count < 0) {
             WiFi.scanDelete();
@@ -96,7 +96,7 @@ static void handleCommand(const String &cmd) {
 
         String json;
         serializeJson(doc, json);
-        Serial.printf("[WIFI] Sending %d networks (%u JSON bytes).\\n",
+        Serial.printf("[WIFI] Sending %d networks (%u JSON bytes).\n",
                       count, static_cast<unsigned int>(json.length()));
 
         WiFi.scanDelete();
