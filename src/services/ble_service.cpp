@@ -21,6 +21,10 @@ static volatile bool bleEnabled = false;
 static bool bleStackInitialized = false;
 
 class ServerCallbacks final : public BLEServerCallbacks {
+    /**
+     * @brief Implements the on connect operation.
+     * @param nullptr Input or state used by this operation.
+     */
     void onConnect(BLEServer *) override {
         clientConnected = true;
     }
@@ -36,6 +40,14 @@ class ServerCallbacks final : public BLEServerCallbacks {
 };
 
 class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
+    /**
+     * @brief Implements the on write operation.
+     * @param memcpy(buffer Input or state used by this operation.
+     * @param value.data() Input or state used by this operation.
+     * @param xQueueSend(commandQueue Input or state used by this operation.
+     * @param buffer Input or state used by this operation.
+     * @param beginBLE( Input or state used by this operation.
+     */
     void onWrite(BLECharacteristic *characteristic) override {
         if (commandQueue == nullptr) return;
 
@@ -115,6 +127,10 @@ void beginBLE() {
     Serial.println("[BLE] Advertising as ESP32_Watch_C3.");
 }
 
+/**
+ * @brief Enables or disables BLE advertising while retaining the initialized BLE stack.
+
+ */
 void toggleBLE() {
     if (!bleStackInitialized) {
         Serial.println("[BLE] Stack not initialized; initializing now.");
@@ -150,6 +166,10 @@ void toggleBLE() {
 
 // Fully release the Bluetooth controller/host before light sleep.
 // beginBLE() can initialize a fresh stack after the device wakes.
+/**
+ * @brief Stops advertising and deinitializes the BLE stack and command queue before Light Sleep.
+
+ */
 void shutdownBLEForSleep() {
     if (bleAdvertising != nullptr) {
         bleAdvertising->stop();
@@ -174,10 +194,18 @@ void shutdownBLEForSleep() {
     Serial.println("[BLE] Stack deinitialized for light sleep.");
 }
 
+/**
+ * @brief Reports whether BLE advertising is logically enabled.
+
+ */
 bool isBLEEnabled() {
     return bleEnabled;
 }
 
+/**
+ * @brief Reads one pending command from the FreeRTOS queue without blocking.
+ * @param command Input or state used by this operation.
+ */
 bool readBLECommand(String &command) {
     if (commandQueue == nullptr) return false;
 
@@ -190,6 +218,10 @@ bool readBLECommand(String &command) {
     return true;
 }
 
+/**
+ * @brief Sends a BLE notification, splitting long messages into ATT-sized chunks.
+ * @param message Input or state used by this operation.
+ */
 void sendBLENotification(const String &message) {
     if (!clientConnected || commandCharacteristic == nullptr) return;
 
@@ -202,6 +234,10 @@ void sendBLENotification(const String &message) {
     }
 }
 
+/**
+ * @brief Reports whether a BLE client is currently connected.
+
+ */
 bool isBLEConnected() {
     return clientConnected;
 }
