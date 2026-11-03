@@ -210,27 +210,31 @@ void toggleWiFi() {
             "[WIFI] Disabled; cached weather retained."
         );
     } else {
-        wifiEnabled = true;
+        // Reuse credentials saved through BLE instead of always falling back
+        // to compile-time defaults.
+        Preferences prefs;
+        String savedSsid = WIFI_SSID;
+        String savedPass = WIFI_PASSWORD;
+        if (prefs.begin("watch", true)) {
+            savedSsid = prefs.getString("ssid", WIFI_SSID);
+            savedPass = prefs.getString("pass", WIFI_PASSWORD);
+            prefs.end();
+        }
+        if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
+        if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
 
+        wifiEnabled = true;
         WiFi.mode(WIFI_STA);
         WiFi.setAutoReconnect(true);
-
-        WiFi.begin(
-            WIFI_SSID,
-            WIFI_PASSWORD
-        );
+        WiFi.begin(savedSsid.c_str(), savedPass.c_str());
 
         lastWifiRetryMs = millis();
         lastWifiStatusLogMs = 0;
-
         beginTimeService();
-
         lastWeatherFetchMs = 0;
         lastWeatherRetryMs = 0;
 
-        Serial.println(
-            "[WIFI] Enabled; reconnecting."
-        );
+        Serial.println("[WIFI] Enabled; reconnecting with saved credentials.");
     }
 }
 
@@ -309,7 +313,7 @@ void setup() {
         struct tm bootTime = {};
         bool timeSynced = false;
         const uint32_t timeStart = millis();
-        while (millis() - timeStart < 8000) {
+        while (millis() - timeStart < 15000) {
             if (getLocalTime(&bootTime, 100)) {
                 timeSynced = bootTime.tm_year >= (2024 - 1900);
                 if (timeSynced) break;
@@ -341,14 +345,25 @@ void setup() {
         Serial.println("[WIFI] Boot connection timed out; starting offline with cache.");
     }
 
-    // BLE is deliberately initialized last, after network/time/weather stages.
+    // Initialize BLE only after network/time/weather work is complete, then
+    // stop advertising to leave the device in a low-radio idle state.
     bootTerminalLog("[BLE] Initializing Bluetooth", TFT_YELLOW);
     beginBLE();
-    bootTerminalLog("[OK] Bluetooth ready", TFT_GREEN);
+    if (isBLEEnabled()) {
+        toggleBLE();
+    }
+    bootTerminalLog("[OK] Bluetooth initialized; advertising OFF", TFT_GREEN);
 
+    // Wi-Fi is no longer needed after the boot sync stages. Keep credentials
+    // and weather cache in NVS; only power down the radio.
+    bootTerminalLog("[NET] Turning Wi-Fi OFF", TFT_YELLOW);
+    WiFi.disconnect(false, false);
+    WiFi.mode(WIFI_OFF);
+    wifiEnabled = false;
+    previousWifiConnected = false;
     lastWifiRetryMs = millis();
     lastWifiStatusLogMs = 0;
-    previousWifiConnected = wifiConnectedAtBoot;
+    Serial.println("[WIFI] Boot sync complete; radio disabled.");
 
     // The application UI is released only after the ordered boot sequence.
     bootTerminalLog("[SYS] Starting clock interface", TFT_GREEN);
