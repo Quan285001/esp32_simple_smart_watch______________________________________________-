@@ -100,13 +100,11 @@ static bool lightSleepRequested = false;
 
 /**
  * @brief Schedules entry into Light Sleep mode from the main application loop.
-
  */
 void requestLightSleep() { lightSleepRequested = true; }
 
 /**
  * @brief Powers down Wi-Fi, Bluetooth, and the display before entering Light Sleep; restores the display and input after wake-up.
-
  */
 static void enterLightSleep() {
     lightSleepRequested = false;
@@ -199,7 +197,6 @@ static void weatherFetchTask(void *parameter) {
 
 /**
  * @brief Starts one background weather update when Wi-Fi is connected and no update is already running.
-
  */
 static bool scheduleWeatherFetch() {
     // Never start an automatic/manual request while Wi-Fi is disabled.
@@ -248,7 +245,6 @@ static bool scheduleWeatherFetch() {
 // Return: 0=scheduled, 1=already running, 2=Wi-Fi unavailable, 3=cooldown.
 /**
  * @brief Validates a manual weather request and applies the single-flight and cooldown rules.
-
  */
 uint8_t requestWeatherFetch() {
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
@@ -274,7 +270,6 @@ uint8_t requestWeatherFetch() {
 
 /**
  * @brief Enables or disables the Wi-Fi station interface and updates the application state.
-
  */
 void toggleWiFi() {
     if (wifiEnabled) {
@@ -322,7 +317,6 @@ void toggleWiFi() {
 
 /**
  * @brief Implements the setup operation.
-
  */
 void setup() {
     Serial.begin(115200);
@@ -411,11 +405,6 @@ void setup() {
         // If the live request failed but cache exists, retry after entering the UI.
         lastWeatherFetchMs = weatherUpdated
             ? millis()
-            /**
-             * @brief Implements the millis operation.
-             * @param separate Input or state used by this operation.
-             * @param (weatherUpdated Input or state used by this operation.
-             */
             : millis() - WEATHER_REFRESH_MS;
 
         // Stage 4: optional lunar request is a separate, later operation.
@@ -464,7 +453,6 @@ void setup() {
 
 /**
  * @brief Implements the loop operation.
-
  */
 void loop() {
     const uint32_t now = millis();
