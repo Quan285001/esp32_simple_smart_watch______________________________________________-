@@ -73,7 +73,6 @@ static uint8_t getMenuCount() {
 
 /**
  * @brief Resets the menu cursor and invalidates the menu renderer state.
-
  */
 static void resetMenuSelection() {
     menuIndex = 0;
@@ -186,7 +185,6 @@ void enterSubMenu() {
 
 /**
  * @brief Returns to the parent menu or the screen that was open before the menu.
-
  */
 void goBackMenu() {
     if (currentMenuLevel == MENU_MAIN) {
@@ -207,7 +205,6 @@ void goBackMenu() {
 
 /**
  * @brief Starts NTP synchronization and reports whether local time is available.
-
  */
 void syncTime() {
     Serial.println("[TIME] Starting NTP synchronization.");
@@ -225,7 +222,6 @@ void syncTime() {
 
 /**
  * @brief Performs a manual weather update when Wi-Fi is connected.
-
  */
 void syncWeather() {
     Serial.println("[WEATHER] Manual update requested.");
@@ -244,7 +240,6 @@ void syncWeather() {
 
 /**
  * @brief Prints hardware and memory diagnostics to the serial console.
-
  */
 void showDeviceInfo() {
     Serial.println("========== DEVICE INFO ==========");
@@ -263,7 +258,6 @@ void showDeviceInfo() {
 
 /**
  * @brief Executes the action associated with the selected item in the active menu.
-
  */
 void selectMenuItem() {
 
@@ -412,7 +406,6 @@ void onButtonShortPress() {
 // =====================================================
 /**
  * @brief Handles a double button press according to the active screen.
-
  */
 void onButtonDoublePress() {
     if (currentScreen == SCREEN_WEATHER) {
@@ -432,7 +425,6 @@ void onButtonDoublePress() {
 
 /**
  * @brief Opens the main menu or activates the selected menu item.
-
  */
 void onButtonLongPress() {
 
