@@ -132,10 +132,10 @@ function onDisconnected(){
 
 /**
  * @brief Queues and sends a command to the watch, returning whether the GATT write succeeded.
- * @param command Input used by this operation.
+ * @param command The command string to send to the watch.
  */
 async function sendBLECommand(command){
-  if(!bleCharacteristic){setStatus("Connect via Bluetooth first",false);return false}
+  if(!bleCharacteristic){setStatus("Connect to Bluetooth first",false);return false}
   const writeOperation=async()=>{
     if(!bleCharacteristic){setStatus("Bluetooth connection lost",false);return false}
     try{
@@ -161,8 +161,8 @@ async function sendBLECommand(command){
 
 /**
  * @brief Updates the connection status message and its connected-state styling.
- * @param message Input used by this operation.
- * @param connected Input used by this operation.
+ * @param message The status message to display.
+ * @param connected Whether the BLE connection is active.
  */
 function setStatus(message,connected){
   const el=document.getElementById("status");
@@ -184,7 +184,7 @@ async function syncTime(){
 async function syncWeather(){
   const button=document.getElementById("weatherBtn");
   const status=document.getElementById("weatherStatus");
-  if(!bleCharacteristic){setStatus("Not connected Bluetooth",false);return}
+  if(!bleCharacteristic){setStatus("Bluetooth is not connected",false);return}
   button.disabled=true;
   status.textContent="Sending request...";
   if(!await sendBLECommand("SYNC_WEATHER")){
@@ -229,7 +229,7 @@ function toggleLocation(){
 
 /**
  * @brief Sends the latest known coordinates when they have changed enough or a forced sync is requested.
- * @param force Input used by this operation.
+ * @param force Whether to send the position even if it has not changed.
  */
 async function sendLatestPosition(force){
   if(!latestPosition||!bleCharacteristic)return;
@@ -258,7 +258,7 @@ async function sleepWatch(){
 async function requestWiFiScan(){
   const button=document.getElementById("wifiScanBtn");
   const status=document.getElementById("wifiScanStatus");
-  if(!bleCharacteristic){status.textContent="Connect via Bluetooth first";return}
+  if(!bleCharacteristic){status.textContent="Connect to Bluetooth first";return}
   clearTimeout(wifiScanResponseTimer);
   receivedData="";
   button.disabled=true;
@@ -278,7 +278,7 @@ async function requestWiFiScan(){
 
 /**
  * @brief Processes BLE notifications, updates operation statuses, and assembles fragmented Wi-Fi scan results.
- * @param event Input used by this operation.
+ * @param event The BLE characteristic notification event.
  */
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
@@ -332,7 +332,7 @@ function handleNotifications(event){
 
 /**
  * @brief Rebuilds the Wi-Fi network selector using the networks returned by the watch.
- * @param networks Input used by this operation.
+ * @param networks The array of Wi-Fi network names returned by the watch.
  */
 function populateWifiDropdown(networks){
   const select=document.getElementById("wifiSelect");
