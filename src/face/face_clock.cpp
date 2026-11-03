@@ -18,6 +18,12 @@ static bool sprFaceCreated = false;
 #define COLOR_TEXT_MAIN 0xFFFF
 #define COLOR_TEXT_ACCENT 0xFBE0
 
+/**
+ * @brief Draws a sun or crescent-moon icon according to the current hour.
+ * @param currentHour Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ */
 void drawSmartWeatherIconSpr(int currentHour, int x, int y) {
     bool isNight = (currentHour < 6 || currentHour >= 18);
     if (isNight) {
@@ -27,17 +33,24 @@ void drawSmartWeatherIconSpr(int currentHour, int x, int y) {
     }
 }
 
+/**
+ * @brief Renders the analog clock face and its animated clock hands.
+ * @param timeinfo Input or state used by this operation.
+ * @param millisValue Input or state used by this operation.
+ * @param heartRate Input or state used by this operation.
+ * @param steps Input or state used by this operation.
+ */
 void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int steps) {
     (void)heartRate;
     (void)steps;
 
-    // Đảm bảo khởi tạo an toàn
+    // Initialize the sprite safely.
     if (!sprFaceCreated) {
         sprFace.setColorDepth(16);
         if (sprFace.createSprite(160, 160)) {
             sprFaceCreated = true;
         } else {
-            return; // Nếu không đủ RAM thì thoát an toàn tránh crash
+            return; // Exit safely if there is not enough RAM.
         }
     }
 
@@ -97,6 +110,6 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
     sprFace.fillCircle(cx, cy, 5, COLOR_SEC_HAND);
     sprFace.fillCircle(cx, cy, 2, COLOR_TEXT_MAIN);
 
-    // Đẩy sprite ra màn hình chính tại tọa độ (40, 40)
+    // Push the sprite to the main display at (40, 40).
     sprFace.pushSprite(40, 40);
 }
