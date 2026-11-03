@@ -37,6 +37,7 @@ extern void drawAnalogClockFace(
 );
 
 extern void showBootTerminal();
+extern void bootTerminalLog(const char* msg, uint16_t color);
 
 extern void drawMenuScreen(
     int selectedIndex,
@@ -113,7 +114,15 @@ static void weatherFetchTask(void *parameter) {
     const bool success = fetchHourlyWeather();
 
     sendBLENotification(success ? "WEATHER_OK" : "WEATHER_FAILED");
-    Serial.println(success ? "[WEATHER] Background fetch finished successfully." : "[WEATHER] Background fetch failed.");
+    Serial.println(success ? "[WEATHER] Weather stage finished." : "[WEATHER] Weather stage failed.");
+
+    // Lunar TLS runs only after Open-Meteo has completed and released its
+    // response/JSON allocations. It is optional and cannot invalidate weather.
+    if (success && WiFi.status() == WL_CONNECTED) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        Serial.println("[BOOT] Starting deferred lunar stage.");
+        fetchLunarDetails();
+    }
 
     weatherFetchRunning = false;
 
@@ -252,33 +261,95 @@ void setup() {
     Serial.println("[BOOT] GC9A01 ready");
 
     showBootTerminal();
+    bootTerminalLog("[BOOT] Reading saved settings", TFT_YELLOW);
 
-    drawCurrentScreen(true);
+    // Restore persistent settings/cache first. Reboot does not erase NVS.
+    Preferences prefs;
+    String savedSsid;
+    String savedPass;
+    float savedLat = NAN;
+    float savedLon = NAN;
+    if (prefs.begin("watch", true)) {
+        savedSsid = prefs.getString("ssid", WIFI_SSID);
+        savedPass = prefs.getString("pass", WIFI_PASSWORD);
+        savedLat = prefs.getFloat("lat", NAN);
+        savedLon = prefs.getFloat("lon", NAN);
+        prefs.end();
+    }
+    if (savedSsid.isEmpty()) savedSsid = WIFI_SSID;
+    if (savedPass.isEmpty()) savedPass = WIFI_PASSWORD;
+    if (isfinite(savedLat) && isfinite(savedLon)) {
+        setWeatherCoordinates(savedLat, savedLon);
+    }
 
+    const bool cacheLoaded = loadWeatherCache();
+    bootTerminalLog(cacheLoaded ? "[OK] Weather cache restored" : "[INFO] No weather cache", cacheLoaded ? TFT_GREEN : TFT_YELLOW);
+
+    // Stage 1: connect using credentials already stored in NVS.
+    bootTerminalLog("[NET] Starting saved Wi-Fi", TFT_YELLOW);
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
-
-    Preferences prefs;
-    prefs.begin("watch", true);
-    String savedSsid = prefs.getString("ssid", WIFI_SSID);
-    String savedPass = prefs.getString("pass", WIFI_PASSWORD);
-    float savedLat = prefs.getFloat("lat", NAN);
-    float savedLon = prefs.getFloat("lon", NAN);
-    prefs.end();
-    loadWeatherCache();
     WiFi.begin(savedSsid.c_str(), savedPass.c_str());
-    if (isfinite(savedLat) && isfinite(savedLon)) setWeatherCoordinates(savedLat, savedLon);
 
+    const uint32_t wifiStart = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 15000) {
+        delay(250);
+    }
+
+    const bool wifiConnectedAtBoot = WiFi.status() == WL_CONNECTED;
+    wifiEnabled = true;
+    if (wifiConnectedAtBoot) {
+        bootTerminalLog("[OK] Wi-Fi connected", TFT_GREEN);
+        Serial.printf("[WIFI] Boot connected. IP: %s, RSSI: %d dBm\\n",
+                      WiFi.localIP().toString().c_str(), WiFi.RSSI());
+
+        // Stage 2: NTP time synchronization, bounded so boot cannot hang forever.
+        bootTerminalLog("[TIME] Syncing NTP UTC+7", TFT_YELLOW);
+        beginTimeService();
+        struct tm bootTime = {};
+        bool timeSynced = false;
+        const uint32_t timeStart = millis();
+        while (millis() - timeStart < 8000) {
+            if (getLocalTime(&bootTime, 100)) {
+                timeSynced = bootTime.tm_year >= (2024 - 1900);
+                if (timeSynced) break;
+            }
+            delay(150);
+        }
+        bootTerminalLog(timeSynced ? "[OK] Time synchronized" : "[WARN] NTP unavailable", timeSynced ? TFT_GREEN : TFT_YELLOW);
+
+        // Stage 3: fetch and persist core weather before any lunar TLS request.
+        bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
+        const bool weatherUpdated = fetchHourlyWeather();
+        bootTerminalLog(weatherUpdated ? "[OK] Weather saved" : "[WARN] Using weather cache", weatherUpdated ? TFT_GREEN : TFT_YELLOW);
+
+        // Stage 4: optional lunar request is a separate, later operation.
+        if (weatherUpdated) {
+            delay(5000);
+            bootTerminalLog("[MOON] Fetching lunar data", TFT_YELLOW);
+            const bool lunarUpdated = fetchLunarDetails();
+            bootTerminalLog(lunarUpdated ? "[OK] Moon data saved" : "[WARN] Keeping moon cache", lunarUpdated ? TFT_GREEN : TFT_YELLOW);
+        } else {
+            bootTerminalLog("[MOON] Skipped; no fresh weather", TFT_YELLOW);
+        }
+    } else {
+        bootTerminalLog("[WARN] Wi-Fi unavailable", TFT_YELLOW);
+        Serial.println("[WIFI] Boot connection timed out; starting offline with cache.");
+    }
+
+    // BLE is deliberately initialized last, after network/time/weather stages.
+    bootTerminalLog("[BLE] Initializing Bluetooth", TFT_YELLOW);
     beginBLE();
+    bootTerminalLog("[OK] Bluetooth ready", TFT_GREEN);
 
     lastWifiRetryMs = millis();
     lastWifiStatusLogMs = 0;
+    previousWifiConnected = wifiConnectedAtBoot;
 
-    beginTimeService();
-
-    Serial.println(
-        "[WIFI] Connecting in background."
-    );
+    // The application UI is released only after the ordered boot sequence.
+    bootTerminalLog("[SYS] Starting clock interface", TFT_GREEN);
+    delay(350);
+    drawCurrentScreen(true);
 }
 
 // =====================================================
