@@ -7,6 +7,10 @@
 
 extern TFT_eSPI tft;
 
+/**
+ * @brief Implements the get weather refresh countdown seconds operation.
+ * @param false Input or state used by this operation.
+ */
 extern int32_t getWeatherRefreshCountdownSeconds();
 
 // Show the next automatic refresh countdown at the top of the face.
@@ -42,7 +46,7 @@ static void drawWeatherUpdateCountdown(bool force = false) {
 // 1. WEATHER FACE STATE
 // =====================================================
 
-// Giờ dự báo đang được chọn.
+// Currently selected forecast hour.
 static int selectedForecastIndex = 0;
 static bool forecastSelectionInitialized = false;
 static bool weatherDetailsOpen = false;
@@ -54,34 +58,46 @@ static uint32_t weatherDetailsScrollAt = 0;
 static WeatherData detailWeather;
 
 // Forward declaration: detail-view close returns to the main weather face.
+/**
+ * @brief Implements the draw weather face data operation.
+ * @param 20 Input or state used by this operation.
+ * @param 200 Input or state used by this operation.
+ * @param {37 Input or state used by this operation.
+ * @param 92 Input or state used by this operation.
+ * @param 148 Input or state used by this operation.
+ * @param forecast Input or state used by this operation.
+ * @param pixel Input or state used by this operation.
+ * @param RGB565 Input or state used by this operation.
+ * @param initForecastSprite( Input or state used by this operation.
+ */
 void drawWeatherFaceData(const WeatherData& weather);
 
 static constexpr int DETAIL_PANEL_X = 20, DETAIL_PANEL_Y = 20;
 static constexpr int DETAIL_PANEL_W = 200, DETAIL_PANEL_H = 200;
 
-// Trạng thái animation.
+// Animation state.
 static bool weatherAnimating = false;
 static uint32_t animationStartedAt = 0;
 
-// Thời gian và khoảng cách trượt của animation.
+// Animation duration and slide distance.
 static constexpr uint32_t WEATHER_ANIMATION_MS = 400;
 static constexpr int WEATHER_SLIDE_DISTANCE = 47;
 
-// Kích thước panel thời tiết.
+// Weather panel dimensions.
 static constexpr int PANEL_X = 15;
 static constexpr int PANEL_Y = 30;
 static constexpr int PANEL_W = 210;
 static constexpr int PANEL_H = 88;
 
-// Vị trí và kích thước hàng forecast.
+// Forecast row position and dimensions.
 static constexpr int CARD_Y = 124;
 static constexpr int CARD_W = 42;
 static constexpr int CARD_H = 78;
 
-// Vị trí tâm của 4 thẻ dự báo.
+// Center positions of the four forecast cards.
 static const int cardCenterX[4] = {37, 92, 148, 203};
 
-// Dữ liệu được lưu lại trong lúc animation.
+// Data retained while the animation is running.
 static WeatherData animationWeather;
 static int animationOldIndex = 0;
 static int animationNewIndex = 0;
@@ -97,7 +113,7 @@ static TFT_eSprite forecastSprite(&tft);
 static bool forecastSpriteReady = false;
 static bool forecastSpriteAttempted = false;
 
-// Khởi tạo sprite một lần duy nhất.
+// Initialize the sprite only once.
 static bool initForecastSprite() {
     if (forecastSpriteReady) return true;
     if (forecastSpriteAttempted) return false;
@@ -121,21 +137,33 @@ static bool initForecastSprite() {
 // 3. ANIMATION HELPERS
 // =====================================================
 
-// Giới hạn giá trị trong khoảng 0 đến 1.
+// Clamp a value to the range from 0 to 1.
+/**
+ * @brief Implements the clamp01 operation.
+ * @param value Input or state used by this operation.
+ */
 static float clamp01(float value) {
     if (value < 0.0f) return 0.0f;
     if (value > 1.0f) return 1.0f;
     return value;
 }
 
-// Chuyển động nhanh lúc đầu và chậm dần khi kết thúc.
+// Starts quickly and decelerates toward the end.
+/**
+ * @brief Implements the ease out cubic operation.
+ * @param t Input or state used by this operation.
+ */
 static float easeOutCubic(float t) {
     t = clamp01(t);
     float inv = 1.0f - t;
     return 1.0f - inv * inv * inv;
 }
 
-// Chuyển động chậm lúc đầu và cuối, nhanh ở giữa.
+// Starts and ends slowly, with faster movement in the middle.
+/**
+ * @brief Implements the ease in out cubic operation.
+ * @param t Input or state used by this operation.
+ */
 static float easeInOutCubic(float t) {
     t = clamp01(t);
 
@@ -149,7 +177,16 @@ static float easeInOutCubic(float t) {
 // 4. TEMPERATURE DRAWING
 // =====================================================
 
-// Vẽ nhiệt độ kèm ký hiệu độ C.
+// Draw a temperature value with the Celsius symbol.
+/**
+ * @brief Implements the draw temperature with degree operation.
+ * @param temp Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param font Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ * @param background Input or state used by this operation.
+ */
 static void drawTemperatureWithDegree(int temp, int x, int y, int font, uint16_t color, uint16_t background) {
     char buffer[8];
     snprintf(buffer, sizeof(buffer), "%d", temp);
@@ -173,13 +210,23 @@ static void drawTemperatureWithDegree(int temp, int x, int y, int font, uint16_t
 // 5. MAIN WEATHER PANEL
 // =====================================================
 
-// Vẽ nền panel phía trên.
+// Draw the background of the upper weather panel.
+/**
+ * @brief Implements the draw main panel background operation.
+
+ */
 static void drawMainPanelBackground() {
     tft.fillRoundRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 16, 0x1082);
     tft.drawRoundRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 16, 0x3186);
 }
 
-// Vẽ nội dung thời tiết của một giờ cụ thể.
+// Draw weather information for a specific forecast hour.
+/**
+ * @brief Implements the draw main weather content operation.
+ * @param weather Input or state used by this operation.
+ * @param index Input or state used by this operation.
+ * @param offsetY Input or state used by this operation.
+ */
 static void drawMainWeatherContent(const WeatherData& weather, int index, int offsetY) {
     index = (index + 24) % 24;
 
@@ -214,6 +261,14 @@ static void drawMainWeatherContent(const WeatherData& weather, int index, int of
 // =====================================================
 
 // Hàm này có thể vẽ lên TFT chính hoặc TFT Sprite.
+/**
+ * @brief Implements the draw forecast card operation.
+ * @param display Input or state used by this operation.
+ * @param forecast Input or state used by this operation.
+ * @param centerX Input or state used by this operation.
+ * @param cardY Input or state used by this operation.
+ * @param selected Input or state used by this operation.
+ */
 static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, int centerX, int cardY, bool selected) {
     const int boxX = centerX - CARD_W / 2;
 
@@ -256,6 +311,12 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
 // =====================================================
 
 // Vẽ 4 thẻ forecast vào sprite rồi đẩy lên màn hình.
+/**
+ * @brief Implements the draw forecast row to sprite operation.
+ * @param weather Input or state used by this operation.
+ * @param startIndex Input or state used by this operation.
+ * @param slideOffset Input or state used by this operation.
+ */
 static void drawForecastRowToSprite(const WeatherData& weather, int startIndex, int slideOffset) {
     forecastSprite.fillSprite(TFT_BLACK);
 
@@ -272,6 +333,11 @@ static void drawForecastRowToSprite(const WeatherData& weather, int startIndex, 
 }
 
 // Vẽ forecast tĩnh khi không có animation.
+/**
+ * @brief Implements the draw forecast row operation.
+ * @param weather Input or state used by this operation.
+ * @param startIndex Input or state used by this operation.
+ */
 static void drawForecastRow(const WeatherData& weather, int startIndex) {
     if (initForecastSprite()) {
         drawForecastRowToSprite(weather, startIndex, 0);
@@ -292,6 +358,10 @@ static void drawForecastRow(const WeatherData& weather, int startIndex) {
 // =====================================================
 
 // Footer không thay đổi trong animation nên chỉ vẽ một lần.
+/**
+ * @brief Implements the draw weather footer operation.
+
+ */
 static void drawWeatherFooter() {
     tft.fillRect(0, 207, 240, 30, TFT_BLACK);
 
@@ -304,6 +374,10 @@ static void drawWeatherFooter() {
 // 8A. WEATHER DETAIL CARD
 // =====================================================
 
+/**
+ * @brief Implements the draw weather details rows operation.
+ * @param 0 Input or state used by this operation.
+ */
 static void drawWeatherDetailsRows(int scrollOffset = 0) {
     const char* labels[] = {"Moonrise", "Moonset", "Sunrise", "Sunset", "Sunshine", "Daylight", "Wind 10m", "Pressure", "Rain"};
     String values[] = {
@@ -332,6 +406,10 @@ static void drawWeatherDetailsRows(int scrollOffset = 0) {
     tft.resetViewport();
 }
 
+/**
+ * @brief Implements the draw weather details content operation.
+ * @param 0 Input or state used by this operation.
+ */
 static void drawWeatherDetailsContent(int scrollOffset = 0) {
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(TFT_WHITE, 0x1082);
@@ -347,6 +425,10 @@ static void drawWeatherDetailsContent(int scrollOffset = 0) {
     tft.drawString("Powered by SunriseSunset.io", 31, 188, 1);
 }
 
+/**
+ * @brief Implements the draw weather details operation.
+
+ */
 static void drawWeatherDetails() {
     tft.fillScreen(TFT_BLACK);
     tft.fillRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x1082);
@@ -354,6 +436,10 @@ static void drawWeatherDetails() {
     drawWeatherDetailsContent();
 }
 
+/**
+ * @brief Implements the toggle weather details operation.
+ * @param weather Input or state used by this operation.
+ */
 void toggleWeatherDetails(const WeatherData& weather) {
     if (!weather.valid || !weather.detailsValid) return;
 
@@ -404,6 +490,10 @@ void toggleWeatherDetails(const WeatherData& weather) {
     }
 }
 
+/**
+ * @brief Implements the scroll weather details operation.
+ * @param weather Input or state used by this operation.
+ */
 bool scrollWeatherDetails(const WeatherData& weather) {
     if (!weatherDetailsOpen) return false;
     if (weatherDetailsScrollAnimating) return true;
@@ -430,6 +520,11 @@ bool scrollWeatherDetails(const WeatherData& weather) {
 // =====================================================
 
 // Vẽ toàn bộ giao diện khi mở màn hình Weather.
+/**
+ * @brief Implements the render weather face data operation.
+ * @param weather Input or state used by this operation.
+ * @param clearScreen Input or state used by this operation.
+ */
 static void renderWeatherFaceData(const WeatherData& weather, bool clearScreen) {
     weatherAnimating = false;
     if (weatherDetailsOpen) { detailWeather = weather; drawWeatherDetails(); return; }
@@ -460,6 +555,10 @@ static void renderWeatherFaceData(const WeatherData& weather, bool clearScreen) 
 }
 
 // Public renderer: normal screen transitions clear the display first.
+/**
+ * @brief Implements the draw weather face data operation.
+ * @param weather Input or state used by this operation.
+ */
 void drawWeatherFaceData(const WeatherData& weather) {
     renderWeatherFaceData(weather, true);
 }
@@ -469,6 +568,10 @@ void drawWeatherFaceData(const WeatherData& weather) {
 // =====================================================
 
 // Được gọi khi người dùng nhấn nút chuyển giờ dự báo.
+/**
+ * @brief Implements the advance weather forecast operation.
+ * @param weather Input or state used by this operation.
+ */
 void advanceWeatherForecast(const WeatherData& weather) {
     if (!weather.valid || weatherAnimating) return;
 
@@ -490,6 +593,10 @@ void advanceWeatherForecast(const WeatherData& weather) {
 // =====================================================
 
 // Cập nhật animation forecast.
+/**
+ * @brief Implements the update weather face animation operation.
+ * @param weather Input or state used by this operation.
+ */
 void updateWeatherFaceAnimation(const WeatherData& weather) {
     (void)weather;
 
