@@ -348,7 +348,8 @@ void toggleWeatherDetails(const WeatherData& weather) {
             const int h = 78 + (int)(122.0f * eased);
             const int radius = 5 + (int)(10.0f * eased);
 
-            drawWeatherFaceData(weather);
+            // Draw only the expanding panel. Do not redraw the weather face
+            // here because drawWeatherFaceData() clears the whole screen.
             tft.fillRoundRect(x, y, w, h, radius, 0x1082);
             tft.drawRoundRect(x, y, w, h, radius, 0x7BEF);
             delay(16);
