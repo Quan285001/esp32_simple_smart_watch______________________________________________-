@@ -15,6 +15,19 @@
 #include "services/weather_service.h"
 #include "services/ble_service.h"
 
+/**
+ * @brief Implements the handle blecommands operation.
+ * @param timeinfo Input or state used by this operation.
+ * @param millisValue Input or state used by this operation.
+ * @param heartRate Input or state used by this operation.
+ * @param msg Input or state used by this operation.
+ * @param selectedIndex Input or state used by this operation.
+ * @param level Input or state used by this operation.
+ * @param wifiStatus Input or state used by this operation.
+ * @param disabled Input or state used by this operation.
+ * @param connecting Input or state used by this operation.
+ * @param getWeatherRefreshCountdownSeconds( Input or state used by this operation.
+ */
 extern void handleBLECommands();
 
 TFT_eSPI tft = TFT_eSPI();
@@ -85,8 +98,16 @@ static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
 static bool lightSleepRequested = false;
 
+/**
+ * @brief Schedules entry into Light Sleep mode from the main application loop.
+
+ */
 void requestLightSleep() { lightSleepRequested = true; }
 
+/**
+ * @brief Powers down Wi-Fi, Bluetooth, and the display before entering Light Sleep; restores the display and input after wake-up.
+
+ */
 static void enterLightSleep() {
     lightSleepRequested = false;
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
@@ -125,6 +146,10 @@ static void enterLightSleep() {
     Serial.println("[POWER] Wake complete; radios remain OFF.");
 }
 
+/**
+ * @brief Converts a Wi-Fi connection state into a readable diagnostic label.
+ * @param status Input or state used by this operation.
+ */
 static const char* wifiStatusName(wl_status_t status) {
     switch (status) {
         case WL_CONNECTED: return "CONNECTED";
@@ -141,6 +166,10 @@ static const char* wifiStatusName(wl_status_t status) {
 // WEATHER TASK
 // =====================================================
 
+/**
+ * @brief Runs the weather request in a background task and optionally retrieves lunar details afterward.
+ * @param parameter Input or state used by this operation.
+ */
 static void weatherFetchTask(void *parameter) {
     (void)parameter;
 
@@ -168,6 +197,10 @@ static void weatherFetchTask(void *parameter) {
 // SCHEDULE WEATHER FETCH
 // =====================================================
 
+/**
+ * @brief Starts one background weather update when Wi-Fi is connected and no update is already running.
+
+ */
 static bool scheduleWeatherFetch() {
     // Never start an automatic/manual request while Wi-Fi is disabled.
     if (!wifiEnabled) {
@@ -213,6 +246,10 @@ static bool scheduleWeatherFetch() {
 
 // Manual BLE requests use the same single-flight scheduler as automatic updates.
 // Return: 0=scheduled, 1=already running, 2=Wi-Fi unavailable, 3=cooldown.
+/**
+ * @brief Validates a manual weather request and applies the single-flight and cooldown rules.
+
+ */
 uint8_t requestWeatherFetch() {
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
     if (weatherFetchRunning) return 1;
@@ -235,6 +272,10 @@ uint8_t requestWeatherFetch() {
 // WIFI CONTROL
 // =====================================================
 
+/**
+ * @brief Enables or disables the Wi-Fi station interface and updates the application state.
+
+ */
 void toggleWiFi() {
     if (wifiEnabled) {
         WiFi.disconnect(false, false);
@@ -279,6 +320,10 @@ void toggleWiFi() {
 // SETUP
 // =====================================================
 
+/**
+ * @brief Implements the setup operation.
+
+ */
 void setup() {
     Serial.begin(115200);
 
@@ -366,6 +411,11 @@ void setup() {
         // If the live request failed but cache exists, retry after entering the UI.
         lastWeatherFetchMs = weatherUpdated
             ? millis()
+            /**
+             * @brief Implements the millis operation.
+             * @param separate Input or state used by this operation.
+             * @param (weatherUpdated Input or state used by this operation.
+             */
             : millis() - WEATHER_REFRESH_MS;
 
         // Stage 4: optional lunar request is a separate, later operation.
@@ -412,6 +462,10 @@ void setup() {
 // MAIN LOOP
 // =====================================================
 
+/**
+ * @brief Implements the loop operation.
+
+ */
 void loop() {
     const uint32_t now = millis();
 
