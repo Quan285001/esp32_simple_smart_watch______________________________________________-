@@ -334,7 +334,8 @@ void loop() {
             WiFi.RSSI()
         );
 
-        lastWeatherFetchMs = 0;
+        // Force the normal scheduler to refresh cache-backed data after reconnect.
+        lastWeatherFetchMs = now - WEATHER_REFRESH_MS;
         lastWeatherRetryMs = 0;
     }
 
