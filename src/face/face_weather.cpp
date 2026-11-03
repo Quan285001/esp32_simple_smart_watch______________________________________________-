@@ -94,8 +94,8 @@ static int animationNewIndex = 0;
 // 2. FORECAST SPRITE
 // =====================================================
 
-// Sprite chỉ chứa hàng forecast, không chứa toàn bộ màn hình.
-// 220 x 87 pixel, RGB565, khoảng 38 KB RAM.
+// The sprite contains only the forecast row, not the entire screen.
+// Dimensions: 220 x 87 pixels, RGB565, approximately 38 KB of RAM.
 static TFT_eSprite forecastSprite(&tft);
 
 static bool forecastSpriteReady = false;
@@ -252,7 +252,7 @@ static void drawMainWeatherContent(const WeatherData& weather, int index, int of
 // 6. FORECAST CARD
 // =====================================================
 
-// Hàm này có thể vẽ lên TFT chính hoặc TFT Sprite.
+// This function can render to either the main TFT or a TFT sprite.
 /**
  * @brief Draws one hourly forecast card on the supplied display or sprite.
  * @param display Input or state used by this operation.
@@ -271,7 +271,7 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
     display.fillRoundRect(boxX, cardY, CARD_W, CARD_H, 10, background);
     display.drawRoundRect(boxX, cardY, CARD_W, CARD_H, 10, border);
 
-    // Nhiệt độ.
+    // Temperature value.
     char temperature[8];
     snprintf(temperature, sizeof(temperature), "%d", forecast.temp);
 
