@@ -90,19 +90,39 @@ void requestLightSleep() { lightSleepRequested = true; }
 static void enterLightSleep() {
     lightSleepRequested = false;
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
+
+    // Do not enter sleep while a TLS/weather task is still using the radios.
+    Serial.println("[POWER] Waiting for weather task before sleep.");
+    while (weatherFetchRunning) delay(20);
+
+    // Preserve cached weather/time in RAM and NVS; shut down radios only.
+    WiFi.disconnect(false, false);
+    WiFi.mode(WIFI_OFF);
+    wifiEnabled = false;
+    previousWifiConnected = false;
+
+    shutdownBLEForSleep();
+
+    // Put the TFT controller into its own sleep mode as well.
     tft.fillScreen(TFT_BLACK);
+    tft.writecommand(0x10); // GC9A01 sleep-in
     delay(30);
+
     gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
-    Serial.println("[POWER] Light sleep: press hardware button to wake.");
+    Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT sleeping.");
     esp_light_sleep_start();
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
-    tft.init();
-    tft.setRotation(0);
+
+    // Restore only the display and input. Keep Wi-Fi/Bluetooth OFF until
+    // the user explicitly enables them from the menu.
+    tft.writecommand(0x11); // GC9A01 sleep-out
+    delay(120);
+    tft.writecommand(0x29); // Display ON
     tft.fillScreen(TFT_BLACK);
     beginButtonManager();
     drawCurrentScreen(true);
-    Serial.println("[POWER] Wake complete.");
+    Serial.println("[POWER] Wake complete; radios remain OFF.");
 }
 
 static const char* wifiStatusName(wl_status_t status) {
