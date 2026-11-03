@@ -364,32 +364,10 @@ void toggleWeatherDetails(const WeatherData& weather) {
         tft.drawRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x7BEF);
         drawWeatherDetailsContent();
     } else {
+        // Closing is intentionally immediate. Avoid the per-frame full-face
+        // redraw that caused ghost frames and SPI flicker on ESP32-C3.
         weatherDetailsScrollAnimating = false;
-
-        // Restore the complete weather face once before the closing animation.
-        // Keep it as a stable background while only the detail panel collapses.
         drawWeatherFaceData(weather);
-
-        constexpr int frames = 18;
-        for (int frame = 0; frame <= frames; ++frame) {
-            const float progress = (float)frame / frames;
-            const float eased = easeInOutCubic(progress);
-
-            // Reverse the opening geometry: start full-size, end at the card.
-            const float reverse = 1.0f - eased;
-            const int closeX = 16 - (int)(4.0f * reverse);
-            const int closeY = 124 - (int)(104.0f * reverse);
-            const int closeW = 42 + (int)(158.0f * reverse);
-            const int closeH = 78 + (int)(122.0f * reverse);
-            const int closeRadius = 5 + (int)(10.0f * reverse);
-
-            // Restore the weather face without clearing to black, removing
-            // the previous frame's larger panel before drawing this frame.
-            renderWeatherFaceData(weather, false);
-            tft.fillRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x1082);
-            tft.drawRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x7BEF);
-            delay(16);
-        }
     }
 }
 
