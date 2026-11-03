@@ -527,6 +527,7 @@ bool fetchLunarDetails() {
                 next.moonset = result["moonset"].isNull()
                     ? "No set" : result["moonset"].as<String>();
                 next.moonPhase = result["moon_phase"] | "N/A";
+                lunarUpdated = true;
 
                 // Prefer the API's local sunrise/sunset values for the same date.
                 if (!result["sunrise"].isNull()) next.sunrise = result["sunrise"].as<String>();
