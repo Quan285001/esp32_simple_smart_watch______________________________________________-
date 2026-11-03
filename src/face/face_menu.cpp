@@ -5,20 +5,6 @@
 #include "../app/app_state.h"
 
 extern TFT_eSPI tft;
-/**
- * @brief Implements the is bleconnected operation.
- * @param "Clock" Input or state used by this operation.
- * @param "Weather" Input or state used by this operation.
- * @param "Connectivity" Input or state used by this operation.
- * @param "Bluetooth" Input or state used by this operation.
- * @param "Wi-Fi" Input or state used by this operation.
- * @param Time" Input or state used by this operation.
- * @param Weather" Input or state used by this operation.
- * @param Info" Input or state used by this operation.
- * @param Sleep" Input or state used by this operation.
- * @param "Restart" Input or state used by this operation.
- * @param level Input or state used by this operation.
- */
 extern bool isBLEConnected();
 extern bool isBLEEnabled();
 
@@ -209,10 +195,6 @@ void drawItemStatus(
             tft.drawString(enabled ? "ON" : "OFF", 205, itemCenterY(index), 1);
         }
 
-        /**
-         * @brief Implements the if operation.
-         * @param 1 Input or state used by this operation.
-         */
         else if (index == 1) {
 
             tft.setTextColor(
@@ -462,7 +444,6 @@ void drawMenuStatic(
 
 /**
  * @brief Invalidates menu animation and rendering state so the next frame is fully redrawn.
-
  */
 void resetMenuScreen() {
 
