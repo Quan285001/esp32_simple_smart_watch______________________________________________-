@@ -386,6 +386,12 @@ bool fetchHourlyWeather() {
     // Lunar data is optional; its endpoint must not block the expanded panel.
     next.detailsValid = true;
 
+    // Release the large Open-Meteo JSON allocations before the next TLS handshake.
+    doc.clear();
+    payload = String();
+    Serial.printf("[MEM] Free heap before Lunar TLS: %u bytes\\n",
+                  (unsigned int)ESP.getFreeHeap());
+
     // SunriseSunset.io resolves today's date from the supplied coordinates.
     // This avoids making lunar data depend on a successful NTP sync.
     String lunarUrl = String("https://api.sunrisesunset.io/json?lat=") +
