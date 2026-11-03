@@ -14,16 +14,6 @@
 
 extern TFT_eSPI tft;
 
-/**
- * @brief Enables or disables the Wi-Fi station interface and updates the application state.
- * @param timeinfo Input or state used by this operation.
- * @param millisValue Input or state used by this operation.
- * @param heartRate Input or state used by this operation.
- * @param selectedIndex Input or state used by this operation.
- * @param level Input or state used by this operation.
- * @param wifiStatus Input or state used by this operation.
- * @param getMenuCount( Input or state used by this operation.
- */
 extern void toggleWiFi();
 extern void requestLightSleep();
 
