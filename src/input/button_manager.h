@@ -1,4 +1,4 @@
-//button_manager.h
+// Button input manager interface.
 
 #pragma once
 void beginButtonManager();
