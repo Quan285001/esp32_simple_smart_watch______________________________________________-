@@ -94,10 +94,6 @@ const char *getMenuLabel(MenuLevel level, int index) {
 
     switch (level) {
 
-        /**
-         * @brief Implements the if operation.
-         * @param level Input or state used by this operation.
-         */
         case MENU_MAIN:
             if (index < MAIN_MENU_COUNT)
                 return MAIN_LABELS[index];
@@ -219,10 +215,6 @@ void drawItemStatus(
             tft.drawString(enabled ? "ON" : "OFF", 205, itemCenterY(index), 1);
         }
 
-        /**
-         * @brief Implements the if operation.
-         * @param index Input or state used by this operation.
-         */
         else if (index == 1) {
 
             tft.setTextColor(
