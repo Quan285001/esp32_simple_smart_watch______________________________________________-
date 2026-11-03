@@ -325,12 +325,19 @@ static void drawWeatherDetails() {
 
 void toggleWeatherDetails(const WeatherData& weather) {
     if (!weather.valid || !weather.detailsValid) return;
-    if (weatherDetailsAnimating) return;
-    weatherDetailsOpening = !weatherDetailsOpen;
+
+    // Switch directly to the detail view. The old per-frame expand animation
+    // cleared the entire TFT repeatedly and caused visible flashing.
     detailWeather = weather;
-    if (weatherDetailsOpening) weatherDetailsScroll = 0;
-    weatherDetailsAnimating = true;
-    weatherDetailsAnimationAt = millis();
+    weatherDetailsOpen = !weatherDetailsOpen;
+    weatherDetailsAnimating = false;
+
+    if (weatherDetailsOpen) {
+        weatherDetailsScroll = 0;
+        drawWeatherDetails();
+    } else {
+        drawWeatherFaceData(weather);
+    }
 }
 
 bool scrollWeatherDetails(const WeatherData& weather) {
@@ -416,34 +423,6 @@ void advanceWeatherForecast(const WeatherData& weather) {
 void updateWeatherFaceAnimation(const WeatherData& weather) {
     (void)weather;
 
-    if (weatherDetailsAnimating) {
-        const uint32_t duration = 420;
-        float p = clamp01((float)(millis() - weatherDetailsAnimationAt) / duration);
-        float eased = easeOutCubic(p);
-        float q = weatherDetailsOpening ? eased : 1.0f - eased;
-        const int x = (int)(DETAIL_CARD_X + (DETAIL_PANEL_X - DETAIL_CARD_X) * q);
-        const int y = (int)(DETAIL_CARD_Y + (DETAIL_PANEL_Y - DETAIL_CARD_Y) * q);
-        const int w = (int)(DETAIL_CARD_W + (DETAIL_PANEL_W - DETAIL_CARD_W) * q);
-        const int h = (int)(DETAIL_CARD_H + (DETAIL_PANEL_H - DETAIL_CARD_H) * q);
-        const int radius = (int)(10.0f + 5.0f * q);
-
-        tft.fillScreen(TFT_BLACK);
-        tft.fillRoundRect(x, y, w, h, radius, 0x1082);
-        tft.drawRoundRect(x, y, w, h, radius, 0x7BEF);
-        if (q > 0.70f) {
-            tft.setViewport(DETAIL_PANEL_X + 2, DETAIL_PANEL_Y + 2, DETAIL_PANEL_W - 4, DETAIL_PANEL_H - 4, true);
-            drawWeatherDetailsContent();
-            tft.resetViewport();
-        }
-        if (p >= 1.0f) {
-            weatherDetailsAnimating = false;
-            weatherDetailsOpen = weatherDetailsOpening;
-            if (weatherDetailsOpen) drawWeatherDetails();
-            else drawWeatherFaceData(detailWeather);
-        }
-        return;
-    }
-
     if (weatherDetailsOpen) {
         if (weatherDetailsScrollAnimating) {
             const uint32_t duration = 260;
@@ -454,7 +433,8 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
             if (p >= 1.0f) {
                 weatherDetailsScroll = weatherDetailsScrollTo;
                 weatherDetailsScrollAnimating = false;
-                drawWeatherDetails();
+                // Only refresh the list viewport; keep the header and panel stable.
+                drawWeatherDetailsRows(0);
             }
         }
         return;
