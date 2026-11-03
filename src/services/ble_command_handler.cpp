@@ -8,6 +8,10 @@
 #include "weather_service.h"
 
 extern bool wifiEnabled;
+/**
+ * @brief Implements the request light sleep operation.
+ * @param cmd Input or state used by this operation.
+ */
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
 
@@ -25,6 +29,10 @@ static void handleCommand(const String &cmd) {
     if (cmd == "SYNC_WEATHER") {
         const uint8_t result = requestWeatherFetch();
         if (result == 0) sendBLENotification("WEATHER_STARTED");
+        /**
+         * @brief Implements the if operation.
+         * @param (cmd.startsWith("GPS:") Input or state used by this operation.
+         */
         else if (result == 1) sendBLENotification("WEATHER_BUSY");
         else if (result == 2) sendBLENotification("ERR_WIFI");
         else sendBLENotification("WEATHER_COOLDOWN");
@@ -117,6 +125,10 @@ static void handleCommand(const String &cmd) {
     }
 }
 
+/**
+ * @brief Drains the BLE command queue and dispatches each received command.
+
+ */
 void handleBLECommands() {
     String command;
     while (readBLECommand(command)) {
