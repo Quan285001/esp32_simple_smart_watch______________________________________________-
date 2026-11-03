@@ -392,70 +392,6 @@ bool fetchHourlyWeather() {
     next.detailsValid = true;
     }
 
-    Serial.printf(
-        "[MEM] Before Lunar TLS: free=%u, largest_block=%u, min_free=%u bytes\n",
-        (unsigned int)ESP.getFreeHeap(),
-        (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-        (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
-    );
-
-    // SunriseSunset.io resolves today's date from the supplied coordinates.
-    // This avoids making lunar data depend on a successful NTP sync.
-    String lunarUrl = String("https://api.sunrisesunset.io/json?lat=") +
-        weatherLatitude + "&lng=" + weatherLongitude +
-        "&timezone=Asia%2FHo_Chi_Minh&time_format=24";
-
-    WiFiClientSecure lunarClient;
-    lunarClient.setInsecure();
-
-    // The default TLS record buffers are relatively large for this optional
-    // request. Smaller buffers reduce peak internal-RAM demand on ESP32-C3.
-    // setBufferSizes() is unavailable in the ESP32 Arduino core bundled with platform 6.9.0.
-
-    HTTPClient lunarHttp;
-    lunarHttp.setConnectTimeout(5000);
-    lunarHttp.setTimeout(5000);
-
-    if (lunarHttp.begin(lunarClient, lunarUrl)) {
-        int lunarStatus = lunarHttp.GET();
-        Serial.printf("[WEATHER] Lunar API HTTP status: %d\n", lunarStatus);
-
-        if (lunarStatus == HTTP_CODE_OK) {
-            String lunarPayload = lunarHttp.getString();
-            JsonDocument lunarDoc;
-            DeserializationError lunarError =
-                deserializeJson(lunarDoc, lunarPayload);
-
-            if (lunarError) {
-                Serial.printf("[WEATHER] Lunar JSON error: %s\n", lunarError.c_str());
-            } else if (!lunarDoc["results"].is<JsonObjectConst>()) {
-                Serial.printf("[WEATHER] Lunar API response has no results object: %s\n",
-                              lunarPayload.substring(0, 180).c_str());
-            } else {
-                JsonObjectConst result = lunarDoc["results"];
-                next.moonrise = result["moonrise"].isNull()
-                    ? "No rise" : result["moonrise"].as<String>();
-                next.moonset = result["moonset"].isNull()
-                    ? "No set" : result["moonset"].as<String>();
-                next.moonPhase = result["moon_phase"] | "N/A";
-
-                // Prefer the API's local sunrise/sunset values for the same date.
-                if (!result["sunrise"].isNull()) next.sunrise = result["sunrise"].as<String>();
-                if (!result["sunset"].isNull()) next.sunset = result["sunset"].as<String>();
-
-                Serial.printf("[WEATHER] Lunar data: moonrise=%s, moonset=%s, phase=%s\n",
-                              next.moonrise.c_str(), next.moonset.c_str(),
-                              next.moonPhase.c_str());
-            }
-        } else {
-            Serial.printf("[WEATHER] Lunar API request failed: %s\n",
-                          lunarHttp.errorToString(lunarStatus).c_str());
-        }
-        lunarHttp.end();
-    } else {
-        Serial.println("[WEATHER] Lunar API HTTP begin failed.");
-    }
-
     // -------------------------------------------------
     // COMMIT DATA
     // -------------------------------------------------
@@ -525,4 +461,110 @@ WeatherData getWeatherSnapshot() {
     }
 
     return snapshot;
+}
+
+// =====================================================
+// FETCH OPTIONAL LUNAR DETAILS (SEPARATE BOOT STAGE)
+// =====================================================
+
+bool fetchLunarDetails() {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[LUNAR] Wi-Fi offline; keeping cached lunar data.");
+        return false;
+    }
+
+    WeatherData next = getWeatherSnapshot();
+    if (!next.valid) {
+        Serial.println("[LUNAR] No valid weather snapshot; skipping lunar request.");
+        return false;
+    }
+
+    bool lunarUpdated = false;
+
+    Serial.printf(
+        "[MEM] Before Lunar TLS: free=%u, largest_block=%u, min_free=%u bytes\n",
+        (unsigned int)ESP.getFreeHeap(),
+        (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+        (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
+    );
+
+    // SunriseSunset.io resolves today's date from the supplied coordinates.
+    // This avoids making lunar data depend on a successful NTP sync.
+    String lunarUrl = String("https://api.sunrisesunset.io/json?lat=") +
+        weatherLatitude + "&lng=" + weatherLongitude +
+        "&timezone=Asia%2FHo_Chi_Minh&time_format=24";
+
+    WiFiClientSecure lunarClient;
+    lunarClient.setInsecure();
+
+    // The default TLS record buffers are relatively large for this optional
+    // request. Smaller buffers reduce peak internal-RAM demand on ESP32-C3.
+    // setBufferSizes() is unavailable in the ESP32 Arduino core bundled with platform 6.9.0.
+
+    HTTPClient lunarHttp;
+    lunarHttp.setConnectTimeout(5000);
+    lunarHttp.setTimeout(5000);
+
+    if (lunarHttp.begin(lunarClient, lunarUrl)) {
+        int lunarStatus = lunarHttp.GET();
+        Serial.printf("[WEATHER] Lunar API HTTP status: %d\n", lunarStatus);
+
+        if (lunarStatus == HTTP_CODE_OK) {
+            String lunarPayload = lunarHttp.getString();
+            JsonDocument lunarDoc;
+            DeserializationError lunarError =
+                deserializeJson(lunarDoc, lunarPayload);
+
+            if (lunarError) {
+                Serial.printf("[WEATHER] Lunar JSON error: %s\n", lunarError.c_str());
+            } else if (!lunarDoc["results"].is<JsonObjectConst>()) {
+                Serial.printf("[WEATHER] Lunar API response has no results object: %s\n",
+                              lunarPayload.substring(0, 180).c_str());
+            } else {
+                JsonObjectConst result = lunarDoc["results"];
+                next.moonrise = result["moonrise"].isNull()
+                    ? "No rise" : result["moonrise"].as<String>();
+                next.moonset = result["moonset"].isNull()
+                    ? "No set" : result["moonset"].as<String>();
+                next.moonPhase = result["moon_phase"] | "N/A";
+
+                // Prefer the API's local sunrise/sunset values for the same date.
+                if (!result["sunrise"].isNull()) next.sunrise = result["sunrise"].as<String>();
+                if (!result["sunset"].isNull()) next.sunset = result["sunset"].as<String>();
+
+                Serial.printf("[WEATHER] Lunar data: moonrise=%s, moonset=%s, phase=%s\n",
+                              next.moonrise.c_str(), next.moonset.c_str(),
+                              next.moonPhase.c_str());
+            }
+        } else {
+            Serial.printf("[WEATHER] Lunar API request failed: %s\n",
+                          lunarHttp.errorToString(lunarStatus).c_str());
+        }
+        lunarHttp.end();
+    } else {
+        Serial.println("[WEATHER] Lunar API HTTP begin failed.");
+    }
+
+
+    SemaphoreHandle_t mutex = getWeatherMutex();
+    if (mutex == nullptr ||
+        xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        Serial.println("[LUNAR] Mutex unavailable; update skipped.");
+        return false;
+    }
+
+    currentWeather.moonrise = next.moonrise;
+    currentWeather.moonset = next.moonset;
+    currentWeather.moonPhase = next.moonPhase;
+    // Sunrise/sunset may be refined by the lunar endpoint for the same local date.
+    currentWeather.sunrise = next.sunrise;
+    currentWeather.sunset = next.sunset;
+    WeatherData committed = currentWeather;
+    xSemaphoreGive(mutex);
+
+    saveWeatherCache(committed);
+    Serial.println(lunarUpdated
+        ? "[LUNAR] Lunar details updated and cached."
+        : "[LUNAR] API unavailable; existing lunar data retained.");
+    return lunarUpdated;
 }
