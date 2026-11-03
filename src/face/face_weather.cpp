@@ -235,6 +235,8 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
     // Ký hiệu độ.
     int degreeX = centerX + display.textWidth(temperature) / 2 + 2;
     display.drawCircle(degreeX, cardY + 14, 2, TFT_WHITE);
+    display.setTextColor(TFT_WHITE, background);
+    display.drawString("C", degreeX + 7, cardY + 17, 1);
 
     // Icon thời tiết.
     const bool isNight = forecast.hour < 6 || forecast.hour >= 18;
@@ -548,6 +550,9 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(TFT_WHITE, bg);
         tft.drawString(temperature, centerX, y + 18, 1);
+        const int degreeX = centerX + tft.textWidth(temperature) / 2 + 2;
+        tft.drawCircle(degreeX, y + 15, 2, TFT_WHITE);
+        tft.drawString("C", degreeX + 7, y + 18, 1);
 
         const bool isNight = selected.hour < 6 || selected.hour >= 18;
         drawWeatherMiniIcon(tft, centerX, y + h / 2 + 1,
