@@ -100,14 +100,11 @@ void toggleBLE() {
         clientConnected = false;
         commandCharacteristic = nullptr;
 
-        const bool deinitialized = BLEDevice::deinit(true);
+        BLEDevice::deinit(true);
         bleInitialized = false;
         // Keep the guard set until beginBLE() starts a fresh BLE stack.
 
-        Serial.printf(
-            "[BLE] Bluetooth OFF (stack deinit: %s).\n",
-            deinitialized ? "OK" : "FAILED"
-        );
+        Serial.println("[BLE] Bluetooth OFF (stack deinit requested).");
         return;
     }
 
