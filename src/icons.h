@@ -299,6 +299,14 @@ inline void drawMiniUnknown(TFT_eSPI &tft, int x, int y, uint16_t color) {
  * @param code Input or state used by this operation.
  * @param isNight Input or state used by this operation.
  */
+/**
+ * @brief Draws a compact weather icon based on the WMO code and day/night state.
+ * @param tft Display instance used for drawing.
+ * @param x Horizontal icon center.
+ * @param y Vertical icon center.
+ * @param code WMO weather interpretation code.
+ * @param isNight Whether the forecast hour is nighttime.
+ */
 inline void drawWeatherMiniIcon(
     TFT_eSPI &tft,
     int x,
@@ -411,6 +419,14 @@ inline void drawWeatherMiniIcon(
  * @param y Input or state used by this operation.
  * @param code Input or state used by this operation.
  * @param isNight Input or state used by this operation.
+ */
+/**
+ * @brief Draws a large weather icon based on the WMO code and day/night state.
+ * @param tft Display instance used for drawing.
+ * @param x Horizontal icon center.
+ * @param y Vertical icon center.
+ * @param code WMO weather interpretation code.
+ * @param isNight Whether the forecast hour is nighttime.
  */
 inline void drawWeatherIcon(
     TFT_eSPI &tft,
