@@ -15,6 +15,10 @@ extern TFT_eSPI tft;
 static int selectedForecastIndex = 0;
 static bool forecastSelectionInitialized = false;
 static bool weatherDetailsOpen = false;
+static bool weatherDetailsOpening = false;
+static uint32_t weatherDetailsAnimationAt = 0;
+static uint32_t weatherDetailsLastFrameAt = 0;
+static constexpr uint32_t WEATHER_DETAILS_ANIMATION_MS = 300;
 static int weatherDetailsScroll = 0;
 static int weatherDetailsScrollFrom = 0;
 static int weatherDetailsScrollTo = 0;
@@ -324,15 +328,17 @@ static void drawWeatherDetails() {
 void toggleWeatherDetails(const WeatherData& weather) {
     if (!weather.valid || !weather.detailsValid) return;
 
-    // Switch directly to the detail view. The old per-frame expand animation
-    // cleared the entire TFT repeatedly and caused visible flashing.
     detailWeather = weather;
     weatherDetailsOpen = !weatherDetailsOpen;
 
     if (weatherDetailsOpen) {
         weatherDetailsScroll = 0;
-        drawWeatherDetails();
+        weatherDetailsScrollAnimating = false;
+        weatherDetailsOpening = true;
+        weatherDetailsAnimationAt = millis();
+        weatherDetailsLastFrameAt = 0;
     } else {
+        weatherDetailsOpening = false;
         drawWeatherFaceData(weather);
     }
 }
@@ -421,6 +427,36 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
     (void)weather;
 
     if (weatherDetailsOpen) {
+        if (weatherDetailsOpening) {
+            const uint32_t elapsed = millis() - weatherDetailsAnimationAt;
+            const float progress = clamp01(
+                (float)elapsed / WEATHER_DETAILS_ANIMATION_MS
+            );
+
+            // Limit redraws to roughly 30 FPS. Each frame only paints a larger
+            // panel over the previous one; the rest of the weather face is untouched.
+            if (elapsed >= WEATHER_DETAILS_ANIMATION_MS ||
+                millis() - weatherDetailsLastFrameAt >= 33) {
+                weatherDetailsLastFrameAt = millis();
+
+                const float eased = easeOutCubic(progress);
+                const int x = 16 - (int)(4.0f * eased);
+                const int y = 124 - (int)(104.0f * eased);
+                const int w = 42 + (int)(158.0f * eased);
+                const int h = 78 + (int)(122.0f * eased);
+                const int radius = 5 + (int)(10.0f * eased);
+
+                tft.fillRoundRect(x, y, w, h, radius, 0x1082);
+                tft.drawRoundRect(x, y, w, h, radius, 0x7BEF);
+            }
+
+            if (progress >= 1.0f) {
+                weatherDetailsOpening = false;
+                drawWeatherDetailsContent();
+            }
+            return;
+        }
+
         if (weatherDetailsScrollAnimating) {
             const uint32_t duration = 260;
             float p = clamp01((float)(millis() - weatherDetailsScrollAt) / duration);
