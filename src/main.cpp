@@ -15,19 +15,6 @@
 #include "services/weather_service.h"
 #include "services/ble_service.h"
 
-/**
- * @brief Implements the handle blecommands operation.
- * @param timeinfo Input or state used by this operation.
- * @param millisValue Input or state used by this operation.
- * @param heartRate Input or state used by this operation.
- * @param msg Input or state used by this operation.
- * @param selectedIndex Input or state used by this operation.
- * @param level Input or state used by this operation.
- * @param wifiStatus Input or state used by this operation.
- * @param disabled Input or state used by this operation.
- * @param connecting Input or state used by this operation.
- * @param getWeatherRefreshCountdownSeconds( Input or state used by this operation.
- */
 extern void handleBLECommands();
 
 TFT_eSPI tft = TFT_eSPI();
