@@ -59,20 +59,25 @@ void beginBLE() {
 
     bleShuttingDown = false;
     BLEDevice::init("ESP32_Watch_C3");
-    BLEDevice::setMTU(185);
+    Serial.println("[BLE] Before init");
+    BLEDevice::init("ESP32_Watch_C3");
+    Serial.println("[BLE] After init");
 
+    Serial.println("[BLE] Before setMTU");
+    BLEDevice::setMTU(185);
+    Serial.println("[BLE] After setMTU");
+
+    Serial.println("[BLE] Before createServer");
     BLEServer *server = BLEDevice::createServer();
+    Serial.println("[BLE] After createServer");
     server->setCallbacks(new ServerCallbacks());
 
     BLEService *service = server->createService(SERVICE_UUID);
-
     commandCharacteristic = service->createCharacteristic(
         CHARACTERISTIC_UUID,
         BLECharacteristic::PROPERTY_READ |
-        BLECharacteristic::PROPERTY_WRITE |
-        BLECharacteristic::PROPERTY_WRITE_NR |
-        BLECharacteristic::PROPERTY_NOTIFY
-    );
+            BLECharacteristic::PROPERTY_WRITE |
+            BLECharacteristic::PROPERTY_NOTIFY);
 
     commandCharacteristic->addDescriptor(new BLE2902());
     commandCharacteristic->setCallbacks(new CharacteristicCallbacks());
@@ -87,7 +92,7 @@ void beginBLE() {
 
     bleInitialized = true;
     Serial.println("[BLE] Advertising as ESP32_Watch_C3.");
-}
+    }
 
 void toggleBLE() {
     if (bleInitialized) {
