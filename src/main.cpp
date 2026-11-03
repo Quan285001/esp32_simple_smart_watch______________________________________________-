@@ -61,6 +61,21 @@ static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
 
+// Countdown for the Weather face. Negative values are status codes:
+// -1 = Wi-Fi intentionally disabled, -2 = connecting, -3 = fetch in progress.
+int32_t getWeatherRefreshCountdownSeconds() {
+    if (!wifiEnabled) return -1;
+    if (WiFi.status() != WL_CONNECTED) return -2;
+    if (weatherFetchRunning) return -3;
+
+    const uint32_t elapsed = millis() - lastWeatherFetchMs;
+    if (elapsed >= WEATHER_REFRESH_MS) return 0;
+
+    const uint32_t remainingMs = WEATHER_REFRESH_MS - elapsed;
+    return static_cast<int32_t>((remainingMs + 999UL) / 1000UL);
+}
+
+
 static constexpr uint32_t WEATHER_RETRY_MS = 15000;
 static constexpr uint32_t WEATHER_MANUAL_COOLDOWN_MS = 10000;
 static constexpr uint32_t WIFI_RETRY_MS = 15000;
