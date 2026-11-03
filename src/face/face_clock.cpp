@@ -47,6 +47,13 @@ void drawSmartWeatherIconSpr(int currentHour, int x, int y) {
  * @param heartRate Input or state used by this operation.
  * @param steps Input or state used by this operation.
  */
+/**
+ * @brief Renders the analog clock face, including the date, weather indicator, and animated hands.
+ * @param timeinfo Local calendar time used to position the clock hands and render the date.
+ * @param millisValue Milliseconds elapsed within the current second for smooth second-hand motion.
+ * @param heartRate Reserved value; currently unused by this clock face.
+ * @param steps Reserved value; currently unused by this clock face.
+ */
 void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int steps) {
     (void)heartRate;
     (void)steps;
