@@ -230,13 +230,13 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
 
     display.setTextDatum(MC_DATUM);
     display.setTextColor(TFT_WHITE, background);
-    display.drawString(temperature, centerX, cardY + 17, 1);
+    display.drawString(temperature, centerX - 5, cardY + 17, 1);
 
     // Ký hiệu độ.
     int degreeX = centerX + display.textWidth(temperature) / 2 + 2;
-    display.drawCircle(degreeX, cardY + 14, 2, TFT_WHITE);
+    display.drawCircle(degreeX - 5, cardY + 14, 2, TFT_WHITE);
     display.setTextColor(TFT_WHITE, background);
-    display.drawString("C", degreeX + 7, cardY + 17, 1);
+    display.drawString("C", degreeX + 2, cardY + 17, 1);
 
     // Icon thời tiết.
     const bool isNight = forecast.hour < 6 || forecast.hour >= 18;
