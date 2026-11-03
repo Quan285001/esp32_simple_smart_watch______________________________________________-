@@ -273,14 +273,7 @@ static void drawWeatherFooter() {
 // 8A. WEATHER DETAIL CARD
 // =====================================================
 
-static void drawWeatherDetailsContent(int scrollOffset = 0) {
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(TFT_WHITE, 0x1082);
-    tft.drawString("WEATHER DETAILS", 32, 28, 2);
-    drawTemperatureWithDegree(detailWeather.currentTemp, 34, 51, 4, TFT_WHITE, 0x1082);
-    tft.setTextColor(0xFDE0, 0x1082);
-    tft.drawString(detailWeather.moonPhase.length() ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
-
+static void drawWeatherDetailsRows(int scrollOffset = 0) {
     const char* labels[] = {"Moonrise", "Moonset", "Sunrise", "Sunset", "Sunshine", "Daylight", "Wind 10m", "Pressure", "Rain"};
     String values[] = {
         detailWeather.moonrise, detailWeather.moonset, detailWeather.sunrise, detailWeather.sunset,
@@ -291,7 +284,10 @@ static void drawWeatherDetailsContent(int scrollOffset = 0) {
         String(detailWeather.rain, 1) + " mm"
     };
 
+    // Clear only the clipped list viewport; keep the panel and fixed header intact.
     tft.setViewport(28, 108, 184, 74, true);
+    tft.fillRect(0, 0, 184, 74, 0x1082);
+
     for (int row = 0; row < 5; ++row) {
         int item = weatherDetailsScroll + row;
         if (item >= 9) break;
@@ -303,6 +299,18 @@ static void drawWeatherDetailsContent(int scrollOffset = 0) {
     }
 
     tft.resetViewport();
+}
+
+static void drawWeatherDetailsContent(int scrollOffset = 0) {
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(TFT_WHITE, 0x1082);
+    tft.drawString("WEATHER DETAILS", 32, 28, 2);
+    drawTemperatureWithDegree(detailWeather.currentTemp, 34, 51, 4, TFT_WHITE, 0x1082);
+    tft.setTextColor(0xFDE0, 0x1082);
+    tft.drawString(detailWeather.moonPhase.length() ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
+
+    drawWeatherDetailsRows(scrollOffset);
+
     tft.setTextColor(0x7BEF, 0x1082);
     tft.drawCentreString("Press: scroll  Double: close", 120, 204, 1);
     tft.drawString("Powered by SunriseSunset.io", 31, 188, 1);
@@ -332,7 +340,7 @@ bool scrollWeatherDetails(const WeatherData& weather) {
     weatherDetailsScrollFrom = weatherDetailsScroll;
     // Nine rows are available and five fit at once, so valid
     // starting offsets are 0..4.
-    weatherDetailsScrollTo = (weatherDetailsScroll + 1) % 5;
+    weatherDetailsScrollTo = min(weatherDetailsScroll + 1, 4);
     weatherDetailsScrollAt = millis();
     weatherDetailsScrollAnimating = true;
     return true;
@@ -433,10 +441,8 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
             const uint32_t duration = 260;
             float p = clamp01((float)(millis() - weatherDetailsScrollAt) / duration);
             float eased = easeOutCubic(p);
-            tft.fillScreen(TFT_BLACK);
-            tft.fillRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x1082);
-            tft.drawRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x7BEF);
-            drawWeatherDetailsContent((int)(17.0f * eased));
+            // Animate only the list contents; do not clear/redraw the full display.
+            drawWeatherDetailsRows((int)(17.0f * eased));
             if (p >= 1.0f) {
                 weatherDetailsScroll = weatherDetailsScrollTo;
                 weatherDetailsScrollAnimating = false;
