@@ -339,12 +339,6 @@ void toggleWeatherDetails(const WeatherData& weather) {
             const float progress = (float)frame / frames;
             const float eased = easeOutCubic(progress);
 
-            const int x = 16 - (int)(4.0f * eased);
-            const int y = 124 - (int)(104.0f * eased);
-            const int w = 42 + (int)(158.0f * eased);
-            const int h = 78 + (int)(122.0f * eased);
-            const int radius = 5 + (int)(10.0f * eased);
-
             tft.fillRoundRect(x, y, w, h, radius, 0x1082);
             tft.drawRoundRect(x, y, w, h, radius, 0x7BEF);
 
@@ -381,7 +375,6 @@ void toggleWeatherDetails(const WeatherData& weather) {
             const int closeW = 42 + (int)(158.0f * reverse);
             const int closeH = 78 + (int)(122.0f * reverse);
             const int closeRadius = 5 + (int)(10.0f * reverse);
-            (void)x; (void)y; (void)w; (void)h; (void)radius;
 
             drawWeatherFaceData(weather);
             tft.fillRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x1082);
