@@ -276,8 +276,8 @@ void setup() {
         savedLon = prefs.getFloat("lon", NAN);
         prefs.end();
     }
-    if (savedSsid.isEmpty()) savedSsid = WIFI_SSID;
-    if (savedPass.isEmpty()) savedPass = WIFI_PASSWORD;
+    if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
+    if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
     if (isfinite(savedLat) && isfinite(savedLon)) {
         setWeatherCoordinates(savedLat, savedLon);
     }
@@ -300,7 +300,7 @@ void setup() {
     wifiEnabled = true;
     if (wifiConnectedAtBoot) {
         bootTerminalLog("[OK] Wi-Fi connected", TFT_GREEN);
-        Serial.printf("[WIFI] Boot connected. IP: %s, RSSI: %d dBm\\n",
+        Serial.printf("[WIFI] Boot connected. IP: %s, RSSI: %d dBm\n",
                       WiFi.localIP().toString().c_str(), WiFi.RSSI());
 
         // Stage 2: NTP time synchronization, bounded so boot cannot hang forever.
