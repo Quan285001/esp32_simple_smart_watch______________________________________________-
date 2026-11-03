@@ -118,7 +118,7 @@ static void weatherFetchTask(void *parameter) {
 
     // Lunar TLS runs only after Open-Meteo has completed and released its
     // response/JSON allocations. It is optional and cannot invalidate weather.
-    if (success && WiFi.status() == WL_CONNECTED) {
+    if (success && wifiEnabled && WiFi.status() == WL_CONNECTED) {
         vTaskDelay(pdMS_TO_TICKS(5000));
         Serial.println("[BOOT] Starting deferred lunar stage.");
         fetchLunarDetails();
@@ -134,7 +134,9 @@ static void weatherFetchTask(void *parameter) {
 // =====================================================
 
 static bool scheduleWeatherFetch() {
+    // Never start an automatic/manual request while Wi-Fi is disabled.
     if (!wifiEnabled) {
+        Serial.println("[WEATHER] Fetch skipped: Wi-Fi is OFF.");
         return false;
     }
 
