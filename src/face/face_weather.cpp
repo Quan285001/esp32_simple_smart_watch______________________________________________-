@@ -351,8 +351,44 @@ void toggleWeatherDetails(const WeatherData& weather) {
             delay(16);
         }
 
+        // Clear the previous weather face after the transition, then render
+        // the detail panel on a clean black background.
+        tft.fillScreen(TFT_BLACK);
+        tft.fillRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x1082);
+        tft.drawRoundRect(DETAIL_PANEL_X, DETAIL_PANEL_Y, DETAIL_PANEL_W, DETAIL_PANEL_H, 15, 0x7BEF);
         drawWeatherDetailsContent();
     } else {
+        weatherDetailsScrollAnimating = false;
+
+        // Restore the weather face as the background, then collapse the panel
+        // toward the first forecast card. Redrawing the background each frame
+        // prevents remnants of the larger panel from being left on screen.
+        constexpr int frames = 18;
+        for (int frame = 0; frame <= frames; ++frame) {
+            const float progress = (float)frame / frames;
+            const float eased = easeInOutCubic(progress);
+
+            const int x = 16 - (int)(4.0f * eased);
+            const int y = 124 - (int)(104.0f * eased);
+            const int w = 42 + (int)(158.0f * eased);
+            const int h = 78 + (int)(122.0f * eased);
+            const int radius = 5 + (int)(10.0f * eased);
+
+            // Reverse the opening geometry: start full-size, end at the card.
+            const float reverse = 1.0f - eased;
+            const int closeX = 16 - (int)(4.0f * reverse);
+            const int closeY = 124 - (int)(104.0f * reverse);
+            const int closeW = 42 + (int)(158.0f * reverse);
+            const int closeH = 78 + (int)(122.0f * reverse);
+            const int closeRadius = 5 + (int)(10.0f * reverse);
+            (void)x; (void)y; (void)w; (void)h; (void)radius;
+
+            drawWeatherFaceData(weather);
+            tft.fillRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x1082);
+            tft.drawRoundRect(closeX, closeY, closeW, closeH, closeRadius, 0x7BEF);
+            delay(16);
+        }
+
         drawWeatherFaceData(weather);
     }
 }
