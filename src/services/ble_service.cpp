@@ -15,6 +15,7 @@ static BLECharacteristic *commandCharacteristic = nullptr;
 static QueueHandle_t commandQueue = nullptr;
 static volatile bool clientConnected = false;
 static bool bleInitialized = false;
+static volatile bool bleShuttingDown = false;
 
 class ServerCallbacks final : public BLEServerCallbacks {
     void onConnect(BLEServer *) override {
@@ -23,7 +24,10 @@ class ServerCallbacks final : public BLEServerCallbacks {
 
     void onDisconnect(BLEServer *server) override {
         clientConnected = false;
-        server->getAdvertising()->start();
+        // Do not restart advertising while the user is turning Bluetooth OFF.
+        if (!bleShuttingDown && server != nullptr) {
+            server->getAdvertising()->start();
+        }
     }
 };
 
@@ -53,6 +57,7 @@ void beginBLE() {
         return;
     }
 
+    bleShuttingDown = false;
     BLEDevice::init("ESP32_Watch_C3");
     BLEDevice::setMTU(185);
 
@@ -86,17 +91,27 @@ void beginBLE() {
 
 void toggleBLE() {
     if (bleInitialized) {
+        // Prevent the disconnect callback from restarting advertising.
+        bleShuttingDown = true;
+
         BLEAdvertising *advertising = BLEDevice::getAdvertising();
         if (advertising != nullptr) advertising->stop();
 
         clientConnected = false;
         commandCharacteristic = nullptr;
-        BLEDevice::deinit(true);
+
+        const bool deinitialized = BLEDevice::deinit(true);
         bleInitialized = false;
-        Serial.println("[BLE] Bluetooth disabled.");
+        bleShuttingDown = false;
+
+        Serial.printf(
+            "[BLE] Bluetooth OFF (stack deinit: %s).\n",
+            deinitialized ? "OK" : "FAILED"
+        );
         return;
     }
 
+    Serial.println("[BLE] Enabling Bluetooth...");
     beginBLE();
 }
 
