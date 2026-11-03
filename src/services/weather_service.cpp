@@ -173,7 +173,13 @@ bool fetchHourlyWeather() {
         "&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,sunrise,sunset" +
         "&forecast_days=2&timezone=Asia%2FHo_Chi_Minh";
 
+    // Start a fresh weather payload but carry forward the last saved lunar
+    // fields. If the optional lunar endpoint fails, old moon data must survive.
+    WeatherData previous = getWeatherSnapshot();
     WeatherData next = {};
+    next.moonPhase = previous.moonPhase;
+    next.moonrise = previous.moonrise;
+    next.moonset = previous.moonset;
     next.detailsValid = false;
 
     // Keep the first HTTPS client and response/JSON allocations in a short
