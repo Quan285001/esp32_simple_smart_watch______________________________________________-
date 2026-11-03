@@ -90,6 +90,7 @@ let latestPosition=null;
 let lastSentPosition=null;
 let receivedData="";
 let weatherResponseTimer=null;
+let wifiScanResponseTimer=null;
 let bleWriteQueue=Promise.resolve();
 
 async function connectBLE(){
@@ -217,17 +218,35 @@ async function requestWiFiScan(){
   const button=document.getElementById("wifiScanBtn");
   const status=document.getElementById("wifiScanStatus");
   if(!bleCharacteristic){status.textContent="Hãy kết nối Bluetooth trước";return}
+  clearTimeout(wifiScanResponseTimer);
   receivedData="";
   button.disabled=true;
-  status.textContent="Đang gửi lệnh quét...";
+  status.textContent="Đang gửi yêu cầu quét Wi-Fi...";
   const sent=await sendBLECommand("SCAN_WIFI");
-  button.disabled=false;
-  if(sent)status.textContent="Đã gửi lệnh · đang chờ danh sách mạng";
-  else status.textContent="Gửi lệnh thất bại · thử kết nối lại Bluetooth";
+  if(!sent){
+    button.disabled=false;
+    status.textContent="Không gửi được lệnh · kiểm tra kết nối Bluetooth";
+    return;
+  }
+  status.textContent="Đã gửi lệnh · ESP32 đang quét mạng...";
+  wifiScanResponseTimer=window.setTimeout(()=>{
+    button.disabled=false;
+    status.textContent="Quá thời gian chờ phản hồi · thử quét lại";
+  },30000);
 }
 
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
+  if(chunk==="WIFI_SCAN_STARTED"){
+    document.getElementById("wifiScanStatus").textContent="ESP32 đã nhận lệnh · đang quét Wi-Fi...";
+    return;
+  }
+  if(chunk==="WIFI_SCAN_ERROR"){
+    clearTimeout(wifiScanResponseTimer);
+    document.getElementById("wifiScanBtn").disabled=false;
+    document.getElementById("wifiScanStatus").textContent="ESP32 không quét được Wi-Fi · xem Serial Monitor";
+    return;
+  }
   const weatherMessages={
     WEATHER_STARTED:["Đang tải dự báo thời tiết...",true,false],
     WEATHER_BUSY:["Đang có một lượt cập nhật chạy · vui lòng chờ",false,true],
@@ -256,6 +275,7 @@ function handleNotifications(event){
     try{
       const networks=JSON.parse(receivedData);
       if(Array.isArray(networks)){
+        clearTimeout(wifiScanResponseTimer);
         populateWifiDropdown(networks);
         document.getElementById("wifiScanStatus").textContent="Tìm thấy "+networks.length+" mạng Wi-Fi";
         document.getElementById("wifiScanBtn").disabled=false;
