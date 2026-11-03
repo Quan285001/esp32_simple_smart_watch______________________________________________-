@@ -410,7 +410,7 @@ bool fetchHourlyWeather() {
 
     // The default TLS record buffers are relatively large for this optional
     // request. Smaller buffers reduce peak internal-RAM demand on ESP32-C3.
-    lunarClient.setBufferSizes(4096, 4096);
+    // setBufferSizes() is unavailable in the ESP32 Arduino core bundled with platform 6.9.0.
 
     HTTPClient lunarHttp;
     lunarHttp.setConnectTimeout(5000);
