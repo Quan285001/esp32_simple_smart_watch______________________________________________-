@@ -55,6 +55,10 @@ extern void drawSystemInfoScreen();
 // MENU HELPERS
 // =====================================================
 
+/**
+ * @brief Implements the get menu count operation.
+
+ */
 static uint8_t getMenuCount() {
     switch (currentMenuLevel) {
         case MENU_MAIN:
@@ -166,6 +170,10 @@ void drawCurrentScreen(bool force) {
 // ENTER / EXIT SUBMENU
 // =====================================================
 
+/**
+ * @brief Enters the submenu associated with the selected main-menu item.
+
+ */
 void enterSubMenu() {
     if (currentMenuLevel == MENU_MAIN) {
 
@@ -289,6 +297,10 @@ void selectMenuItem() {
         }
     }
 
+    /**
+     * @brief Implements the if operation.
+     * @param currentMenuLevel Input or state used by this operation.
+     */
     else if (currentMenuLevel == MENU_CONNECTIVITY) {
 
         switch (menuIndex) {
@@ -316,6 +328,10 @@ void selectMenuItem() {
         }
     }
 
+    /**
+     * @brief Implements the if operation.
+     * @param currentMenuLevel Input or state used by this operation.
+     */
     else if (currentMenuLevel == MENU_SYSTEM) {
 
         switch (menuIndex) {
@@ -365,6 +381,10 @@ void selectMenuItem() {
 // BUTTON: SHORT PRESS
 // =====================================================
 
+/**
+ * @brief Handles a short button press according to the active screen.
+
+ */
 void onButtonShortPress() {
 
     if (currentScreen == SCREEN_MENU) {
