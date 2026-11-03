@@ -552,24 +552,33 @@ void loop() {
         static int cachedSecond = -1;
         static struct tm cachedTime = {};
         static uint32_t secondStartedAt = 0;
+        static bool cachedTimeValid = false;
 
         struct tm currentTime = {};
 
-        if (getLocalTime(&currentTime, 0)) {
-            if (currentTime.tm_sec != cachedSecond) {
+        // Accept only a genuinely synchronized calendar time. Some ESP32
+        // time reads can briefly return an epoch/default value around radio
+        // shutdown or wake; never replace a good clock with 1970.
+        if (getLocalTime(&currentTime, 0) &&
+            currentTime.tm_year >= (2024 - 1900)) {
+            if (!cachedTimeValid || currentTime.tm_sec != cachedSecond) {
                 cachedSecond = currentTime.tm_sec;
                 cachedTime = currentTime;
                 secondStartedAt = now;
+                cachedTimeValid = true;
             }
-        } else {
+        }
+
+        // Until the first valid NTP time arrives, show a stable placeholder.
+        // Once synchronized, preserve the last good time through transient
+        // getLocalTime() failures instead of jumping back to a fake time.
+        if (!cachedTimeValid) {
             cachedTime.tm_hour = 12;
             cachedTime.tm_min = 0;
             cachedTime.tm_sec = (now / 1000) % 60;
             cachedTime.tm_wday = 0;
             cachedTime.tm_mday = 1;
-
-            secondStartedAt =
-                now - (now % 1000);
+            secondStartedAt = now - (now % 1000);
         }
 
         uint32_t elapsed =
@@ -599,7 +608,9 @@ void loop() {
         WeatherData weather =
             getWeatherSnapshot();
 
-        if (weather.valid && !weatherFaceInitialized) {
+        if (!weatherFaceInitialized) {
+            // Render even without a valid forecast so Wi-Fi status and the
+            // next-update countdown remain visible while offline/loading.
             drawWeatherFaceData(weather);
             weatherFaceInitialized = true;
         }
