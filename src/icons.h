@@ -315,50 +315,6 @@ inline void drawWeatherMiniIcon(
     bool isNight
 ) {
     switch (getWeatherType(code)) {
-        /**
-         * @brief Implements the if operation.
-         * @param drawMiniCrescentMoon(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniSun(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniMoonCloud(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniSunCloud(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniCloud(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniFog(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniRain(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniFreezingRain(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniSnow(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniSnowShowers(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniThunder(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param drawMiniUnknown(tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param tft Input or state used by this operation.
-         * @param x Input or state used by this operation.
-         * @param y Input or state used by this operation.
-         * @param code Input or state used by this operation.
-         * @param isNight Input or state used by this operation.
-         */
         case WEATHER_CLEAR:
             if (isNight) drawMiniCrescentMoon(tft, x, y, 0xFCE0);
             else drawMiniSun(tft, x, y, 0xFDE0);
@@ -436,10 +392,6 @@ inline void drawWeatherIcon(
     bool isNight
 ) {
     switch (getWeatherType(code)) {
-        /**
-         * @brief Implements the if operation.
-         * @param isNight Input or state used by this operation.
-         */
         case WEATHER_CLEAR:
             if (isNight) {
                 drawMiniCrescentMoon(tft, x, y, 0xFCE0);
