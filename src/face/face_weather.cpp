@@ -336,6 +336,8 @@ void toggleWeatherDetails(const WeatherData& weather) {
 bool scrollWeatherDetails(const WeatherData& weather) {
     if (!weatherDetailsOpen || weatherDetailsAnimating) return false;
     if (weatherDetailsScrollAnimating) return true;
+    // Stop at the final page (Rain); do not wrap or start a no-op animation.
+    if (weatherDetailsScroll >= 4) return true;
     detailWeather = weather;
     weatherDetailsScrollFrom = weatherDetailsScroll;
     // Nine rows are available and five fit at once, so valid
