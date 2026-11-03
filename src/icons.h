@@ -26,6 +26,10 @@ enum WeatherType : uint8_t {
     WEATHER_UNKNOWN
 };
 
+/**
+ * @brief Maps a WMO weather code to the icon classification used by the renderer.
+ * @param code Input or state used by this operation.
+ */
 inline WeatherType getWeatherType(int code) {
     switch (code) {
         case 0:
@@ -92,6 +96,13 @@ inline WeatherType getWeatherType(int code) {
 // BASIC ICONS
 // =====================================================
 
+/**
+ * @brief Draws a compact sun icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniSun(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.fillCircle(x, y, 5, color);
     tft.drawFastVLine(x, y - 10, 4, color);
@@ -104,6 +115,13 @@ inline void drawMiniSun(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.drawLine(x + 7, y + 7, x + 10, y + 10, color);
 }
 
+/**
+ * @brief Draws a compact cloud icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniCloud(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.fillCircle(x - 6, y + 2, 5, color);
     tft.fillCircle(x + 5, y, 7, color);
@@ -111,6 +129,13 @@ inline void drawMiniCloud(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.fillRect(x - 8, y, 16, 8, color);
 }
 
+/**
+ * @brief Draws a compact rain-cloud icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniRain(TFT_eSPI &tft, int x, int y, uint16_t color) {
     drawMiniCloud(tft, x, y - 3, color);
     tft.drawLine(x - 6, y + 6, x - 8, y + 11, 0x05FF);
@@ -118,6 +143,13 @@ inline void drawMiniRain(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.drawLine(x + 6, y + 6, x + 4, y + 11, 0x05FF);
 }
 
+/**
+ * @brief Draws a compact thunderstorm icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniThunder(TFT_eSPI &tft, int x, int y, uint16_t color) {
     drawMiniCloud(tft, x, y - 4, color);
     tft.drawLine(x, y + 3, x - 4, y + 9, 0xFDE0);
@@ -125,20 +157,48 @@ inline void drawMiniThunder(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.drawLine(x + 2, y + 9, x - 2, y + 15, 0xFDE0);
 }
 
+/**
+ * @brief Draws a compact sun-behind-cloud icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniSunCloud(TFT_eSPI &tft, int x, int y, uint16_t color) {
     drawMiniSun(tft, x - 5, y - 5, 0xFDE0);
     drawMiniCloud(tft, x + 2, y + 2, color);
 }
 
+/**
+ * @brief Draws a compact crescent-moon icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniCrescentMoon(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.fillCircle(x, y, 6, color);
     tft.fillCircle(x + 3, y - 2, 5, 0x0000);
 }
 
+/**
+ * @brief Draws the compact moon icon using the crescent-moon renderer.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniMoon(TFT_eSPI &tft, int x, int y, uint16_t color) {
     drawMiniCrescentMoon(tft, x, y, color);
 }
 
+/**
+ * @brief Draws a compact moon-behind-cloud icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniMoonCloud(TFT_eSPI &tft, int x, int y, uint16_t color) {
     drawMiniCrescentMoon(tft, x - 5, y - 5, 0xFCE0);
     drawMiniCloud(tft, x + 2, y + 2, color);
@@ -148,12 +208,26 @@ inline void drawMiniMoonCloud(TFT_eSPI &tft, int x, int y, uint16_t color) {
 // ADDITIONAL WEATHER ICONS
 // =====================================================
 
+/**
+ * @brief Draws a compact fog icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniFog(TFT_eSPI &tft, int x, int y, uint16_t color) {
     drawMiniCloud(tft, x, y - 4, color);
     tft.drawFastHLine(x - 10, y + 7, 20, color);
     tft.drawFastHLine(x - 7, y + 11, 14, color);
 }
 
+/**
+ * @brief Draws a compact snowflake icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniSnow(TFT_eSPI &tft, int x, int y, uint16_t color) {
     for (int i = -1; i <= 1; ++i) {
         int px = x + i * 7;
@@ -164,6 +238,13 @@ inline void drawMiniSnow(TFT_eSPI &tft, int x, int y, uint16_t color) {
     }
 }
 
+/**
+ * @brief Draws a compact freezing-rain icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniFreezingRain(TFT_eSPI &tft, int x, int y, uint16_t color) {
     drawMiniCloud(tft, x, y - 4, color);
     tft.drawLine(x - 6, y + 5, x - 8, y + 10, 0x05FF);
@@ -172,11 +253,25 @@ inline void drawMiniFreezingRain(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.drawFastHLine(x - 2, y + 8, 5, 0xFFFF);
 }
 
+/**
+ * @brief Draws a compact snow-showers icon.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniSnowShowers(TFT_eSPI &tft, int x, int y, uint16_t color) {
     drawMiniCloud(tft, x, y - 4, color);
     drawMiniSnow(tft, x, y + 10, 0xFFFF);
 }
 
+/**
+ * @brief Draws a fallback icon for an unclassified weather condition.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param color Input or state used by this operation.
+ */
 inline void drawMiniUnknown(TFT_eSPI &tft, int x, int y, uint16_t color) {
     tft.drawCircle(x, y, 7, color);
     tft.setTextDatum(MC_DATUM);
@@ -188,6 +283,14 @@ inline void drawMiniUnknown(TFT_eSPI &tft, int x, int y, uint16_t color) {
 // UNIVERSAL MINI WEATHER ICON
 // =====================================================
 
+/**
+ * @brief Selects and draws a compact weather icon based on the WMO code and day/night state.
+ * @param tft Input or state used by this operation.
+ * @param x Input or state used by this operation.
+ * @param y Input or state used by this operation.
+ * @param code Input or state used by this operation.
+ * @param isNight Input or state used by this operation.
+ */
 inline void drawWeatherMiniIcon(
     TFT_eSPI &tft,
     int x,
@@ -196,6 +299,50 @@ inline void drawWeatherMiniIcon(
     bool isNight
 ) {
     switch (getWeatherType(code)) {
+        /**
+         * @brief Implements the if operation.
+         * @param drawMiniCrescentMoon(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniSun(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniMoonCloud(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniSunCloud(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniCloud(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniFog(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniRain(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniFreezingRain(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniSnow(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniSnowShowers(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniThunder(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param drawMiniUnknown(tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param tft Input or state used by this operation.
+         * @param x Input or state used by this operation.
+         * @param y Input or state used by this operation.
+         * @param code Input or state used by this operation.
+         * @param isNight Input or state used by this operation.
+         */
         case WEATHER_CLEAR:
             if (isNight) drawMiniCrescentMoon(tft, x, y, 0xFCE0);
             else drawMiniSun(tft, x, y, 0xFDE0);
@@ -257,6 +404,10 @@ inline void drawWeatherIcon(
     bool isNight
 ) {
     switch (getWeatherType(code)) {
+        /**
+         * @brief Implements the if operation.
+         * @param isNight Input or state used by this operation.
+         */
         case WEATHER_CLEAR:
             if (isNight) {
                 drawMiniCrescentMoon(tft, x, y, 0xFCE0);
