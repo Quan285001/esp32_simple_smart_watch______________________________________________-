@@ -101,12 +101,8 @@ let wifiScanResponseTimer=null;
 let bleWriteQueue=Promise.resolve();
 
 /**
-
  * @brief Connects to the ESP32 watch over Web Bluetooth, subscribes to notifications, and initializes device synchronization.
-
-
  */
-
 async function connectBLE(){
   if(!navigator.bluetooth){setStatus("Trình duyệt không hỗ trợ Web Bluetooth",false);return}
   try{
@@ -126,12 +122,8 @@ async function connectBLE(){
 }
 
 /**
-
  * @brief Clears the active BLE characteristic and updates the connection status after the watch disconnects.
-
-
  */
-
 function onDisconnected(){
   bleCharacteristic=null;
   document.getElementById("connectBtn").textContent="Kết nối Bluetooth";
@@ -139,13 +131,9 @@ function onDisconnected(){
 }
 
 /**
-
  * @brief Queues and sends a command to the watch, returning whether the GATT write succeeded.
-
  * @param command Input used by this operation.
-
  */
-
 async function sendBLECommand(command){
   if(!bleCharacteristic){setStatus("Hãy kết nối Bluetooth trước",false);return false}
   const writeOperation=async()=>{
@@ -172,15 +160,10 @@ async function sendBLECommand(command){
 }
 
 /**
-
  * @brief Updates the connection status message and its connected-state styling.
-
  * @param message Input used by this operation.
-
  * @param connected Input used by this operation.
-
  */
-
 function setStatus(message,connected){
   const el=document.getElementById("status");
   el.textContent=message;
@@ -188,24 +171,16 @@ function setStatus(message,connected){
 }
 
 /**
-
  * @brief Sends the current browser time to the watch as a Unix timestamp.
-
-
  */
-
 async function syncTime(){
   const epoch=Math.floor(Date.now()/1000);
   if(await sendBLECommand("SYNC_TIME:"+epoch))setStatus("Đã gửi thời gian",true);
 }
 
 /**
-
  * @brief Requests a weather refresh and waits for a completion notification or timeout.
-
-
  */
-
 async function syncWeather(){
   const button=document.getElementById("weatherBtn");
   const status=document.getElementById("weatherStatus");
@@ -228,12 +203,8 @@ async function syncWeather(){
 }
 
 /**
-
  * @brief Starts or stops browser geolocation tracking and forwards position updates to the watch.
-
-
  */
-
 function toggleLocation(){
   if(locationWatchId!==null){
     navigator.geolocation.clearWatch(locationWatchId);
@@ -257,13 +228,9 @@ function toggleLocation(){
 }
 
 /**
-
  * @brief Sends the latest known coordinates when they have changed enough or a forced sync is requested.
-
  * @param force Input used by this operation.
-
  */
-
 async function sendLatestPosition(force){
   if(!latestPosition||!bleCharacteristic)return;
   const previous=lastSentPosition;
@@ -279,23 +246,15 @@ async function sendLatestPosition(force){
 }
 
 /**
-
  * @brief Requests Light Sleep mode on the watch.
-
-
  */
-
 async function sleepWatch(){
   if(await sendBLECommand("SLEEP_ON"))setStatus("Đồng hồ đang chuyển sang Light Sleep",true);
 }
 
 /**
-
  * @brief Requests a Wi-Fi scan and waits for the watch to return the discovered network list.
-
-
  */
-
 async function requestWiFiScan(){
   const button=document.getElementById("wifiScanBtn");
   const status=document.getElementById("wifiScanStatus");
@@ -318,13 +277,9 @@ async function requestWiFiScan(){
 }
 
 /**
-
  * @brief Processes BLE notifications, updates operation statuses, and assembles fragmented Wi-Fi scan results.
-
  * @param event Input used by this operation.
-
  */
-
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
   if(chunk==="WIFI_SCAN_STARTED"){
@@ -376,13 +331,9 @@ function handleNotifications(event){
 }
 
 /**
-
  * @brief Rebuilds the Wi-Fi network selector using the networks returned by the watch.
-
  * @param networks Input used by this operation.
-
  */
-
 function populateWifiDropdown(networks){
   const select=document.getElementById("wifiSelect");
   select.innerHTML='<option value="">Chọn mạng Wi-Fi</option>';
@@ -395,23 +346,15 @@ function populateWifiDropdown(networks){
 }
 
 /**
-
  * @brief Copies the selected network name into the SSID input field.
-
-
  */
-
 function onWifiSelected(){
   document.getElementById("ssid").value=document.getElementById("wifiSelect").value;
 }
 
 /**
-
  * @brief Validates the Wi-Fi name and sends the credentials to the watch for storage and connection.
-
-
  */
-
 async function sendWiFiConfig(){
   const ssid=document.getElementById("ssid").value.trim();
   const pass=document.getElementById("pass").value;
