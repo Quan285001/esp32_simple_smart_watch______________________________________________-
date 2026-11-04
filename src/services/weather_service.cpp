@@ -246,6 +246,13 @@ bool fetchHourlyWeather() {
     next.moonset = previous.moonset;
     next.detailsValid = false;
 
+    Serial.printf(
+        "[MEM] Before Weather TLS: free=%u, largest_block=%u, min_free=%u bytes\\n",
+        (unsigned int)ESP.getFreeHeap(),
+        (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+        (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
+    );
+
     // Keep the first HTTPS client and response/JSON allocations in a short
     // scope so their destructors release resources before the Lunar TLS request.
     {
