@@ -263,6 +263,7 @@ void showDeviceInfo() {
  * @brief Executes the action associated with the selected item in the active menu.
  */
 void selectMenuItem() {
+    bool traceBleMenuAction = false;
 
     if (currentMenuLevel == MENU_MAIN) {
 
@@ -297,8 +298,11 @@ void selectMenuItem() {
         switch (menuIndex) {
 
             case 0:
+                traceBleMenuAction = true;
+                Serial.println("[MENU][TRACE] BLE menu action ENTER");
+                Serial.println("[MENU][TRACE] toggleBLE call ENTER");
                 toggleBLE();
-                resetMenuScreen();
+                Serial.println("[MENU][TRACE] toggleBLE call EXIT");
                 Serial.println(isBLEEnabled() ? "[BT] Bluetooth enabled." : "[BT] Bluetooth disabled.");
                 break;
 
@@ -357,7 +361,13 @@ void selectMenuItem() {
     }
 
     resetMenuScreen();
+    if (traceBleMenuAction) {
+        Serial.println("[MENU][TRACE] BLE menu redraw ENTER");
+    }
     drawCurrentScreen(true);
+    if (traceBleMenuAction) {
+        Serial.println("[MENU][TRACE] BLE menu redraw EXIT");
+    }
 }
 
 // =====================================================
