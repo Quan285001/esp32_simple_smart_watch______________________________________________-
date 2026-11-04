@@ -50,7 +50,8 @@ extern void drawMenuScreen(
 extern void drawWeatherFaceData(const WeatherData& w);
 extern void updateWeatherFaceAnimation(const WeatherData& w);
 
-static uint32_t lastWeatherFetchMs = 0;
+static uint32_t lastWeatherFetchMs = 0;      // Last successful forecast fetch.
+static uint32_t lastWeatherAttemptMs = 0;   // Last scheduled attempt; throttles failures.
 static uint32_t lastWeatherRetryMs = 0;
 static uint32_t lastManualWeatherRequestMs = 0;
 static uint32_t lastClockDrawMs = 0;
@@ -171,6 +172,7 @@ static void weatherFetchTask(void *parameter) {
 
     const bool success = fetchHourlyWeather();
     if (success) {
+        lastWeatherFetchMs = millis(); // Advance the refresh countdown only after valid data is committed.
         weatherDataValid = true;
         weatherFaceInitialized = false; // redraw fresh data on the UI thread
     }
@@ -234,7 +236,7 @@ static bool scheduleWeatherFetch() {
         return false;
     }
 
-    lastWeatherFetchMs = millis();
+    lastWeatherAttemptMs = millis();
 
     Serial.println("[WEATHER] Fetch scheduled.");
 
@@ -324,6 +326,7 @@ void toggleWiFi() {
         lastWifiStatusLogMs = 0;
         beginTimeService();
         lastWeatherFetchMs = 0;
+        lastWeatherAttemptMs = 0;
         lastWeatherRetryMs = 0;
 
         Serial.println("[WIFI] Enabled; reconnecting with saved credentials.");
@@ -630,6 +633,7 @@ void loop() {
         // This also adapts the clock and forecast location when travelling.
         beginTimeService();
         lastWeatherFetchMs = now - WEATHER_REFRESH_MS;
+        lastWeatherAttemptMs = 0;
         lastWeatherRetryMs = 0;
     }
 
@@ -690,7 +694,8 @@ void loop() {
         !bootNetworkNeedsBle &&
         hasWeatherData &&
         !weatherFetchRunning &&
-        now - lastWeatherFetchMs >= WEATHER_REFRESH_MS
+        now - lastWeatherFetchMs >= WEATHER_REFRESH_MS &&
+        (lastWeatherAttemptMs == 0 || now - lastWeatherAttemptMs >= WEATHER_RETRY_MS)
     ) {
         scheduleWeatherFetch();
     }
