@@ -117,6 +117,7 @@ async function connectBLE(){
     setStatus("Connected",true);
     document.getElementById("connectBtn").textContent="Connected";
     if(latestPosition)await sendLatestPosition(true);
+    else await syncTime();
     await requestWiFiScan();
   }catch(error){console.error(error);setStatus("Connection failed",false)}
 }
@@ -295,6 +296,17 @@ function handleNotifications(event){
     clearTimeout(wifiScanResponseTimer);
     document.getElementById("wifiScanBtn").disabled=false;
     document.getElementById("wifiScanStatus").textContent="ESP32 could not scan for Wi-Fi · check the Serial Monitor";
+    return;
+  }
+  // These short control replies are not fragments of the Wi-Fi JSON payload.
+  if(chunk==="GPS_OK"||chunk==="TIME_OK"){
+    receivedData="";
+    if(chunk==="GPS_OK")document.getElementById("locationValue").textContent+=" · saved on watch";
+    return;
+  }
+  if(chunk==="ERR_GPS"||chunk==="ERR_GPS_STORAGE"||chunk==="ERR_TIME"){
+    receivedData="";
+    setStatus("Watch rejected a location/time update",false);
     return;
   }
   const weatherMessages={
