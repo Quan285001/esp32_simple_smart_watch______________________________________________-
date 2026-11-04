@@ -196,7 +196,7 @@ bool fetchHourlyWeather() {
         "&current=temperature_2m,weather_code" +
         "&hourly=temperature_2m,weather_code,wind_speed_10m,surface_pressure,precipitation" +
         "&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,sunrise,sunset" +
-        "&forecast_days=2&timezone=Asia%2FHo_Chi_Minh";
+        "&forecast_days=2&timezone=auto";
 
     // Start a fresh weather payload but carry forward the last saved lunar
     // fields. If the optional lunar endpoint fails, old moon data must survive.
@@ -531,7 +531,7 @@ bool fetchLunarDetails() {
     // This avoids making lunar data depend on a successful NTP sync.
     String lunarUrl = String("https://api.sunrisesunset.io/json?lat=") +
         weatherLatitude + "&lng=" + weatherLongitude +
-        "&timezone=Asia%2FHo_Chi_Minh&time_format=24";
+        "&timezone=auto&time_format=24";
 
     WiFiClientSecure lunarClient;
     lunarClient.setInsecure();
