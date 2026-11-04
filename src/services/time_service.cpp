@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include "time_service.h"
 #include "../config.h"
@@ -13,6 +14,92 @@
 
 static constexpr long DEFAULT_UTC_OFFSET_SEC = 7L * 3600L;
 static constexpr uint32_t GEO_HTTP_TIMEOUT_MS = 5000;
+static constexpr uint64_t MIN_VALID_EPOCH = 1704067200ULL; // 2024-01-01 UTC
+static constexpr uint32_t TIME_CHECKPOINT_INTERVAL_MS = 30UL * 60UL * 1000UL;
+static uint32_t lastTimeCheckpointMs = 0;
+
+/**
+ * Restore the last valid Unix timestamp and timezone from NVS.
+ * A still-valid system clock is never overwritten (important for software resets).
+ */
+bool restoreTimeFromNvs() {
+    long utcOffset = DEFAULT_UTC_OFFSET_SEC;
+    uint64_t savedEpoch = 0;
+    String timezoneName;
+
+    Preferences prefs;
+    if (prefs.begin("watch", true)) {
+        utcOffset = prefs.getLong("utcOffset", DEFAULT_UTC_OFFSET_SEC);
+        savedEpoch = prefs.getULong64("lastEpoch", 0);
+        timezoneName = prefs.getString("timezone", "");
+        prefs.end();
+    }
+
+    if (utcOffset < -43200L || utcOffset > 50400L) {
+        utcOffset = DEFAULT_UTC_OFFSET_SEC;
+    }
+
+    // Apply the saved local offset even while offline.
+    configTime(utcOffset, 0, NTP_SERVER, "time.google.com");
+
+    const time_t currentEpoch = time(nullptr);
+    if (static_cast<uint64_t>(currentEpoch) >= MIN_VALID_EPOCH) {
+        lastTimeCheckpointMs = millis();
+        Serial.println("[TIME] System clock already valid; preserving it.");
+        return true;
+    }
+
+    if (savedEpoch < MIN_VALID_EPOCH) {
+        Serial.println("[TIME] No valid saved epoch in NVS.");
+        return false;
+    }
+
+    struct timeval restoredTime;
+    restoredTime.tv_sec = static_cast<time_t>(savedEpoch);
+    restoredTime.tv_usec = 0;
+    if (settimeofday(&restoredTime, nullptr) != 0) {
+        Serial.println("[TIME] Failed to restore saved epoch.");
+        return false;
+    }
+
+    lastTimeCheckpointMs = millis();
+    Serial.printf("[TIME] Restored checkpoint: %llu (%s, UTC offset %ld sec).\\n",
+                  static_cast<unsigned long long>(savedEpoch),
+                  timezoneName.c_str(), utcOffset);
+    return true;
+}
+
+/** Save a valid current Unix timestamp to NVS. Call after successful NTP sync. */
+bool saveTimeCheckpoint() {
+    const time_t epoch = time(nullptr);
+    if (static_cast<uint64_t>(epoch) < MIN_VALID_EPOCH) {
+        return false;
+    }
+
+    Preferences prefs;
+    if (!prefs.begin("watch", false)) {
+        Serial.println("[TIME] Cannot open NVS for time checkpoint.");
+        return false;
+    }
+    const size_t written = prefs.putULong64("lastEpoch", static_cast<uint64_t>(epoch));
+    prefs.end();
+
+    if (written == 0) {
+        Serial.println("[TIME] NVS time checkpoint write failed.");
+        return false;
+    }
+
+    lastTimeCheckpointMs = millis();
+    return true;
+}
+
+/** Checkpoint at a bounded interval; never write flash on every clock frame. */
+void serviceTimePersistence() {
+    if (lastTimeCheckpointMs == 0 ||
+        millis() - lastTimeCheckpointMs >= TIME_CHECKPOINT_INTERVAL_MS) {
+        saveTimeCheckpoint();
+    }
+}
 
 /**
  * Resolve an approximate location and current UTC offset from the public IP.
