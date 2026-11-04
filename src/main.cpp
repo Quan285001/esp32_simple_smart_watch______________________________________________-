@@ -451,7 +451,6 @@ void setup() {
     tft.fillScreen(TFT_BLACK);
 
     showBootTerminal();
-    tft.fillScreen(TFT_BLACK);
     bootTerminalLog("[BOOT] Restoring saved state", TFT_YELLOW);
 
     Preferences prefs;
@@ -494,13 +493,7 @@ void setup() {
     if (created != pdPASS) {
         bootNetworkRunning = false;
         bootNetworkNeedsBle = true;
-        Serial.printf(
-            "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\\n",
-            (unsigned int)ESP.getFreeHeap(),
-            (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-            (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
-        );
-
+        bootTerminalLog("[WARN] Network task unavailable; skipping Wi-Fi", TFT_YELLOW);
         WiFi.disconnect(false, false);
         WiFi.mode(WIFI_OFF);
         wifiEnabled = false;
@@ -527,6 +520,12 @@ void loop() {
             if (isBLEEnabled()) {
                 toggleBLE();
             }
+            Serial.printf(
+                "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\\n",
+                (unsigned int)ESP.getFreeHeap(),
+                (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+                (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
+            );
 
             WiFi.disconnect(false, false);
             WiFi.mode(WIFI_OFF);
