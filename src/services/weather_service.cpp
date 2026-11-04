@@ -544,16 +544,14 @@ bool fetchLunarDetails() {
         Serial.printf("[WEATHER] Lunar API HTTP status: %d\n", lunarStatus);
 
         if (lunarStatus == HTTP_CODE_OK) {
-            String lunarPayload = lunarHttp.getString();
             JsonDocument lunarDoc;
             DeserializationError lunarError =
-                deserializeJson(lunarDoc, lunarPayload);
+                deserializeJson(lunarDoc, lunarHttp.getStream());
 
             if (lunarError) {
                 Serial.printf("[WEATHER] Lunar JSON error: %s\n", lunarError.c_str());
             } else if (!lunarDoc["results"].is<JsonObjectConst>()) {
-                Serial.printf("[WEATHER] Lunar API response has no results object: %s\n",
-                              lunarPayload.substring(0, 180).c_str());
+                Serial.println("[WEATHER] Lunar API response has no results object.");
             } else {
                 JsonObjectConst result = lunarDoc["results"];
                 next.moonrise = result["moonrise"].isNull()
