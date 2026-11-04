@@ -237,32 +237,16 @@ bool fetchHourlyWeather() {
     }
 
 
-    String payload = http.getString();
-
     Serial.printf(
-        "[WEATHER] HTTP status: %d\n",
-        status
+        "[WEATHER] HTTP status: %d, content length: %d bytes\n",
+        status,
+        http.getSize()
     );
 
-    Serial.printf(
-        "[WEATHER] Response length: %u bytes\n",
-        (unsigned int)payload.length()
-    );
-
-    if (payload.length() == 0) {
-        Serial.println("[WEATHER] Empty response.");
-        http.end();
-        return false;
-    }
-
-    Serial.println("[WEATHER] Response preview:");
-
-    Serial.println(payload.substring(0, 300));
-
+    // Parse directly from the HTTP stream. Avoid holding a second full JSON
+    // response String alongside ArduinoJson's document on the small C3 heap.
     JsonDocument doc;
-
-    DeserializationError error =
-        deserializeJson(doc, payload);
+    DeserializationError error = deserializeJson(doc, http.getStream());
 
     http.end();
 
