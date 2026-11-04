@@ -37,6 +37,7 @@ extern void drawAnalogClockFace(
 );
 
 extern void showBootTerminal();
+extern void stopBootTerminalDisplay();
 extern void bootTerminalLog(const char* msg, uint16_t color);
 
 extern void drawMenuScreen(
@@ -474,6 +475,7 @@ void setup() {
     // Do not make the user wait for Wi-Fi, NTP, HTTPS, or lunar data.
     bootTerminalLog("[SYS] Starting clock interface", TFT_GREEN);
     drawCurrentScreen(true);
+    stopBootTerminalDisplay(); // Runtime boot logs must not overwrite the watch face.
 
     wifiEnabled = true;
     bootNetworkRunning = true;
