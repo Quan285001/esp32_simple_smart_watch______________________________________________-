@@ -571,6 +571,7 @@ void loop() {
 
     updateButtonManager();
     handleBLECommands();
+    serviceBLE();
 
     if (lightSleepRequested) {
         // Keep the UI loop responsive while HTTPS/TLS work finishes.
