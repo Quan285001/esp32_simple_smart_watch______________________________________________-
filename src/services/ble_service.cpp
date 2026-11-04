@@ -18,6 +18,7 @@ static QueueHandle_t commandQueue = nullptr;
 
 static volatile bool clientConnected = false;
 static volatile bool bleEnabled = false;
+static volatile bool advertisingRestartPending = false;
 static bool bleStackInitialized = false;
 
 class ServerCallbacks final : public BLEServerCallbacks {
@@ -29,16 +30,14 @@ class ServerCallbacks final : public BLEServerCallbacks {
         clientConnected = true;
     }
 
-    void onDisconnect(BLEServer *server) override {
+    void onDisconnect(BLEServer *) override {
         clientConnected = false;
-        Serial.printf("[BLE][TRACE] onDisconnect: bleEnabled=%d, server=%p\n",
-                      bleEnabled ? 1 : 0, static_cast<void *>(server));
 
-        // Resume advertising only when Bluetooth is logically enabled.
-        if (bleEnabled && server != nullptr) {
-            Serial.println("[BLE][TRACE] onDisconnect: restart advertising ENTER");
-            server->getAdvertising()->start();
-            Serial.println("[BLE][TRACE] onDisconnect: restart advertising EXIT");
+        // BLE callbacks run in the host task. Defer advertising API calls
+        // to serviceBLE(), which executes in the application loop.
+        if (bleEnabled) {
+            advertisingRestartPending = true;
+            Serial.println("[BLE][TRACE] onDisconnect: advertising restart queued");
         }
     }
 };
@@ -129,6 +128,7 @@ void beginBLE() {
     bleAdvertising->addServiceUUID(SERVICE_UUID);
     bleAdvertising->setScanResponse(true);
 
+    advertisingRestartPending = false;
     bleEnabled = true;
     Serial.println("[BLE][TRACE] initial startAdvertising ENTER");
     bleAdvertising->start();
@@ -149,8 +149,12 @@ void toggleBLE() {
     }
 
     if (bleEnabled) {
-        // Keep the BLE host/server alive. Only stop discoverability.
-        // This avoids deinit(true) followed by an unsafe stack reinitialization.
+        // Disable logical state first so a disconnect callback cannot queue
+        // a restart while advertising is being stopped.
+        bleEnabled = false;
+        advertisingRestartPending = false;
+
+        // Keep the BLE host/server alive; only stop discoverability.
         if (bleAdvertising != nullptr) {
             Serial.println("[BLE][TRACE] stopAdvertising ENTER");
             bleAdvertising->stop();
@@ -159,7 +163,6 @@ void toggleBLE() {
             Serial.println("[BLE][TRACE] stopAdvertising skipped: null instance");
         }
 
-        bleEnabled = false;
         Serial.println("[BLE] Bluetooth OFF (advertising stopped; stack retained).");
         return;
     }
@@ -174,10 +177,45 @@ void toggleBLE() {
     }
 
     bleEnabled = true;
+
+    // A connected peripheral normally stops advertising. Defer restart until
+    // the active client disconnects instead of starting over that connection.
+    if (clientConnected) {
+        advertisingRestartPending = true;
+        Serial.println("[BLE] Bluetooth ON; advertising deferred until client disconnects.");
+        return;
+    }
+
+    advertisingRestartPending = false;
     Serial.println("[BLE][TRACE] startAdvertising ENTER");
     bleAdvertising->start();
     Serial.println("[BLE][TRACE] startAdvertising EXIT");
     Serial.println("[BLE] Bluetooth ON (advertising restarted; stack retained).");
+}
+
+/**
+ * @brief Processes deferred advertising restarts from the application loop.
+ */
+void serviceBLE() {
+    if (!bleStackInitialized || !bleEnabled ||
+        !advertisingRestartPending || clientConnected) {
+        return;
+    }
+
+    if (bleAdvertising == nullptr) {
+        bleAdvertising = BLEDevice::getAdvertising();
+    }
+
+    if (bleAdvertising == nullptr) {
+        Serial.println("[BLE] Deferred advertising restart failed: no instance.");
+        advertisingRestartPending = false;
+        return;
+    }
+
+    advertisingRestartPending = false;
+    Serial.println("[BLE][TRACE] deferred startAdvertising ENTER");
+    bleAdvertising->start();
+    Serial.println("[BLE][TRACE] deferred startAdvertising EXIT");
 }
 
 // Fully release the Bluetooth controller/host before light sleep.
@@ -200,6 +238,7 @@ void shutdownBLEForSleep() {
     bleServer = nullptr;
     clientConnected = false;
     bleEnabled = false;
+    advertisingRestartPending = false;
     bleStackInitialized = false;
 
     if (commandQueue != nullptr) {
