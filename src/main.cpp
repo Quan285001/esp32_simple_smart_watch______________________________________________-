@@ -126,6 +126,7 @@ static void enterLightSleep() {
     gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
     Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT sleeping.");
+    tft.fillScreen(TFT_BLACK);
     esp_light_sleep_start();
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
 
@@ -447,6 +448,7 @@ void setup() {
     tft.fillScreen(TFT_BLACK);
 
     showBootTerminal();
+    tft.fillScreen(TFT_BLACK);
     bootTerminalLog("[BOOT] Restoring saved state", TFT_YELLOW);
 
     Preferences prefs;
