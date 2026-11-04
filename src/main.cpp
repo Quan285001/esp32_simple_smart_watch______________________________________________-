@@ -407,6 +407,7 @@ static void bootNetworkTask(void *parameter) {
         bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
         const bool weatherUpdated = fetchHourlyWeather();
         if (weatherUpdated) {
+            lastWeatherFetchMs = millis();
             weatherDataValid = true;
             weatherFaceInitialized = false;
         }
