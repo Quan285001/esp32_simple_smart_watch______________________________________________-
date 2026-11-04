@@ -6,6 +6,12 @@ extern TFT_eSPI tft;
 
 static int currentY = 42;
 static constexpr int LINE_HEIGHT = 15;
+static bool terminalDisplayActive = true;
+
+// Stop drawing boot diagnostics over the normal watch UI.
+void stopBootTerminalDisplay() {
+    terminalDisplayActive = false;
+}
 
 void bootTerminalLog(const char* msg, uint16_t color);
 
@@ -33,6 +39,12 @@ void showBootTerminal() {
  * @param color Input or state used by this operation.
  */
 void bootTerminalLog(const char* msg, uint16_t color) {
+    // Keep runtime diagnostics in Serial only after the clock UI takes over.
+    if (!terminalDisplayActive) {
+        Serial.println(msg);
+        return;
+    }
+
     if (currentY > 220) {
         // Keep the latest boot stages visible on the small round display.
         tft.fillRect(0, 35, 240, 205, TFT_BLACK);
