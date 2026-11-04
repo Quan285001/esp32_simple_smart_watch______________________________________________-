@@ -375,7 +375,7 @@ void setup() {
                       WiFi.localIP().toString().c_str(), WiFi.RSSI());
 
         // Stage 2: NTP time synchronization, bounded so boot cannot hang forever.
-        bootTerminalLog("[TIME] Syncing NTP UTC+7", TFT_YELLOW);
+        bootTerminalLog("[TIME] Detecting timezone + syncing NTP", TFT_YELLOW);
         beginTimeService();
         struct tm bootTime = {};
         bool timeSynced = false;
