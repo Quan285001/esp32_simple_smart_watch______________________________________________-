@@ -26,7 +26,7 @@ uint8_t menuIndex = 0;
 MenuLevel currentMenuLevel = MENU_MAIN;
 uint8_t forecastIndex = 0;
 
-bool weatherDataValid = false;
+volatile bool weatherDataValid = false;
 bool wifiEnabled = true;
 
 extern void drawAnalogClockFace(
@@ -37,6 +37,7 @@ extern void drawAnalogClockFace(
 );
 
 extern void showBootTerminal();
+extern void stopBootTerminalDisplay();
 extern void bootTerminalLog(const char* msg, uint16_t color);
 
 extern void drawMenuScreen(
@@ -49,18 +50,22 @@ extern void drawMenuScreen(
 extern void drawWeatherFaceData(const WeatherData& w);
 extern void updateWeatherFaceAnimation(const WeatherData& w);
 
-static uint32_t lastWeatherFetchMs = 0;
+static uint32_t lastWeatherFetchMs = 0;      // Last successful forecast fetch.
+static uint32_t lastWeatherAttemptMs = 0;   // Last scheduled attempt; throttles failures.
 static uint32_t lastWeatherRetryMs = 0;
 static uint32_t lastManualWeatherRequestMs = 0;
 static uint32_t lastClockDrawMs = 0;
 static uint32_t lastMenuFrameMs = 0;
 static uint32_t lastWeatherFrameMs = 0;
 
-static bool weatherFaceInitialized = false;
+static volatile bool weatherFaceInitialized = false;
 static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
 static volatile bool locationWeatherRefreshPending = false;
+static volatile bool bootNetworkRunning = false;
+static volatile bool bootNetworkNeedsBle = false;
+static bool bootUiReady = false;
 static uint32_t lastLocationWeatherRetryMs = 0;
 
 // Countdown for the Weather face. Negative values are status codes:
@@ -89,6 +94,7 @@ static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
 static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
+static uint32_t lastLoopHeartbeatMs = 0;
 static bool lightSleepRequested = false;
 
 /**
@@ -103,10 +109,7 @@ static void enterLightSleep() {
     lightSleepRequested = false;
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
 
-    // Do not enter sleep while a TLS/weather task is still using the radios.
-    Serial.println("[POWER] Waiting for weather task before sleep.");
-    while (weatherFetchRunning) delay(20);
-
+    // The main loop defers sleep until background radio work has completed.
     // Preserve cached weather/time in RAM and NVS; shut down radios only.
     WiFi.disconnect(false, false);
     WiFi.mode(WIFI_OFF);
@@ -123,6 +126,7 @@ static void enterLightSleep() {
     gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
     Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT sleeping.");
+    tft.fillScreen(TFT_BLACK);
     esp_light_sleep_start();
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
 
@@ -167,6 +171,11 @@ static void weatherFetchTask(void *parameter) {
     Serial.println("[WEATHER] Background fetch started.");
 
     const bool success = fetchHourlyWeather();
+    if (success) {
+        lastWeatherFetchMs = millis(); // Advance the refresh countdown only after valid data is committed.
+        weatherDataValid = true;
+        weatherFaceInitialized = false; // redraw fresh data on the UI thread
+    }
 
     sendBLENotification(success ? "WEATHER_OK" : "WEATHER_FAILED");
     Serial.println(success ? "[WEATHER] Weather stage finished." : "[WEATHER] Weather stage failed.");
@@ -202,7 +211,7 @@ static bool scheduleWeatherFetch() {
         return false;
     }
 
-    if (weatherFetchRunning) {
+    if (weatherFetchRunning || bootNetworkRunning || bootNetworkNeedsBle) {
         return false;
     }
 
@@ -227,7 +236,7 @@ static bool scheduleWeatherFetch() {
         return false;
     }
 
-    lastWeatherFetchMs = millis();
+    lastWeatherAttemptMs = millis();
 
     Serial.println("[WEATHER] Fetch scheduled.");
 
@@ -317,6 +326,7 @@ void toggleWiFi() {
         lastWifiStatusLogMs = 0;
         beginTimeService();
         lastWeatherFetchMs = 0;
+        lastWeatherAttemptMs = 0;
         lastWeatherRetryMs = 0;
 
         Serial.println("[WIFI] Enabled; reconnecting with saved credentials.");
@@ -330,9 +340,107 @@ void toggleWiFi() {
 /**
  * @brief Implements the setup operation.
  */
+// =====================================================
+// ORDERED BACKGROUND BOOT
+// =====================================================
+
+/**
+ * @brief Performs Wi-Fi, NTP, weather, and lunar work sequentially.
+ * The clock UI is already running while this low-priority task works.
+ */
+static void bootNetworkTask(void *parameter) {
+    (void)parameter;
+
+    Preferences prefs;
+    String savedSsid = WIFI_SSID;
+    String savedPass = WIFI_PASSWORD;
+    if (prefs.begin("watch", true)) {
+        savedSsid = prefs.getString("ssid", WIFI_SSID);
+        savedPass = prefs.getString("pass", WIFI_PASSWORD);
+        prefs.end();
+    }
+    if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
+    if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
+
+    bootTerminalLog("[BOOT] Connecting to Wi-Fi", TFT_YELLOW);
+    WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
+    WiFi.begin(savedSsid.c_str(), savedPass.c_str());
+
+    const uint32_t wifiStart = millis();
+    while (WiFi.status() != WL_CONNECTED &&
+           millis() - wifiStart < 15000UL) {
+        vTaskDelay(pdMS_TO_TICKS(250));
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        char wifiMsg[48];
+        snprintf(wifiMsg, sizeof(wifiMsg), "[OK] Wi-Fi connected (%d dBm)", WiFi.RSSI());
+        bootTerminalLog(wifiMsg, TFT_GREEN);
+
+        // IP fallback and NTP setup happen away from the UI loop.
+        bootTerminalLog("[TIME] Synchronizing NTP", TFT_YELLOW);
+        beginTimeService();
+
+        struct tm syncedTime = {};
+        bool timeSynced = false;
+        const uint32_t timeStart = millis();
+        while (millis() - timeStart < 15000UL) {
+            if (getLocalTime(&syncedTime, 100) &&
+                syncedTime.tm_year >= (2024 - 1900)) {
+                timeSynced = true;
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(150));
+        }
+
+        if (timeSynced) {
+            saveTimeCheckpoint();
+            bootTerminalLog("[OK] NTP synchronized", TFT_GREEN);
+        } else {
+            bootTerminalLog("[INFO] NTP unavailable; keeping saved time", TFT_YELLOW);
+        }
+
+        // Keep TLS stages strictly sequential and prevent the normal loop
+        // from scheduling another weather request during this boot phase.
+        weatherFetchRunning = true;
+        bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
+        const bool weatherUpdated = fetchHourlyWeather();
+        if (weatherUpdated) {
+            lastWeatherFetchMs = millis();
+            weatherDataValid = true;
+            weatherFaceInitialized = false;
+        }
+        bootTerminalLog(weatherUpdated
+            ? "[OK] Weather updated and cached"
+            : "[INFO] Weather unavailable; cache retained",
+            weatherUpdated ? TFT_GREEN : TFT_YELLOW);
+
+        if (weatherUpdated && WiFi.status() == WL_CONNECTED) {
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            bootTerminalLog("[LUNAR] Fetching lunar details", TFT_YELLOW);
+            fetchLunarDetails();
+            bootTerminalLog("[OK] Lunar stage complete", TFT_GREEN);
+        }
+        weatherFetchRunning = false;
+    } else {
+        bootTerminalLog("[INFO] Wi-Fi unavailable; using saved data", TFT_YELLOW);
+    }
+
+    // BLE is initialized by loop() after this task exits, so its allocation
+    // cannot overlap either HTTPS/TLS request.
+    bootTerminalLog("[OK] Network startup stage complete", TFT_GREEN);
+    bootNetworkRunning = false;
+    bootNetworkNeedsBle = true;
+    vTaskDelete(nullptr);
+}
+
+/**
+ * @brief Restores persistent state, keeps the boot terminal visible while
+ * startup services run, then hands the display to the clock UI.
+ */
 void setup() {
     Serial.begin(115200);
-
     delay(250);
 
     Serial.println("\n[BOOT] ESP32-C3 Smart Watch");
@@ -343,120 +451,59 @@ void setup() {
                   static_cast<unsigned int>(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)));
 
     beginButtonManager();
-
-    Serial.println("[BOOT] Button ready");
-
     tft.init();
     tft.setRotation(0);
     tft.fillScreen(TFT_BLACK);
 
-    Serial.println("[BOOT] GC9A01 ready");
-
     showBootTerminal();
-    bootTerminalLog("[BOOT] Reading saved settings", TFT_YELLOW);
+    bootTerminalLog("[BOOT] Restoring saved state", TFT_YELLOW);
 
-    // Restore persistent settings/cache first. Reboot does not erase NVS.
     Preferences prefs;
-    String savedSsid;
-    String savedPass;
     float savedLat = NAN;
     float savedLon = NAN;
     if (prefs.begin("watch", true)) {
-        savedSsid = prefs.getString("ssid", WIFI_SSID);
-        savedPass = prefs.getString("pass", WIFI_PASSWORD);
         savedLat = prefs.getFloat("lat", NAN);
         savedLon = prefs.getFloat("lon", NAN);
         prefs.end();
     }
-    if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
-    if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
     if (isfinite(savedLat) && isfinite(savedLon)) {
         setWeatherCoordinates(savedLat, savedLon);
     }
 
+    const bool timeRestored = restoreTimeFromNvs();
+    bootTerminalLog(timeRestored
+        ? "[OK] Saved clock restored"
+        : "[INFO] Waiting for time sync", timeRestored ? TFT_GREEN : TFT_YELLOW);
+
     const bool cacheLoaded = loadWeatherCache();
-    bootTerminalLog(cacheLoaded ? "[OK] Weather cache restored" : "[INFO] No weather cache", cacheLoaded ? TFT_GREEN : TFT_YELLOW);
+    weatherDataValid = cacheLoaded;
+    bootTerminalLog(cacheLoaded
+        ? "[OK] Weather cache restored"
+        : "[INFO] No weather cache", cacheLoaded ? TFT_GREEN : TFT_YELLOW);
 
-    // Stage 1: connect using credentials already stored in NVS.
-    bootTerminalLog("[NET] Starting saved Wi-Fi", TFT_YELLOW);
-    WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
-    WiFi.begin(savedSsid.c_str(), savedPass.c_str());
+    // Keep the terminal visible until all startup stages have finished.
+    bootTerminalLog("[BOOT] Starting startup services", TFT_GREEN);
 
-    const uint32_t wifiStart = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 15000) {
-        delay(250);
-    }
-
-    const bool wifiConnectedAtBoot = WiFi.status() == WL_CONNECTED;
     wifiEnabled = true;
-    if (wifiConnectedAtBoot) {
-        bootTerminalLog("[OK] Wi-Fi connected", TFT_GREEN);
-        Serial.printf("[WIFI] Boot connected. IP: %s, RSSI: %d dBm\n",
-                      WiFi.localIP().toString().c_str(), WiFi.RSSI());
+    bootNetworkRunning = true;
+    const BaseType_t created = xTaskCreate(
+        bootNetworkTask,
+        "bootNetwork",
+        8192,
+        nullptr,
+        1,
+        nullptr
+    );
 
-        // Stage 2: NTP time synchronization, bounded so boot cannot hang forever.
-        bootTerminalLog("[TIME] Detecting timezone + syncing NTP", TFT_YELLOW);
-        beginTimeService();
-        struct tm bootTime = {};
-        bool timeSynced = false;
-        const uint32_t timeStart = millis();
-        while (millis() - timeStart < 15000) {
-            if (getLocalTime(&bootTime, 100)) {
-                timeSynced = bootTime.tm_year >= (2024 - 1900);
-                if (timeSynced) break;
-            }
-            delay(150);
-        }
-        bootTerminalLog(timeSynced ? "[OK] Time synchronized" : "[WARN] NTP unavailable", timeSynced ? TFT_GREEN : TFT_YELLOW);
-
-        // Stage 3: fetch and persist core weather before any lunar TLS request.
-        bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
-        const bool weatherUpdated = fetchHourlyWeather();
-        bootTerminalLog(weatherUpdated ? "[OK] Weather saved" : "[WARN] Using weather cache", weatherUpdated ? TFT_GREEN : TFT_YELLOW);
-        // If the live request failed but cache exists, retry after entering the UI.
-        lastWeatherFetchMs = weatherUpdated
-            ? millis()
-            : millis() - WEATHER_REFRESH_MS;
-
-        // Stage 4: optional lunar request is a separate, later operation.
-        if (weatherUpdated) {
-            delay(5000);
-            bootTerminalLog("[MOON] Fetching lunar data", TFT_YELLOW);
-            const bool lunarUpdated = fetchLunarDetails();
-            bootTerminalLog(lunarUpdated ? "[OK] Moon data saved" : "[WARN] Keeping moon cache", lunarUpdated ? TFT_GREEN : TFT_YELLOW);
-        } else {
-            bootTerminalLog("[MOON] Skipped; no fresh weather", TFT_YELLOW);
-        }
-    } else {
-        bootTerminalLog("[WARN] Wi-Fi unavailable", TFT_YELLOW);
-        Serial.println("[WIFI] Boot connection timed out; starting offline with cache.");
+    if (created != pdPASS) {
+        bootNetworkRunning = false;
+        bootNetworkNeedsBle = true;
+        bootTerminalLog("[WARN] Network task unavailable; skipping Wi-Fi", TFT_YELLOW);
+        WiFi.disconnect(false, false);
+        WiFi.mode(WIFI_OFF);
+        wifiEnabled = false;
+        Serial.println("[BOOT] Could not create network task; staying offline.");
     }
-
-    // Initialize BLE only after network/time/weather work is complete, then
-    // stop advertising to leave the device in a low-radio idle state.
-    bootTerminalLog("[BLE] Initializing Bluetooth", TFT_YELLOW);
-    beginBLE();
-    if (isBLEEnabled()) {
-        toggleBLE();
-    }
-    bootTerminalLog("[OK] Bluetooth initialized; advertising OFF", TFT_GREEN);
-
-    // Wi-Fi is no longer needed after the boot sync stages. Keep credentials
-    // and weather cache in NVS; only power down the radio.
-    bootTerminalLog("[NET] Turning Wi-Fi OFF", TFT_YELLOW);
-    WiFi.disconnect(false, false);
-    WiFi.mode(WIFI_OFF);
-    wifiEnabled = false;
-    previousWifiConnected = false;
-    lastWifiRetryMs = millis();
-    lastWifiStatusLogMs = 0;
-    Serial.println("[WIFI] Boot sync complete; radio disabled.");
-
-    // The application UI is released only after the ordered boot sequence.
-    bootTerminalLog("[SYS] Starting clock interface", TFT_GREEN);
-    delay(350);
-    drawCurrentScreen(true);
 }
 
 // =====================================================
@@ -467,7 +514,60 @@ void setup() {
  * @brief Implements the loop operation.
  */
 void loop() {
+    // During startup, the boot task owns the display. Do not run normal UI,
+    // button, or periodic services until network work and BLE initialization
+    // have both reached their terminal state.
+    if (!bootUiReady) {
+        if (bootNetworkNeedsBle) {
+            bootNetworkNeedsBle = false;
+            bootTerminalLog("[BLE] Initializing Bluetooth", TFT_YELLOW);
+            beginBLE();
+            if (isBLEEnabled()) {
+                toggleBLE();
+            }
+            Serial.printf(
+                "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\\n",
+                (unsigned int)ESP.getFreeHeap(),
+                (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+                (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
+            );
+
+            WiFi.disconnect(false, false);
+            WiFi.mode(WIFI_OFF);
+            wifiEnabled = false;
+            previousWifiConnected = false;
+            lastWifiRetryMs = millis();
+            lastWifiStatusLogMs = 0;
+
+            bootTerminalLog("[OK] Bluetooth initialized; radios idle", TFT_GREEN);
+            bootTerminalLog("[BOOT] Startup complete", TFT_GREEN);
+            delay(350);
+
+            tft.fillScreen(TFT_BLACK);
+            stopBootTerminalDisplay();
+            drawCurrentScreen(true);
+            bootUiReady = true;
+            Serial.println("[BOOT] Clock interface ready.");
+        }
+        delay(2);
+        return;
+    }
+
     const uint32_t now = millis();
+
+    // Diagnostic heartbeat: if this line stops during a freeze, loop() is
+    // blocked or the scheduler/system is no longer making progress.
+    if (now - lastLoopHeartbeatMs >= 1000UL) {
+        lastLoopHeartbeatMs = now;
+        Serial.printf(
+            "[LOOP] Alive: uptime=%lu ms, free_heap=%u, largest_block=%u bytes\n",
+            static_cast<unsigned long>(now),
+            static_cast<unsigned int>(ESP.getFreeHeap()),
+            static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT))
+        );
+    }
+
+    serviceTimePersistence();
 
     // -------------------------------------------------
     // BUTTON INPUT
@@ -475,7 +575,15 @@ void loop() {
 
     updateButtonManager();
     handleBLECommands();
+    serviceBLE();
+
     if (lightSleepRequested) {
+        // Keep the UI loop responsive while HTTPS/TLS work finishes.
+        // Sleep is entered on a later loop iteration once radio tasks are idle.
+        if (bootNetworkRunning || weatherFetchRunning) {
+            delay(2);
+            return;
+        }
         enterLightSleep();
         return;
     }
@@ -486,7 +594,7 @@ void loop() {
 
     const wl_status_t wifiStatus = WiFi.status();
 
-    if (wifiEnabled && wifiStatus != WL_CONNECTED) {
+    if (wifiEnabled && !bootNetworkRunning && !bootNetworkNeedsBle && wifiStatus != WL_CONNECTED) {
         if (now - lastWifiRetryMs >= WIFI_RETRY_MS) {
             Serial.printf(
                 "[WIFI] Still not connected (status=%s, code=%d); retrying.\n",
@@ -515,7 +623,7 @@ void loop() {
         wifiEnabled &&
         wifiStatus == WL_CONNECTED;
 
-    if (wifiConnected && !previousWifiConnected) {
+    if (wifiConnected && !previousWifiConnected && !bootNetworkRunning && !bootNetworkNeedsBle) {
         Serial.printf(
             "[WIFI] Connected. IP: %s, RSSI: %d dBm\n",
             WiFi.localIP().toString().c_str(),
@@ -526,6 +634,7 @@ void loop() {
         // This also adapts the clock and forecast location when travelling.
         beginTimeService();
         lastWeatherFetchMs = now - WEATHER_REFRESH_MS;
+        lastWeatherAttemptMs = 0;
         lastWeatherRetryMs = 0;
     }
 
@@ -550,10 +659,7 @@ void loop() {
     // WEATHER SNAPSHOT
     // -------------------------------------------------
 
-    WeatherData weatherSnapshot =
-        getWeatherSnapshot();
-
-    weatherDataValid = weatherSnapshot.valid;
+    const bool hasWeatherData = weatherDataValid;
 
     // -------------------------------------------------
     // WEATHER RETRY
@@ -561,7 +667,9 @@ void loop() {
 
     if (
         wifiConnected &&
-        !weatherSnapshot.valid &&
+        !bootNetworkRunning &&
+        !bootNetworkNeedsBle &&
+        !hasWeatherData &&
         !weatherFetchRunning &&
         (
             lastWeatherRetryMs == 0 ||
@@ -583,9 +691,12 @@ void loop() {
 
     if (
         wifiConnected &&
-        weatherSnapshot.valid &&
+        !bootNetworkRunning &&
+        !bootNetworkNeedsBle &&
+        hasWeatherData &&
         !weatherFetchRunning &&
-        now - lastWeatherFetchMs >= WEATHER_REFRESH_MS
+        now - lastWeatherFetchMs >= WEATHER_REFRESH_MS &&
+        (lastWeatherAttemptMs == 0 || now - lastWeatherAttemptMs >= WEATHER_RETRY_MS)
     ) {
         scheduleWeatherFetch();
     }
@@ -672,20 +783,17 @@ void loop() {
     if (currentScreen != SCREEN_WEATHER) {
         weatherFaceInitialized = false;
     } else if (now - lastWeatherFrameMs >= 40) {
-        WeatherData weather =
-            getWeatherSnapshot();
-
         if (!weatherFaceInitialized) {
-            // Render even without a valid forecast so Wi-Fi status and the
-            // next-update countdown remain visible while offline/loading.
+            // Copy the String-heavy snapshot only once when entering the face.
+            // Animation updates use their own captured state and do not need
+            // another full WeatherData copy every 40 ms.
+            WeatherData weather = getWeatherSnapshot();
             drawWeatherFaceData(weather);
             weatherFaceInitialized = true;
         }
 
-        if (weatherFaceInitialized) {
-            updateWeatherFaceAnimation(weather);
-        }
-
+        static const WeatherData unusedAnimationInput{};
+        updateWeatherFaceAnimation(unusedAnimationInput);
         lastWeatherFrameMs = now;
     }
 

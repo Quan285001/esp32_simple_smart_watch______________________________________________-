@@ -6,6 +6,8 @@
 void beginBLE();
 /** @brief Toggles BLE advertising without deinitializing the stack. */
 void toggleBLE();
+/** @brief Processes deferred BLE events from the application loop. */
+void serviceBLE();
 /** @brief Releases Bluetooth resources before entering Light Sleep. */
 void shutdownBLEForSleep();
 /** @brief Returns whether BLE advertising is enabled. */

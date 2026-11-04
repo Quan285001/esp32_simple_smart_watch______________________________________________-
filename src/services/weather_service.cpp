@@ -25,6 +25,25 @@ WeatherData currentWeather = {};
 static String weatherLatitude = WEATHER_LATITUDE;
 static String weatherLongitude = WEATHER_LONGITUDE;
 
+static SemaphoreHandle_t getCoordinatesMutex() {
+    static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
+    return mutex;
+}
+
+/** Copy both coordinates as one consistent pair before building an API URL. */
+static bool copyWeatherCoordinates(String &latitude, String &longitude) {
+    SemaphoreHandle_t mutex = getCoordinatesMutex();
+    if (mutex == nullptr ||
+        xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return false;
+    }
+
+    latitude = weatherLatitude;
+    longitude = weatherLongitude;
+    xSemaphoreGive(mutex);
+    return true;
+}
+
 /**
  * @brief Validates and updates the coordinates used for weather requests.
  * @param latitude Input or state used by this operation.
@@ -34,10 +53,22 @@ void setWeatherCoordinates(float latitude, float longitude) {
     if (!isfinite(latitude) || !isfinite(longitude) ||
         latitude < -90.0f || latitude > 90.0f ||
         longitude < -180.0f || longitude > 180.0f) return;
-    weatherLatitude = String(latitude, 4);
-    weatherLongitude = String(longitude, 4);
+
+    String nextLatitude(latitude, 4);
+    String nextLongitude(longitude, 4);
+    SemaphoreHandle_t mutex = getCoordinatesMutex();
+    if (mutex == nullptr ||
+        xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        Serial.println("[GPS] Coordinate lock unavailable; update skipped.");
+        return;
+    }
+
+    weatherLatitude = nextLatitude;
+    weatherLongitude = nextLongitude;
+    xSemaphoreGive(mutex);
+
     Serial.printf("[GPS] Weather coordinates updated: %s, %s\n",
-                  weatherLatitude.c_str(), weatherLongitude.c_str());
+                  nextLatitude.c_str(), nextLongitude.c_str());
 }
 
 /**
@@ -190,10 +221,17 @@ bool fetchHourlyWeather() {
         return false;
     }
 
+    String latitude;
+    String longitude;
+    if (!copyWeatherCoordinates(latitude, longitude)) {
+        Serial.println("[WEATHER] Could not snapshot coordinates.");
+        return false;
+    }
+
     String url =
         String("https://api.open-meteo.com/v1/forecast?latitude=") +
-        weatherLatitude +
-        "&longitude=" + weatherLongitude +
+        latitude +
+        "&longitude=" + longitude +
         "&current=temperature_2m,weather_code" +
         "&hourly=temperature_2m,weather_code,wind_speed_10m,surface_pressure,precipitation" +
         "&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,sunrise,sunset" +
@@ -208,6 +246,13 @@ bool fetchHourlyWeather() {
     next.moonset = previous.moonset;
     next.detailsValid = false;
 
+    Serial.printf(
+        "[MEM] Before Weather TLS: free=%u, largest_block=%u, min_free=%u bytes\\n",
+        (unsigned int)ESP.getFreeHeap(),
+        (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+        (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
+    );
+
     // Keep the first HTTPS client and response/JSON allocations in a short
     // scope so their destructors release resources before the Lunar TLS request.
     {
@@ -215,6 +260,9 @@ bool fetchHourlyWeather() {
     client.setInsecure();
 
     HTTPClient http;
+    // HTTP/1.0 avoids chunked transfer framing. ArduinoJson reads the raw
+    // client stream, so HTTP/1.1 chunk markers can otherwise cause InvalidInput.
+    http.useHTTP10(true);
 
     http.setConnectTimeout(5000);
     http.setTimeout(5000);
@@ -237,32 +285,16 @@ bool fetchHourlyWeather() {
     }
 
 
-    String payload = http.getString();
-
     Serial.printf(
-        "[WEATHER] HTTP status: %d\n",
-        status
+        "[WEATHER] HTTP status: %d, content length: %d bytes\n",
+        status,
+        http.getSize()
     );
 
-    Serial.printf(
-        "[WEATHER] Response length: %u bytes\n",
-        (unsigned int)payload.length()
-    );
-
-    if (payload.length() == 0) {
-        Serial.println("[WEATHER] Empty response.");
-        http.end();
-        return false;
-    }
-
-    Serial.println("[WEATHER] Response preview:");
-
-    Serial.println(payload.substring(0, 300));
-
+    // Parse directly from the HTTP stream. Avoid holding a second full JSON
+    // response String alongside ArduinoJson's document on the small C3 heap.
     JsonDocument doc;
-
-    DeserializationError error =
-        deserializeJson(doc, payload);
+    DeserializationError error = deserializeJson(doc, http.getStream());
 
     http.end();
 
@@ -540,8 +572,15 @@ bool fetchLunarDetails() {
 
     // SunriseSunset.io resolves today's date from the supplied coordinates.
     // This avoids making lunar data depend on a successful NTP sync.
+    String latitude;
+    String longitude;
+    if (!copyWeatherCoordinates(latitude, longitude)) {
+        Serial.println("[LUNAR] Could not snapshot coordinates.");
+        return false;
+    }
+
     String lunarUrl = String("https://api.sunrisesunset.io/json?lat=") +
-        weatherLatitude + "&lng=" + weatherLongitude +
+        latitude + "&lng=" + longitude +
         "&timezone=auto&time_format=24";
 
     WiFiClientSecure lunarClient;
@@ -552,6 +591,8 @@ bool fetchLunarDetails() {
     // setBufferSizes() is unavailable in the ESP32 Arduino core bundled with platform 6.9.0.
 
     HTTPClient lunarHttp;
+    // Keep the optional endpoint compatible with direct stream parsing too.
+    lunarHttp.useHTTP10(true);
     lunarHttp.setConnectTimeout(5000);
     lunarHttp.setTimeout(5000);
 
@@ -560,16 +601,14 @@ bool fetchLunarDetails() {
         Serial.printf("[WEATHER] Lunar API HTTP status: %d\n", lunarStatus);
 
         if (lunarStatus == HTTP_CODE_OK) {
-            String lunarPayload = lunarHttp.getString();
             JsonDocument lunarDoc;
             DeserializationError lunarError =
-                deserializeJson(lunarDoc, lunarPayload);
+                deserializeJson(lunarDoc, lunarHttp.getStream());
 
             if (lunarError) {
                 Serial.printf("[WEATHER] Lunar JSON error: %s\n", lunarError.c_str());
             } else if (!lunarDoc["results"].is<JsonObjectConst>()) {
-                Serial.printf("[WEATHER] Lunar API response has no results object: %s\n",
-                              lunarPayload.substring(0, 180).c_str());
+                Serial.println("[WEATHER] Lunar API response has no results object.");
             } else {
                 JsonObjectConst result = lunarDoc["results"];
                 next.moonrise = result["moonrise"].isNull()

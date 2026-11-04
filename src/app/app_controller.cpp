@@ -16,6 +16,7 @@ extern TFT_eSPI tft;
 
 extern void toggleWiFi();
 extern void requestLightSleep();
+extern uint8_t requestWeatherFetch();
 
 extern void drawAnalogClockFace(
     struct tm timeinfo,
@@ -220,16 +221,24 @@ void syncTime() {
 void syncWeather() {
     Serial.println("[WEATHER] Manual update requested.");
 
-    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) {
-        Serial.println("[WEATHER] Wi-Fi is unavailable.");
-        return;
+    const uint8_t result = requestWeatherFetch();
+    switch (result) {
+        case 0:
+            Serial.println("[WEATHER] Update scheduled in background.");
+            break;
+        case 1:
+            Serial.println("[WEATHER] An update is already running.");
+            break;
+        case 2:
+            Serial.println("[WEATHER] Wi-Fi is unavailable.");
+            break;
+        case 3:
+            Serial.println("[WEATHER] Please wait before requesting another update.");
+            break;
+        default:
+            Serial.println("[WEATHER] Could not schedule update.");
+            break;
     }
-
-    // Execute the request directly for now.
-    // This can be moved to a background task when the renderer integration is complete.
-    fetchHourlyWeather();
-
-    Serial.println("[WEATHER] Manual update finished.");
 }
 
 /**
@@ -254,6 +263,7 @@ void showDeviceInfo() {
  * @brief Executes the action associated with the selected item in the active menu.
  */
 void selectMenuItem() {
+    bool traceBleMenuAction = false;
 
     if (currentMenuLevel == MENU_MAIN) {
 
@@ -288,8 +298,11 @@ void selectMenuItem() {
         switch (menuIndex) {
 
             case 0:
+                traceBleMenuAction = true;
+                Serial.println("[MENU][TRACE] BLE menu action ENTER");
+                Serial.println("[MENU][TRACE] toggleBLE call ENTER");
                 toggleBLE();
-                resetMenuScreen();
+                Serial.println("[MENU][TRACE] toggleBLE call EXIT");
                 Serial.println(isBLEEnabled() ? "[BT] Bluetooth enabled." : "[BT] Bluetooth disabled.");
                 break;
 
@@ -348,7 +361,13 @@ void selectMenuItem() {
     }
 
     resetMenuScreen();
+    if (traceBleMenuAction) {
+        Serial.println("[MENU][TRACE] BLE menu redraw ENTER");
+    }
     drawCurrentScreen(true);
+    if (traceBleMenuAction) {
+        Serial.println("[MENU][TRACE] BLE menu redraw EXIT");
+    }
 }
 
 // =====================================================
