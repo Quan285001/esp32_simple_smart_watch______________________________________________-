@@ -474,6 +474,10 @@ void setup() {
 
     // Do not make the user wait for Wi-Fi, NTP, HTTPS, or lunar data.
     bootTerminalLog("[SYS] Starting clock interface", TFT_GREEN);
+
+    // Boot terminal text occupies the full TFT. Clear it explicitly before
+    // handing the display to the clock renderer (the clock sprite is only 160x160).
+    tft.fillScreen(TFT_BLACK);
     drawCurrentScreen(true);
     stopBootTerminalDisplay(); // Runtime boot logs must not overwrite the watch face.
 
