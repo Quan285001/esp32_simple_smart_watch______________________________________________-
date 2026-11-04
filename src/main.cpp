@@ -266,8 +266,12 @@ uint8_t requestWeatherFetchForLocation() {
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
     if (weatherFetchRunning) return 1;
 
-    locationWeatherRefreshPending = false;
-    return scheduleWeatherFetch() ? 0 : (weatherFetchRunning ? 1 : 2);
+    if (scheduleWeatherFetch()) {
+        locationWeatherRefreshPending = false;
+        return 0;
+    }
+    // Keep the request pending so the main loop can retry after resources recover.
+    return 2;
 }
 
 // =====================================================
