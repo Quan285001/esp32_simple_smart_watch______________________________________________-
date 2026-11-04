@@ -14,6 +14,7 @@ extern bool wifiEnabled;
  */
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
+extern uint8_t requestWeatherFetchForLocation();
 
 /**
  * @brief Parses and executes one BLE command.
@@ -52,12 +53,22 @@ static void handleCommand(const String &cmd) {
         if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
             sendBLENotification("ERR_GPS"); return;
         }
-        setWeatherCoordinates(lat, lon);
         Preferences prefs;
-        prefs.begin("watch", false);
+        if (!prefs.begin("watch", false)) {
+            sendBLENotification("ERR_GPS_STORAGE");
+            return;
+        }
         prefs.putFloat("lat", lat);
         prefs.putFloat("lon", lon);
+        prefs.putString("locationSource", "gps");
         prefs.end();
+
+        // A phone GPS fix is the primary location source and also drives the
+        // next weather request, which resolves the destination timezone.
+        setWeatherCoordinates(lat, lon);
+        const uint8_t refreshResult = requestWeatherFetchForLocation();
+        Serial.printf("[GPS] Phone location saved; weather refresh result=%u.\n",
+                      static_cast<unsigned int>(refreshResult));
         sendBLENotification("GPS_OK");
         return;
     }
