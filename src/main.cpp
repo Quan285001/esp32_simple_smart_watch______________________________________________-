@@ -93,6 +93,7 @@ static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
 static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
+static uint32_t lastLoopHeartbeatMs = 0;
 static bool lightSleepRequested = false;
 
 /**
@@ -549,6 +550,19 @@ void loop() {
     }
 
     const uint32_t now = millis();
+
+    // Diagnostic heartbeat: if this line stops during a freeze, loop() is
+    // blocked or the scheduler/system is no longer making progress.
+    if (now - lastLoopHeartbeatMs >= 1000UL) {
+        lastLoopHeartbeatMs = now;
+        Serial.printf(
+            "[LOOP] Alive: uptime=%lu ms, free_heap=%u, largest_block=%u bytes\n",
+            static_cast<unsigned long>(now),
+            static_cast<unsigned int>(ESP.getFreeHeap()),
+            static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT))
+        );
+    }
+
     serviceTimePersistence();
 
     // -------------------------------------------------
