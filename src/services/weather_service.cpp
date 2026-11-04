@@ -67,7 +67,7 @@ void setWeatherCoordinates(float latitude, float longitude) {
     weatherLongitude = nextLongitude;
     xSemaphoreGive(mutex);
 
-    Serial.printf("[GPS] Weather coordinates updated: %s, %s\\n",
+    Serial.printf("[GPS] Weather coordinates updated: %s, %s\n",
                   nextLatitude.c_str(), nextLongitude.c_str());
 }
 
