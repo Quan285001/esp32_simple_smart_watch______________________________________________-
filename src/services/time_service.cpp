@@ -41,9 +41,10 @@ bool restoreTimeFromNvs() {
 
     // Apply the saved local offset even while offline.
     configTime(utcOffset, 0, NTP_SERVER, "time.google.com");
+    lastTimeCheckpointMs = millis();
 
     const time_t currentEpoch = time(nullptr);
-    if (static_cast<uint64_t>(currentEpoch) >= MIN_VALID_EPOCH) {
+    if (currentEpoch >= static_cast<time_t>(MIN_VALID_EPOCH)) {
         lastTimeCheckpointMs = millis();
         Serial.println("[TIME] System clock already valid; preserving it.");
         return true;
@@ -63,7 +64,7 @@ bool restoreTimeFromNvs() {
     }
 
     lastTimeCheckpointMs = millis();
-    Serial.printf("[TIME] Restored checkpoint: %llu (%s, UTC offset %ld sec).\\n",
+    Serial.printf("[TIME] Restored checkpoint: %llu (%s, UTC offset %ld sec).\n",
                   static_cast<unsigned long long>(savedEpoch),
                   timezoneName.c_str(), utcOffset);
     return true;
@@ -72,7 +73,7 @@ bool restoreTimeFromNvs() {
 /** Save a valid current Unix timestamp to NVS. Call after successful NTP sync. */
 bool saveTimeCheckpoint() {
     const time_t epoch = time(nullptr);
-    if (static_cast<uint64_t>(epoch) < MIN_VALID_EPOCH) {
+    if (epoch < static_cast<time_t>(MIN_VALID_EPOCH)) {
         return false;
     }
 
@@ -95,6 +96,7 @@ bool saveTimeCheckpoint() {
 
 /** Checkpoint at a bounded interval; never write flash on every clock frame. */
 void serviceTimePersistence() {
+    if (time(nullptr) < static_cast<time_t>(MIN_VALID_EPOCH)) return;
     if (lastTimeCheckpointMs == 0 ||
         millis() - lastTimeCheckpointMs >= TIME_CHECKPOINT_INTERVAL_MS) {
         saveTimeCheckpoint();
