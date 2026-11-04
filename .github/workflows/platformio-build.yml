@@ -35,3 +35,11 @@ jobs:
 
       - name: Build ESP32-C3 firmware
         run: pio run -e c3_clock
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-c3-firmware
+          path: .pio/build/c3_clock/firmware.bin
+          if-no-files-found: error
+          retention-days: 14
