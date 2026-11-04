@@ -372,14 +372,19 @@ static void drawWeatherFooter() {
  */
 static void drawWeatherDetailsRows(int scrollOffset = 0) {
     const char* labels[] = {"Moonrise", "Moonset", "Sunrise", "Sunset", "Sunshine", "Daylight", "Wind 10m", "Pressure", "Rain"};
-    String values[] = {
-        detailWeather.moonrise, detailWeather.moonset, detailWeather.sunrise, detailWeather.sunset,
-        String(detailWeather.sunshineDuration / 3600.0f, 1) + " h",
-        String(detailWeather.daylightDuration / 3600.0f, 1) + " h",
-        String(detailWeather.windSpeed10m, 1) + " km/h",
-        String(detailWeather.surfacePressure, 0) + " hPa",
-        String(detailWeather.rain, 1) + " mm"
-    };
+
+    // Use fixed buffers instead of constructing nine temporary Arduino Strings
+    // on every scroll-animation frame. This avoids repeated heap allocation.
+    char values[9][24];
+    snprintf(values[0], sizeof(values[0]), "%s", detailWeather.moonrise.c_str());
+    snprintf(values[1], sizeof(values[1]), "%s", detailWeather.moonset.c_str());
+    snprintf(values[2], sizeof(values[2]), "%s", detailWeather.sunrise.c_str());
+    snprintf(values[3], sizeof(values[3]), "%s", detailWeather.sunset.c_str());
+    snprintf(values[4], sizeof(values[4]), "%.1f h", detailWeather.sunshineDuration / 3600.0f);
+    snprintf(values[5], sizeof(values[5]), "%.1f h", detailWeather.daylightDuration / 3600.0f);
+    snprintf(values[6], sizeof(values[6]), "%.1f km/h", detailWeather.windSpeed10m);
+    snprintf(values[7], sizeof(values[7]), "%.0f hPa", detailWeather.surfacePressure);
+    snprintf(values[8], sizeof(values[8]), "%.1f mm", detailWeather.rain);
 
     // Clear only the clipped list viewport; keep the panel and fixed header intact.
     tft.setViewport(28, 108, 184, 74, true);
