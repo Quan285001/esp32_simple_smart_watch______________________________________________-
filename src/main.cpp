@@ -106,10 +106,7 @@ static void enterLightSleep() {
     lightSleepRequested = false;
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
 
-    // Do not enter sleep while a TLS/weather task is still using the radios.
-    Serial.println("[POWER] Waiting for weather task before sleep.");
-    while (bootNetworkRunning || weatherFetchRunning) delay(20);
-
+    // The main loop defers sleep until background radio work has completed.
     // Preserve cached weather/time in RAM and NVS; shut down radios only.
     WiFi.disconnect(false, false);
     WiFi.mode(WIFI_OFF);
@@ -545,6 +542,12 @@ void loop() {
     }
 
     if (lightSleepRequested) {
+        // Keep the UI loop responsive while HTTPS/TLS work finishes.
+        // Sleep is entered on a later loop iteration once radio tasks are idle.
+        if (bootNetworkRunning || weatherFetchRunning) {
+            delay(2);
+            return;
+        }
         enterLightSleep();
         return;
     }
