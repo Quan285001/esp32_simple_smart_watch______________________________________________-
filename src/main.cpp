@@ -64,6 +64,7 @@ static volatile bool weatherFetchRunning = false;
 static volatile bool locationWeatherRefreshPending = false;
 static volatile bool bootNetworkRunning = false;
 static volatile bool bootNetworkNeedsBle = false;
+static bool bootUiReady = false;
 static uint32_t lastLocationWeatherRetryMs = 0;
 
 // Countdown for the Weather face. Negative values are status codes:
@@ -357,7 +358,7 @@ static void bootNetworkTask(void *parameter) {
     if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
     if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
 
-    Serial.println("[BOOT] Background network stage started.");
+    bootTerminalLog("[BOOT] Connecting to Wi-Fi", TFT_YELLOW);
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.begin(savedSsid.c_str(), savedPass.c_str());
@@ -369,10 +370,12 @@ static void bootNetworkTask(void *parameter) {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("[WIFI] Connected. IP: %s, RSSI: %d dBm\n",
-                      WiFi.localIP().toString().c_str(), WiFi.RSSI());
+        char wifiMsg[48];
+        snprintf(wifiMsg, sizeof(wifiMsg), "[OK] Wi-Fi connected (%d dBm)", WiFi.RSSI());
+        bootTerminalLog(wifiMsg, TFT_GREEN);
 
         // IP fallback and NTP setup happen away from the UI loop.
+        bootTerminalLog("[TIME] Synchronizing NTP", TFT_YELLOW);
         beginTimeService();
 
         struct tm syncedTime = {};
@@ -389,44 +392,47 @@ static void bootNetworkTask(void *parameter) {
 
         if (timeSynced) {
             saveTimeCheckpoint();
-            Serial.println("[TIME] NTP synchronized and checkpointed.");
+            bootTerminalLog("[OK] NTP synchronized", TFT_GREEN);
         } else {
-            Serial.println("[TIME] NTP unavailable; keeping restored clock.");
+            bootTerminalLog("[INFO] NTP unavailable; keeping saved time", TFT_YELLOW);
         }
 
         // Keep TLS stages strictly sequential and prevent the normal loop
         // from scheduling another weather request during this boot phase.
         weatherFetchRunning = true;
-        Serial.println("[BOOT] Fetching weather forecast.");
+        bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
         const bool weatherUpdated = fetchHourlyWeather();
         if (weatherUpdated) {
             weatherDataValid = true;
             weatherFaceInitialized = false;
         }
-        Serial.println(weatherUpdated
-            ? "[BOOT] Weather updated and cached."
-            : "[BOOT] Weather unavailable; restored cache remains.");
+        bootTerminalLog(weatherUpdated
+            ? "[OK] Weather updated and cached"
+            : "[INFO] Weather unavailable; cache retained",
+            weatherUpdated ? TFT_GREEN : TFT_YELLOW);
 
         if (weatherUpdated && WiFi.status() == WL_CONNECTED) {
             vTaskDelay(pdMS_TO_TICKS(5000));
-            Serial.println("[BOOT] Fetching optional lunar details.");
+            bootTerminalLog("[LUNAR] Fetching lunar details", TFT_YELLOW);
             fetchLunarDetails();
+            bootTerminalLog("[OK] Lunar stage complete", TFT_GREEN);
         }
         weatherFetchRunning = false;
     } else {
-        Serial.println("[WIFI] Offline; using saved time/weather cache.");
+        bootTerminalLog("[INFO] Wi-Fi unavailable; using saved data", TFT_YELLOW);
     }
 
     // BLE is initialized by loop() after this task exits, so its allocation
     // cannot overlap either HTTPS/TLS request.
+    bootTerminalLog("[OK] Network startup stage complete", TFT_GREEN);
     bootNetworkRunning = false;
     bootNetworkNeedsBle = true;
     vTaskDelete(nullptr);
 }
 
 /**
- * @brief Restores persistent state, draws the clock immediately, then starts
- * the ordered background network stage.
+ * @brief Restores persistent state, keeps the boot terminal visible while
+ * startup services run, then hands the display to the clock UI.
  */
 void setup() {
     Serial.begin(115200);
@@ -471,14 +477,8 @@ void setup() {
         ? "[OK] Weather cache restored"
         : "[INFO] No weather cache", cacheLoaded ? TFT_GREEN : TFT_YELLOW);
 
-    // Do not make the user wait for Wi-Fi, NTP, HTTPS, or lunar data.
-    bootTerminalLog("[SYS] Starting clock interface", TFT_GREEN);
-
-    // Boot terminal text occupies the full TFT. Clear it explicitly before
-    // handing the display to the clock renderer (the clock sprite is only 160x160).
-    tft.fillScreen(TFT_BLACK);
-    drawCurrentScreen(true);
-    stopBootTerminalDisplay(); // Runtime boot logs must not overwrite the watch face.
+    // Keep the terminal visible until all startup stages have finished.
+    bootTerminalLog("[BOOT] Starting startup services", TFT_GREEN);
 
     wifiEnabled = true;
     bootNetworkRunning = true;
@@ -516,6 +516,39 @@ void setup() {
  * @brief Implements the loop operation.
  */
 void loop() {
+    // During startup, the boot task owns the display. Do not run normal UI,
+    // button, or periodic services until network work and BLE initialization
+    // have both reached their terminal state.
+    if (!bootUiReady) {
+        if (bootNetworkNeedsBle) {
+            bootNetworkNeedsBle = false;
+            bootTerminalLog("[BLE] Initializing Bluetooth", TFT_YELLOW);
+            beginBLE();
+            if (isBLEEnabled()) {
+                toggleBLE();
+            }
+
+            WiFi.disconnect(false, false);
+            WiFi.mode(WIFI_OFF);
+            wifiEnabled = false;
+            previousWifiConnected = false;
+            lastWifiRetryMs = millis();
+            lastWifiStatusLogMs = 0;
+
+            bootTerminalLog("[OK] Bluetooth initialized; radios idle", TFT_GREEN);
+            bootTerminalLog("[BOOT] Startup complete", TFT_GREEN);
+            delay(350);
+
+            tft.fillScreen(TFT_BLACK);
+            stopBootTerminalDisplay();
+            drawCurrentScreen(true);
+            bootUiReady = true;
+            Serial.println("[BOOT] Clock interface ready.");
+        }
+        delay(2);
+        return;
+    }
+
     const uint32_t now = millis();
     serviceTimePersistence();
 
@@ -525,28 +558,6 @@ void loop() {
 
     updateButtonManager();
     handleBLECommands();
-
-    // The network worker has fully exited before BLE is initialized. This
-    // avoids overlapping BLE allocation with TLS/JSON peak memory.
-    if (bootNetworkNeedsBle) {
-        bootNetworkNeedsBle = false;
-        bootTerminalLog("[BLE] Initializing Bluetooth", TFT_YELLOW);
-        beginBLE();
-        if (isBLEEnabled()) {
-            toggleBLE();
-        }
-
-        WiFi.disconnect(false, false);
-        WiFi.mode(WIFI_OFF);
-        wifiEnabled = false;
-        previousWifiConnected = false;
-        lastWifiRetryMs = millis();
-        lastWifiStatusLogMs = 0;
-
-        bootNetworkRunning = false;
-        bootTerminalLog("[OK] Radios idle; clock remains active", TFT_GREEN);
-        Serial.println("[BOOT] BLE initialized (advertising OFF); Wi-Fi OFF.");
-    }
 
     if (lightSleepRequested) {
         // Keep the UI loop responsive while HTTPS/TLS work finishes.
