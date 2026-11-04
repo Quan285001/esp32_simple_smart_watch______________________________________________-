@@ -301,7 +301,7 @@ function handleNotifications(event){
   // These short control replies are not fragments of the Wi-Fi JSON payload.
   if(chunk==="GPS_OK"||chunk==="TIME_OK"){
     receivedData="";
-    if(chunk==="GPS_OK")document.getElementById("locationValue").textContent+=" · saved on watch";
+    if(chunk==="GPS_OK"&&latestPosition)document.getElementById("locationValue").textContent=latestPosition.lat.toFixed(5)+", "+latestPosition.lon.toFixed(5)+" · saved on watch";
     return;
   }
   if(chunk==="ERR_GPS"||chunk==="ERR_GPS_STORAGE"||chunk==="ERR_TIME"){
