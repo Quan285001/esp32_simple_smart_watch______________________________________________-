@@ -56,7 +56,7 @@ static uint32_t lastClockDrawMs = 0;
 static uint32_t lastMenuFrameMs = 0;
 static uint32_t lastWeatherFrameMs = 0;
 
-static bool weatherFaceInitialized = false;
+static volatile bool weatherFaceInitialized = false;
 static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
@@ -169,7 +169,10 @@ static void weatherFetchTask(void *parameter) {
     Serial.println("[WEATHER] Background fetch started.");
 
     const bool success = fetchHourlyWeather();
-    if (success) weatherDataValid = true;
+    if (success) {
+        weatherDataValid = true;
+        weatherFaceInitialized = false; // redraw fresh data on the UI thread
+    }
 
     sendBLENotification(success ? "WEATHER_OK" : "WEATHER_FAILED");
     Serial.println(success ? "[WEATHER] Weather stage finished." : "[WEATHER] Weather stage failed.");
@@ -397,7 +400,10 @@ static void bootNetworkTask(void *parameter) {
         weatherFetchRunning = true;
         Serial.println("[BOOT] Fetching weather forecast.");
         const bool weatherUpdated = fetchHourlyWeather();
-        if (weatherUpdated) weatherDataValid = true;
+        if (weatherUpdated) {
+            weatherDataValid = true;
+            weatherFaceInitialized = false;
+        }
         Serial.println(weatherUpdated
             ? "[BOOT] Weather updated and cached."
             : "[BOOT] Weather unavailable; restored cache remains.");
