@@ -267,7 +267,7 @@ bool fetchHourlyWeather() {
     http.end();
 
     if (error) {
-        Serial.printf("[WEATHER] JSON error: %s\\n", error.c_str());
+        Serial.printf("[WEATHER] JSON error: %s\n", error.c_str());
         return false;
     }
 
