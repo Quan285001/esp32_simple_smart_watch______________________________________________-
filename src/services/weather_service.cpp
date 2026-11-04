@@ -25,6 +25,25 @@ WeatherData currentWeather = {};
 static String weatherLatitude = WEATHER_LATITUDE;
 static String weatherLongitude = WEATHER_LONGITUDE;
 
+static SemaphoreHandle_t getCoordinatesMutex() {
+    static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
+    return mutex;
+}
+
+/** Copy both coordinates as one consistent pair before building an API URL. */
+static bool copyWeatherCoordinates(String &latitude, String &longitude) {
+    SemaphoreHandle_t mutex = getCoordinatesMutex();
+    if (mutex == nullptr ||
+        xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        return false;
+    }
+
+    latitude = weatherLatitude;
+    longitude = weatherLongitude;
+    xSemaphoreGive(mutex);
+    return true;
+}
+
 /**
  * @brief Validates and updates the coordinates used for weather requests.
  * @param latitude Input or state used by this operation.
@@ -34,10 +53,22 @@ void setWeatherCoordinates(float latitude, float longitude) {
     if (!isfinite(latitude) || !isfinite(longitude) ||
         latitude < -90.0f || latitude > 90.0f ||
         longitude < -180.0f || longitude > 180.0f) return;
-    weatherLatitude = String(latitude, 4);
-    weatherLongitude = String(longitude, 4);
-    Serial.printf("[GPS] Weather coordinates updated: %s, %s\n",
-                  weatherLatitude.c_str(), weatherLongitude.c_str());
+
+    String nextLatitude(latitude, 4);
+    String nextLongitude(longitude, 4);
+    SemaphoreHandle_t mutex = getCoordinatesMutex();
+    if (mutex == nullptr ||
+        xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        Serial.println("[GPS] Coordinate lock unavailable; update skipped.");
+        return;
+    }
+
+    weatherLatitude = nextLatitude;
+    weatherLongitude = nextLongitude;
+    xSemaphoreGive(mutex);
+
+    Serial.printf("[GPS] Weather coordinates updated: %s, %s\\n",
+                  nextLatitude.c_str(), nextLongitude.c_str());
 }
 
 /**
@@ -190,10 +221,17 @@ bool fetchHourlyWeather() {
         return false;
     }
 
+    String latitude;
+    String longitude;
+    if (!copyWeatherCoordinates(latitude, longitude)) {
+        Serial.println("[WEATHER] Could not snapshot coordinates.");
+        return false;
+    }
+
     String url =
         String("https://api.open-meteo.com/v1/forecast?latitude=") +
-        weatherLatitude +
-        "&longitude=" + weatherLongitude +
+        latitude +
+        "&longitude=" + longitude +
         "&current=temperature_2m,weather_code" +
         "&hourly=temperature_2m,weather_code,wind_speed_10m,surface_pressure,precipitation" +
         "&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,sunrise,sunset" +
@@ -524,8 +562,15 @@ bool fetchLunarDetails() {
 
     // SunriseSunset.io resolves today's date from the supplied coordinates.
     // This avoids making lunar data depend on a successful NTP sync.
+    String latitude;
+    String longitude;
+    if (!copyWeatherCoordinates(latitude, longitude)) {
+        Serial.println("[LUNAR] Could not snapshot coordinates.");
+        return false;
+    }
+
     String lunarUrl = String("https://api.sunrisesunset.io/json?lat=") +
-        weatherLatitude + "&lng=" + weatherLongitude +
+        latitude + "&lng=" + longitude +
         "&timezone=auto&time_format=24";
 
     WiFiClientSecure lunarClient;
