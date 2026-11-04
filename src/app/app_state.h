@@ -25,5 +25,5 @@ extern ScreenState currentScreen;
 extern ScreenState screenBeforeMenu;
 
 extern uint8_t forecastIndex;
-extern bool weatherDataValid;
+extern volatile bool weatherDataValid;
 extern bool wifiEnabled;
