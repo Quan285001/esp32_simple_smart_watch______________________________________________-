@@ -91,39 +91,8 @@ static int animationOldIndex = 0;
 static int animationNewIndex = 0;
 
 // =====================================================
-// 2. FORECAST SPRITE
+// 2. DIRECT FORECAST RENDERING
 // =====================================================
-
-// The sprite contains only the forecast row, not the entire screen.
-// Dimensions: 220 x 87 pixels, RGB565, approximately 38 KB of RAM.
-static TFT_eSprite forecastSprite(&tft);
-
-static bool forecastSpriteReady = false;
-static bool forecastSpriteAttempted = false;
-
-// Initialize the sprite only once.
-/**
- * @brief Allocates the forecast sprite once and reports whether allocation succeeded.
-
- */
-static bool initForecastSprite() {
-    if (forecastSpriteReady) return true;
-    if (forecastSpriteAttempted) return false;
-
-    forecastSpriteAttempted = true;
-
-    forecastSprite.setColorDepth(16);
-
-    if (forecastSprite.createSprite(220, 87) == nullptr) {
-        Serial.println("[WEATHER] Sprite allocation failed!");
-        return false;
-    }
-
-    forecastSpriteReady = true;
-    Serial.println("[WEATHER] Forecast sprite ready.");
-
-    return true;
-}
 
 // =====================================================
 // 3. ANIMATION HELPERS
@@ -302,47 +271,26 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
 // 7. FORECAST ROW RENDERING
 // =====================================================
 
-// Render four forecast cards into the sprite, then push the row to the display.
+// Render forecast cards directly to the TFT without allocating a full-row sprite.
 /**
- * @brief Renders four forecast cards into the sprite and pushes the row to the TFT.
+ * @brief Renders four forecast cards directly to the TFT with an optional horizontal offset.
  * @param weather Input or state used by this operation.
  * @param startIndex Input or state used by this operation.
  * @param slideOffset Input or state used by this operation.
  */
-static void drawForecastRowToSprite(const WeatherData& weather, int startIndex, int slideOffset) {
-    forecastSprite.fillSprite(TFT_BLACK);
-
-    for (int i = 0; i < 4; i++) {
-        int dataIndex = (startIndex + i) % 24;
-        int centerX = cardCenterX[i] - 10 + slideOffset;
-
-        // CARD_Y - 120 = 4; convert screen coordinates to sprite coordinates.
-        drawForecastCard(forecastSprite, weather.hourly[dataIndex], centerX, 4, i == 0);
-    }
-
-    // Push the entire forecast row to the TFT in one operation.
-    forecastSprite.pushSprite(10, 120);
-}
-
-// Render the static forecast row when no animation is active.
-/**
- * @brief Renders the forecast row, using the sprite when available and a fallback otherwise.
- * @param weather Input or state used by this operation.
- * @param startIndex Input or state used by this operation.
- */
-static void drawForecastRow(const WeatherData& weather, int startIndex) {
-    if (initForecastSprite()) {
-        drawForecastRowToSprite(weather, startIndex, 0);
-        return;
-    }
-
-    // Fallback rendering path when there is not enough RAM to create the sprite.
+static void drawForecastRowDirect(const WeatherData& weather, int startIndex, int slideOffset = 0) {
     tft.fillRect(10, 120, 220, 90, TFT_BLACK);
 
     for (int i = 0; i < 4; i++) {
-        int dataIndex = (startIndex + i) % 24;
-        drawForecastCard(tft, weather.hourly[dataIndex], cardCenterX[i], CARD_Y, i == 0);
+        const int dataIndex = (startIndex + i) % 24;
+        const int centerX = cardCenterX[i] + slideOffset;
+        drawForecastCard(tft, weather.hourly[dataIndex], centerX, CARD_Y, i == 0);
     }
+}
+
+// Render the static forecast row when no animation is active.
+static void drawForecastRow(const WeatherData& weather, int startIndex) {
+    drawForecastRowDirect(weather, startIndex);
 }
 
 // =====================================================
@@ -677,14 +625,5 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
     int slideOffset = WEATHER_SLIDE_DISTANCE -
         (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
 
-    if (initForecastSprite()) {
-        drawForecastRowToSprite(animationWeather, animationNewIndex, slideOffset);
-    } else {
-        tft.fillRect(10, 120, 220, 90, TFT_BLACK);
-        for (int i = 0; i < 4; i++) {
-            int dataIndex = (animationNewIndex + i) % 24;
-            int x = cardCenterX[i] + slideOffset;
-            drawForecastCard(tft, animationWeather.hourly[dataIndex], x, CARD_Y, i == 0);
-        }
-    }
+    drawForecastRowDirect(animationWeather, animationNewIndex, slideOffset);
 }
