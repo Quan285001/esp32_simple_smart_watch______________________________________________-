@@ -494,6 +494,13 @@ void setup() {
     if (created != pdPASS) {
         bootNetworkRunning = false;
         bootNetworkNeedsBle = true;
+        Serial.printf(
+            "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\\n",
+            (unsigned int)ESP.getFreeHeap(),
+            (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+            (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
+        );
+
         WiFi.disconnect(false, false);
         WiFi.mode(WIFI_OFF);
         wifiEnabled = false;
