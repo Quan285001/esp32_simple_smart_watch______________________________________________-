@@ -26,7 +26,7 @@ uint8_t menuIndex = 0;
 MenuLevel currentMenuLevel = MENU_MAIN;
 uint8_t forecastIndex = 0;
 
-bool weatherDataValid = false;
+volatile bool weatherDataValid = false;
 bool wifiEnabled = true;
 
 extern void drawAnalogClockFace(
@@ -169,6 +169,7 @@ static void weatherFetchTask(void *parameter) {
     Serial.println("[WEATHER] Background fetch started.");
 
     const bool success = fetchHourlyWeather();
+    if (success) weatherDataValid = true;
 
     sendBLENotification(success ? "WEATHER_OK" : "WEATHER_FAILED");
     Serial.println(success ? "[WEATHER] Weather stage finished." : "[WEATHER] Weather stage failed.");
@@ -396,6 +397,7 @@ static void bootNetworkTask(void *parameter) {
         weatherFetchRunning = true;
         Serial.println("[BOOT] Fetching weather forecast.");
         const bool weatherUpdated = fetchHourlyWeather();
+        if (weatherUpdated) weatherDataValid = true;
         Serial.println(weatherUpdated
             ? "[BOOT] Weather updated and cached."
             : "[BOOT] Weather unavailable; restored cache remains.");
@@ -603,10 +605,7 @@ void loop() {
     // WEATHER SNAPSHOT
     // -------------------------------------------------
 
-    WeatherData weatherSnapshot =
-        getWeatherSnapshot();
-
-    weatherDataValid = weatherSnapshot.valid;
+    const bool hasWeatherData = weatherDataValid;
 
     // -------------------------------------------------
     // WEATHER RETRY
@@ -616,7 +615,7 @@ void loop() {
         wifiConnected &&
         !bootNetworkRunning &&
         !bootNetworkNeedsBle &&
-        !weatherSnapshot.valid &&
+        !hasWeatherData &&
         !weatherFetchRunning &&
         (
             lastWeatherRetryMs == 0 ||
@@ -640,7 +639,7 @@ void loop() {
         wifiConnected &&
         !bootNetworkRunning &&
         !bootNetworkNeedsBle &&
-        weatherSnapshot.valid &&
+        hasWeatherData &&
         !weatherFetchRunning &&
         now - lastWeatherFetchMs >= WEATHER_REFRESH_MS
     ) {
@@ -729,20 +728,17 @@ void loop() {
     if (currentScreen != SCREEN_WEATHER) {
         weatherFaceInitialized = false;
     } else if (now - lastWeatherFrameMs >= 40) {
-        WeatherData weather =
-            getWeatherSnapshot();
-
         if (!weatherFaceInitialized) {
-            // Render even without a valid forecast so Wi-Fi status and the
-            // next-update countdown remain visible while offline/loading.
+            // Copy the String-heavy snapshot only once when entering the face.
+            // Animation updates use their own captured state and do not need
+            // another full WeatherData copy every 40 ms.
+            WeatherData weather = getWeatherSnapshot();
             drawWeatherFaceData(weather);
             weatherFaceInitialized = true;
         }
 
-        if (weatherFaceInitialized) {
-            updateWeatherFaceAnimation(weather);
-        }
-
+        static const WeatherData unusedAnimationInput;
+        updateWeatherFaceAnimation(unusedAnimationInput);
         lastWeatherFrameMs = now;
     }
 
