@@ -538,7 +538,7 @@ void loop() {
 
     const wl_status_t wifiStatus = WiFi.status();
 
-    if (wifiEnabled && wifiStatus != WL_CONNECTED) {
+    if (wifiEnabled && !bootNetworkRunning && wifiStatus != WL_CONNECTED) {
         if (now - lastWifiRetryMs >= WIFI_RETRY_MS) {
             Serial.printf(
                 "[WIFI] Still not connected (status=%s, code=%d); retrying.\n",
