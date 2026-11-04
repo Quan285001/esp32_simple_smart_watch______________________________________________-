@@ -501,7 +501,9 @@ void loop() {
             WiFi.RSSI()
         );
 
-        // Force the normal scheduler to refresh cache-backed data after reconnect.
+        // Refresh IP-based timezone/location and restart NTP after Wi-Fi reconnect.
+        // This also adapts the clock and forecast location when travelling.
+        beginTimeService();
         lastWeatherFetchMs = now - WEATHER_REFRESH_MS;
         lastWeatherRetryMs = 0;
     }
