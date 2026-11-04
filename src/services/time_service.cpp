@@ -37,7 +37,7 @@ static bool updateTimezoneFromIp(long &utcOffset, float &latitude, float &longit
 
     const int status = http.GET();
     if (status != HTTP_CODE_OK) {
-        Serial.printf("[TIME] IP geolocation HTTP error: %d\\n", status);
+        Serial.printf("[TIME] IP geolocation HTTP error: %d\n", status);
         http.end();
         return false;
     }
@@ -97,7 +97,7 @@ void beginTimeService() {
     if (hasSavedGps) {
         // Keep the last explicit phone location across reboot/offline periods.
         setWeatherCoordinates(savedLatitude, savedLongitude);
-        Serial.printf("[TIME] Using saved phone GPS location; timezone=%s, offset=%ld sec\\n",
+        Serial.printf("[TIME] Using saved phone GPS location; timezone=%s, offset=%ld sec\n",
                       timezoneName.c_str(), utcOffset);
     } else {
         long detectedOffset = utcOffset;
@@ -108,7 +108,7 @@ void beginTimeService() {
         if (updateTimezoneFromIp(detectedOffset, latitude, longitude, detectedTimezone)) {
             utcOffset = detectedOffset;
             timezoneName = detectedTimezone;
-            Serial.printf("[TIME] IP fallback timezone: %s (UTC offset %ld sec)\\n",
+            Serial.printf("[TIME] IP fallback timezone: %s (UTC offset %ld sec)\n",
                           timezoneName.c_str(), utcOffset);
 
             if (prefsReady) {
@@ -121,7 +121,7 @@ void beginTimeService() {
 
             setWeatherCoordinates(latitude, longitude);
         } else {
-            Serial.printf("[TIME] IP fallback unavailable; using saved/default offset %ld sec\\n",
+            Serial.printf("[TIME] IP fallback unavailable; using saved/default offset %ld sec\n",
                           utcOffset);
         }
     }
@@ -137,7 +137,7 @@ void beginTimeService() {
  * Open-Meteo returns the IANA timezone name and the current UTC offset.
  */
 void applyTimezoneFromWeather(const String &timezoneName, long utcOffset) {
-    if (timezoneName.isEmpty() || utcOffset < -43200L || utcOffset > 50400L) {
+    if (timezoneName.length() == 0 || utcOffset < -43200L || utcOffset > 50400L) {
         Serial.println("[TIME] Ignoring invalid weather timezone.");
         return;
     }
@@ -149,7 +149,7 @@ void applyTimezoneFromWeather(const String &timezoneName, long utcOffset) {
         prefs.end();
     }
 
-    Serial.printf("[TIME] Coordinate timezone: %s (UTC offset %ld sec)\\n",
+    Serial.printf("[TIME] Coordinate timezone: %s (UTC offset %ld sec)\n",
                   timezoneName.c_str(), utcOffset);
 
     // NTP maintains UTC; this offset controls local-time conversion.
