@@ -241,7 +241,12 @@ async function sendLatestPosition(force){
   const command="GPS:"+latestPosition.lat.toFixed(6)+","+latestPosition.lon.toFixed(6);
   if(await sendBLECommand(command)){
     lastSentPosition={...latestPosition};
-    setStatus("Location synchronized",true);
+
+    // Unix epoch is timezone-independent. Send it after the GPS fix; the ESP32
+    // resolves the destination offset from the next Open-Meteo response.
+    const epoch=Math.floor(Date.now()/1000);
+    const timeSent=await sendBLECommand("SYNC_TIME:"+epoch);
+    setStatus(timeSent?"Location + UTC time synchronized":"Location synchronized; time sync failed",true);
   }
 }
 
