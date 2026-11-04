@@ -60,6 +60,7 @@ static bool weatherFaceInitialized = false;
 static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
+static volatile bool locationWeatherRefreshPending = false;
 
 // Countdown for the Weather face. Negative values are status codes:
 // -1 = Wi-Fi intentionally disabled, -2 = connecting, -3 = fetch in progress.
@@ -253,6 +254,20 @@ uint8_t requestWeatherFetch() {
 
     lastManualWeatherRequestMs = now;
     return 0;
+}
+
+/**
+ * @brief Requests an immediate weather/timezone refresh after a new phone GPS fix.
+ * If another fetch is running, defer one follow-up request until it completes.
+ */
+uint8_t requestWeatherFetchForLocation() {
+    locationWeatherRefreshPending = true;
+
+    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
+    if (weatherFetchRunning) return 1;
+
+    locationWeatherRefreshPending = false;
+    return scheduleWeatherFetch() ? 0 : (weatherFetchRunning ? 1 : 2);
 }
 
 // =====================================================
@@ -513,6 +528,15 @@ void loop() {
     }
 
     previousWifiConnected = wifiConnected;
+
+    // A GPS update received during an active request is refreshed as soon as
+    // that request releases its TLS/JSON resources. Keep it pending while offline.
+    if (locationWeatherRefreshPending && wifiConnected && !weatherFetchRunning) {
+        locationWeatherRefreshPending = false;
+        if (!scheduleWeatherFetch()) {
+            locationWeatherRefreshPending = true;
+        }
+    }
 
     // -------------------------------------------------
     // WEATHER SNAPSHOT
