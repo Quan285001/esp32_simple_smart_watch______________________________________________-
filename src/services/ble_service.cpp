@@ -31,10 +31,14 @@ class ServerCallbacks final : public BLEServerCallbacks {
 
     void onDisconnect(BLEServer *server) override {
         clientConnected = false;
+        Serial.printf("[BLE][TRACE] onDisconnect: bleEnabled=%d, server=%p\n",
+                      bleEnabled ? 1 : 0, static_cast<void *>(server));
 
         // Resume advertising only when Bluetooth is logically enabled.
         if (bleEnabled && server != nullptr) {
+            Serial.println("[BLE][TRACE] onDisconnect: restart advertising ENTER");
             server->getAdvertising()->start();
+            Serial.println("[BLE][TRACE] onDisconnect: restart advertising EXIT");
         }
     }
 };
@@ -126,7 +130,9 @@ void beginBLE() {
     bleAdvertising->setScanResponse(true);
 
     bleEnabled = true;
+    Serial.println("[BLE][TRACE] initial startAdvertising ENTER");
     bleAdvertising->start();
+    Serial.println("[BLE][TRACE] initial startAdvertising EXIT");
 
     Serial.println("[BLE] Advertising as ESP32_Watch_C3.");
 }
@@ -146,7 +152,11 @@ void toggleBLE() {
         // Keep the BLE host/server alive. Only stop discoverability.
         // This avoids deinit(true) followed by an unsafe stack reinitialization.
         if (bleAdvertising != nullptr) {
+            Serial.println("[BLE][TRACE] stopAdvertising ENTER");
             bleAdvertising->stop();
+            Serial.println("[BLE][TRACE] stopAdvertising EXIT");
+        } else {
+            Serial.println("[BLE][TRACE] stopAdvertising skipped: null instance");
         }
 
         bleEnabled = false;
@@ -164,7 +174,9 @@ void toggleBLE() {
     }
 
     bleEnabled = true;
+    Serial.println("[BLE][TRACE] startAdvertising ENTER");
     bleAdvertising->start();
+    Serial.println("[BLE][TRACE] startAdvertising EXIT");
     Serial.println("[BLE] Bluetooth ON (advertising restarted; stack retained).");
 }
 
