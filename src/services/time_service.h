@@ -1,8 +1,12 @@
-//time_service.h
+// time_service.h
 
 #pragma once
+#include <Arduino.h>
 #include <time.h>
-/** @brief Configures NTP synchronization for the system clock. */
+
+/** @brief Configures NTP using saved timezone data and IP fallback if needed. */
 void beginTimeService();
-/** @brief Reads the current local time into the supplied tm structure. */
+/** @brief Applies the coordinate-derived timezone returned by the weather API. */
+void applyTimezoneFromWeather(const String &timezoneName, long utcOffset);
+/** @brief Reads the current local time using the configured system clock. */
 bool readLocalTime(struct tm &timeinfo);
