@@ -12,6 +12,7 @@
 #include <freertos/semphr.h>
 
 #include "weather_service.h"
+#include "time_service.h"
 
 // =====================================================
 // SHARED WEATHER DATA
@@ -266,8 +267,18 @@ bool fetchHourlyWeather() {
     http.end();
 
     if (error) {
-        Serial.printf("[WEATHER] JSON error: %s\n", error.c_str());
+        Serial.printf("[WEATHER] JSON error: %s\\n", error.c_str());
         return false;
+    }
+
+    // The same coordinate-aware forecast response supplies the destination's
+    // IANA timezone and current UTC offset; no second TLS request is needed.
+    JsonVariantConst timezoneValue = doc["timezone"];
+    JsonVariantConst utcOffsetValue = doc["utc_offset_seconds"];
+    if (!timezoneValue.isNull() && !utcOffsetValue.isNull()) {
+        const String timezoneName = timezoneValue.as<String>();
+        const long utcOffset = utcOffsetValue.as<long>();
+        applyTimezoneFromWeather(timezoneName, utcOffset);
     }
 
     // -------------------------------------------------
