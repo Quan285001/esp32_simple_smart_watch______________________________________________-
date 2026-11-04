@@ -743,7 +743,7 @@ void loop() {
             weatherFaceInitialized = true;
         }
 
-        static const WeatherData unusedAnimationInput;
+        static const WeatherData unusedAnimationInput{};
         updateWeatherFaceAnimation(unusedAnimationInput);
         lastWeatherFrameMs = now;
     }
