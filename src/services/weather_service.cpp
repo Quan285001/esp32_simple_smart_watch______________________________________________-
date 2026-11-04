@@ -253,6 +253,9 @@ bool fetchHourlyWeather() {
     client.setInsecure();
 
     HTTPClient http;
+    // HTTP/1.0 avoids chunked transfer framing. ArduinoJson reads the raw
+    // client stream, so HTTP/1.1 chunk markers can otherwise cause InvalidInput.
+    http.useHTTP10(true);
 
     http.setConnectTimeout(5000);
     http.setTimeout(5000);
@@ -581,6 +584,8 @@ bool fetchLunarDetails() {
     // setBufferSizes() is unavailable in the ESP32 Arduino core bundled with platform 6.9.0.
 
     HTTPClient lunarHttp;
+    // Keep the optional endpoint compatible with direct stream parsing too.
+    lunarHttp.useHTTP10(true);
     lunarHttp.setConnectTimeout(5000);
     lunarHttp.setTimeout(5000);
 
