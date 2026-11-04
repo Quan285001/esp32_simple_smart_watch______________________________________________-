@@ -107,7 +107,7 @@ static void enterLightSleep() {
 
     // Do not enter sleep while a TLS/weather task is still using the radios.
     Serial.println("[POWER] Waiting for weather task before sleep.");
-    while (weatherFetchRunning) delay(20);
+    while (bootNetworkRunning || weatherFetchRunning) delay(20);
 
     // Preserve cached weather/time in RAM and NVS; shut down radios only.
     WiFi.disconnect(false, false);
@@ -204,7 +204,7 @@ static bool scheduleWeatherFetch() {
         return false;
     }
 
-    if (weatherFetchRunning || bootNetworkRunning) {
+    if (weatherFetchRunning || bootNetworkRunning || bootNetworkNeedsBle) {
         return false;
     }
 
@@ -412,6 +412,7 @@ static void bootNetworkTask(void *parameter) {
 
     // BLE is initialized by loop() after this task exits, so its allocation
     // cannot overlap either HTTPS/TLS request.
+    bootNetworkRunning = false;
     bootNetworkNeedsBle = true;
     vTaskDelete(nullptr);
 }
@@ -538,7 +539,7 @@ void loop() {
 
     const wl_status_t wifiStatus = WiFi.status();
 
-    if (wifiEnabled && !bootNetworkRunning && wifiStatus != WL_CONNECTED) {
+    if (wifiEnabled && !bootNetworkRunning && !bootNetworkNeedsBle && wifiStatus != WL_CONNECTED) {
         if (now - lastWifiRetryMs >= WIFI_RETRY_MS) {
             Serial.printf(
                 "[WIFI] Still not connected (status=%s, code=%d); retrying.\n",
@@ -567,7 +568,7 @@ void loop() {
         wifiEnabled &&
         wifiStatus == WL_CONNECTED;
 
-    if (wifiConnected && !previousWifiConnected && !bootNetworkRunning) {
+    if (wifiConnected && !previousWifiConnected && !bootNetworkRunning && !bootNetworkNeedsBle) {
         Serial.printf(
             "[WIFI] Connected. IP: %s, RSSI: %d dBm\n",
             WiFi.localIP().toString().c_str(),
@@ -614,6 +615,7 @@ void loop() {
     if (
         wifiConnected &&
         !bootNetworkRunning &&
+        !bootNetworkNeedsBle &&
         !weatherSnapshot.valid &&
         !weatherFetchRunning &&
         (
@@ -637,6 +639,7 @@ void loop() {
     if (
         wifiConnected &&
         !bootNetworkRunning &&
+        !bootNetworkNeedsBle &&
         weatherSnapshot.valid &&
         !weatherFetchRunning &&
         now - lastWeatherFetchMs >= WEATHER_REFRESH_MS
