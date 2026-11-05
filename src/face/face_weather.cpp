@@ -367,7 +367,7 @@ static void drawWeatherDetailsContent(int scrollOffset = 0) {
     tft.drawString("WEATHER DETAILS", 32, 28, 2);
     drawTemperatureWithDegree(detailWeather.currentTemp, 34, 51, 4, TFT_WHITE, 0x1082);
     tft.setTextColor(0xFDE0, 0x1082);
-    tft.drawString(detailWeather.moonPhase[0] != '\\0' ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
+    tft.drawString(detailWeather.moonPhase[0] != '\0' ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
 
     drawWeatherDetailsRows(scrollOffset);
 
