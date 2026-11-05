@@ -48,17 +48,19 @@ enum ScreenState : uint8_t {
 // WEATHER DATA
 // =====================================================
 
+// Fixed-width fields keep the published weather snapshot heap-independent.
+// Open-Meteo hour/code values and local temperatures fit these compact types.
 struct HourlyForecast {
-    int hour;
-    int temp;
-    int weatherCode;
+    uint8_t hour;
+    int8_t temp;
+    uint8_t weatherCode;
 };
 
 struct WeatherData {
-    int currentTemp;
-    int maxTemp;
-    int minTemp;
-    String conditionText;
+    int16_t currentTemp;
+    int16_t maxTemp;
+    int16_t minTemp;
+    char conditionText[20];
     HourlyForecast hourly[24];
 
     float windSpeed10m;
@@ -66,11 +68,11 @@ struct WeatherData {
     float rain;
     float sunshineDuration;
     float daylightDuration;
-    String moonPhase;
-    String moonrise;
-    String moonset;
-    String sunrise;
-    String sunset;
+    char moonPhase[24];
+    char moonrise[12];
+    char moonset[12];
+    char sunrise[12];
+    char sunset[12];
     bool detailsValid;
     bool valid;
 };
