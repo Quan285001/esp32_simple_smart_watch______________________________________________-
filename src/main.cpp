@@ -118,10 +118,10 @@ static void enterLightSleep() {
 
     shutdownBLEForSleep();
 
-    // Put the TFT controller into its own sleep mode as well.
+    // Keep the GC9A01 controller awake and simply paint the panel black.
+    // This isolates ESP32-C3 Light Sleep from TFT sleep-state restoration:
+    // the first BOOT wake should be followed by a normal redraw.
     tft.fillScreen(TFT_BLACK);
-    tft.writecommand(0x10); // GC9A01 sleep-in
-    delay(30);
 
     // GPIO9 is the BOOT button. Keep its pull-up enabled and wake on LOW.
     pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -141,11 +141,8 @@ static void enterLightSleep() {
     }
     delay(BUTTON_DEBOUNCE_MS);
 
-    // Fully reinitialize GC9A01 after sleep-in; this is more robust than
-    // issuing sleep-out/display-on commands to a sleeping controller.
-    tft.init();
-    tft.setRotation(0);
-    tft.fillScreen(TFT_BLACK);
+    // The TFT was intentionally kept awake (black screen) during MCU sleep,
+    // so no panel reset or sleep-out sequence is needed. Redraw immediately.
 
     // Radios remain OFF until explicitly enabled from the menu.
     beginButtonManager();
