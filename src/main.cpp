@@ -100,10 +100,23 @@ static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
 static uint32_t lastLoopHeartbeatMs = 0;
 static bool lightSleepRequested = false;
-static constexpr uint32_t AUTO_LIGHT_SLEEP_TIMEOUT_MS = 15000UL;
+static uint8_t autoSleepTimeoutSeconds = 15; // 0 disables automatic sleep.
 static uint32_t lastUserActivityMs = 0;
 static uint32_t lastButtonActivitySeenMs = 0;
 static bool previousBleConnected = false;
+
+void setAutoSleepTimeoutSeconds(uint8_t seconds) {
+    if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
+          seconds == 15 || seconds == 18 || seconds == 20)) {
+        Serial.printf("[POWER] Rejected invalid Auto Sleep value: %u seconds.\\n", seconds);
+        return;
+    }
+    autoSleepTimeoutSeconds = seconds;
+    lastUserActivityMs = millis();
+    Serial.printf("[POWER] Auto Sleep timeout applied: %u seconds.\\n", autoSleepTimeoutSeconds);
+}
+
+uint8_t getAutoSleepTimeoutSeconds() { return autoSleepTimeoutSeconds; }
 
 /**
  * @brief Schedules entry into Light Sleep mode from the main application loop.
@@ -565,7 +578,9 @@ void setup() {
     if (prefs.begin("watch", true)) {
         savedLat = prefs.getFloat("lat", NAN);
         savedLon = prefs.getFloat("lon", NAN);
+        const uint8_t savedAutoSleep = prefs.getUChar("autoSleepSec", 15);
         prefs.end();
+        setAutoSleepTimeoutSeconds(savedAutoSleep);
     }
     if (isfinite(savedLat) && isfinite(savedLon)) {
         setWeatherCoordinates(savedLat, savedLon);
@@ -707,8 +722,11 @@ void loop() {
         !isBLEConnected() &&
         !backgroundWorkActive &&
         lastUserActivityMs != 0 &&
-        (now - lastUserActivityMs) >= AUTO_LIGHT_SLEEP_TIMEOUT_MS) {
-        Serial.println("[POWER] Auto Light Sleep: 15 seconds without user activity.");
+        currentScreen == SCREEN_CLOCK &&
+        autoSleepTimeoutSeconds > 0 &&
+        (now - lastUserActivityMs) >= static_cast<uint32_t>(autoSleepTimeoutSeconds) * 1000UL) {
+        Serial.printf("[POWER] Auto Light Sleep: %u seconds without user activity.\\n",
+                      autoSleepTimeoutSeconds);
         lightSleepRequested = true;
     }
 
