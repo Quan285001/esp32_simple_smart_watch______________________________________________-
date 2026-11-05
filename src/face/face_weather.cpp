@@ -330,10 +330,10 @@ static void drawWeatherDetailsRows(int scrollOffset = 0) {
     // Use fixed buffers instead of constructing nine temporary Arduino Strings
     // on every scroll-animation frame. This avoids repeated heap allocation.
     char values[9][24];
-    snprintf(values[0], sizeof(values[0]), "%s", detailWeather.moonrise.c_str());
-    snprintf(values[1], sizeof(values[1]), "%s", detailWeather.moonset.c_str());
-    snprintf(values[2], sizeof(values[2]), "%s", detailWeather.sunrise.c_str());
-    snprintf(values[3], sizeof(values[3]), "%s", detailWeather.sunset.c_str());
+    snprintf(values[0], sizeof(values[0]), "%s", detailWeather.moonrise);
+    snprintf(values[1], sizeof(values[1]), "%s", detailWeather.moonset);
+    snprintf(values[2], sizeof(values[2]), "%s", detailWeather.sunrise);
+    snprintf(values[3], sizeof(values[3]), "%s", detailWeather.sunset);
     snprintf(values[4], sizeof(values[4]), "%.1f h", detailWeather.sunshineDuration / 3600.0f);
     snprintf(values[5], sizeof(values[5]), "%.1f h", detailWeather.daylightDuration / 3600.0f);
     snprintf(values[6], sizeof(values[6]), "%.1f km/h", detailWeather.windSpeed10m);
@@ -367,7 +367,7 @@ static void drawWeatherDetailsContent(int scrollOffset = 0) {
     tft.drawString("WEATHER DETAILS", 32, 28, 2);
     drawTemperatureWithDegree(detailWeather.currentTemp, 34, 51, 4, TFT_WHITE, 0x1082);
     tft.setTextColor(0xFDE0, 0x1082);
-    tft.drawString(detailWeather.moonPhase.length() ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
+    tft.drawString(detailWeather.moonPhase[0] != '\\0' ? detailWeather.moonPhase : "Moon: N/A", 34, 82, 2);
 
     drawWeatherDetailsRows(scrollOffset);
 
