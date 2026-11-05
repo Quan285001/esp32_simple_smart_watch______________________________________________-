@@ -138,41 +138,53 @@ static void enterLightSleep() {
     tft.fillScreen(TFT_BLACK);
     Serial.println("[POWER][TRACE] TFT clear EXIT.");
 
-    // Diagnostic isolation: disable GPIO wake and test the RTC timer alone.
-    // If this wakes the chip, the remaining fault is in the GPIO9 wake path.
-    // If it does not, investigate Light Sleep entry / RTC timer / radio shutdown.
+    // BOOT (GPIO9) is active-low. Keep the pull-up enabled and use the
+    // same low-level GPIO wake configuration that passed the isolated test.
     const gpio_num_t wakePin = static_cast<gpio_num_t>(BUTTON_PIN);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+    const esp_err_t gpioPinResult =
+        gpio_wakeup_enable(wakePin, GPIO_INTR_LOW_LEVEL);
+    const esp_err_t gpioSourceResult = esp_sleep_enable_gpio_wakeup();
     const int wakePinLevel = digitalRead(BUTTON_PIN);
-    const esp_err_t disableGpioWake =
-        esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
-    gpio_wakeup_disable(wakePin);
-    Serial.printf("[POWER][TRACE] TIMER-ONLY TEST: button=%d disable_gpio=%d\n",
-                  wakePinLevel, static_cast<int>(disableGpioWake));
+
+    Serial.printf(
+        "[POWER] GPIO wake setup: pin=%d source=%d button=%d\\n",
+        static_cast<int>(gpioPinResult),
+        static_cast<int>(gpioSourceResult),
+        wakePinLevel
+    );
     Serial.flush();
 
-    Serial.println("[POWER][TRACE] TIMER SETUP ENTER");
-    Serial.flush();
-    const esp_err_t timerWakeResult =
-        esp_sleep_enable_timer_wakeup(8ULL * 1000000ULL);
-    Serial.printf("[POWER][TRACE] TIMER SETUP EXIT: %d\n",
-                  static_cast<int>(timerWakeResult));
-    Serial.flush();
+    // Do not enter sleep with an unconfigured wake source. Continue through
+    // the normal recovery path below so BLE and the display are restored.
+    if (gpioPinResult == ESP_OK && gpioSourceResult == ESP_OK) {
+        Serial.printf(
+            "[POWER][TRACE] PRE-SLEEP: heap=%u largest=%u button=%d\\n",
+            static_cast<unsigned>(ESP.getFreeHeap()),
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
+            digitalRead(BUTTON_PIN)
+        );
+        Serial.flush();
 
-    Serial.printf("[POWER][TRACE] PRE-SLEEP: heap=%u largest=%u button=%d\n",
-                  static_cast<unsigned>(ESP.getFreeHeap()),
-                  static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
-                  digitalRead(BUTTON_PIN));
-    Serial.flush();
-    Serial.println("[POWER][TRACE] LIGHT SLEEP START ENTER");
-    Serial.flush();
-    const esp_err_t sleepResult = esp_light_sleep_start();
-    Serial.println("[POWER][TRACE] LIGHT SLEEP START RETURNED");
-    Serial.flush();
-    const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
-    Serial.printf("[POWER] Light sleep returned: err=%d wake_cause=%d button=%d\\n",
-                  static_cast<int>(sleepResult), static_cast<int>(wakeCause),
-                  digitalRead(BUTTON_PIN));
+        Serial.println("[POWER][TRACE] LIGHT SLEEP START ENTER");
+        Serial.flush();
+        const esp_err_t sleepResult = esp_light_sleep_start();
+        Serial.println("[POWER][TRACE] LIGHT SLEEP START RETURNED");
+        Serial.flush();
+
+        const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
+        Serial.printf(
+            "[POWER] Light sleep returned: err=%d wake_cause=%d button=%d\\n",
+            static_cast<int>(sleepResult),
+            static_cast<int>(wakeCause),
+            digitalRead(BUTTON_PIN)
+        );
+        Serial.flush();
+    } else {
+        Serial.println("[POWER] GPIO wake setup failed; aborting Light Sleep.");
+        Serial.flush();
+    }
 
     // Wait for the wake press to be released before resetting button state.
     while (digitalRead(BUTTON_PIN) == LOW) {
