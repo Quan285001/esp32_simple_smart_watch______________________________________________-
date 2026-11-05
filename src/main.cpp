@@ -118,24 +118,33 @@ static void enterLightSleep() {
 
     shutdownBLEForSleep();
 
-    // Put the TFT controller into its own sleep mode as well.
+    // Clear the panel before putting the controller to sleep. Do not send
+    // any drawing commands after SLEEP IN; the controller ignores them.
     tft.fillScreen(TFT_BLACK);
+    delay(10);
     tft.writecommand(0x10); // GC9A01 sleep-in
     delay(30);
 
     gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
     Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT sleeping.");
-    tft.fillScreen(TFT_BLACK);
     esp_light_sleep_start();
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
 
-    // Restore only the display and input. Keep Wi-Fi/Bluetooth OFF until
-    // the user explicitly enables them from the menu.
+    // Wait until the wake button is released before restoring the display.
+    // This avoids carrying the active-low wake level into the UI startup.
+    while (digitalRead(BUTTON_PIN) == LOW) {
+        delay(10);
+    }
+
+    // Restore the GC9A01 explicitly, then redraw the active screen.
     tft.writecommand(0x11); // GC9A01 sleep-out
-    delay(120);
+    delay(150);
     tft.writecommand(0x29); // Display ON
+    delay(20);
     tft.fillScreen(TFT_BLACK);
+
+    // Reinitialize button edge/debounce state after the wake gesture.
     beginButtonManager();
     drawCurrentScreen(true);
     Serial.println("[POWER] Wake complete; radios remain OFF.");
