@@ -10,6 +10,9 @@
 
 static constexpr char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 static constexpr char CHARACTERISTIC_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+static constexpr UBaseType_t BLE_COMMAND_MAX_LEN = 128;
+static volatile uint32_t commandQueueDropCount = 0;
+static constexpr UBaseType_t BLE_COMMAND_QUEUE_LENGTH = 5;
 
 static BLEServer *bleServer = nullptr;
 static BLEAdvertising *bleAdvertising = nullptr;
@@ -55,11 +58,14 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
         if (commandQueue == nullptr) return;
 
         std::string value = characteristic->getValue();
-        if (value.empty() || value.size() >= 256) return;
+        if (value.empty() || value.size() >= BLE_COMMAND_MAX_LEN) return;
 
-        char buffer[256] = {};
+        char buffer[BLE_COMMAND_MAX_LEN] = {};
         memcpy(buffer, value.data(), value.size());
-        xQueueSend(commandQueue, buffer, 0);
+        if (xQueueSend(commandQueue, buffer, 0) != pdTRUE) {
+            // Count drops without logging or blocking inside the host callback.
+            __atomic_fetch_add(&commandQueueDropCount, 1, __ATOMIC_RELAXED);
+        }
     }
 };
 
@@ -74,7 +80,7 @@ void beginBLE() {
     }
 
     if (commandQueue == nullptr) {
-        commandQueue = xQueueCreate(5, 256);
+        commandQueue = xQueueCreate(BLE_COMMAND_QUEUE_LENGTH, BLE_COMMAND_MAX_LEN);
     }
 
     if (commandQueue == nullptr) {
@@ -197,6 +203,13 @@ void toggleBLE() {
  * @brief Processes deferred advertising restarts from the application loop.
  */
 void serviceBLE() {
+    const uint32_t dropped =
+        __atomic_exchange_n(&commandQueueDropCount, 0, __ATOMIC_RELAXED);
+    if (dropped > 0) {
+        Serial.printf("[BLE] Command queue full; dropped %lu command(s).\n",
+                      static_cast<unsigned long>(dropped));
+    }
+
     if (!bleStackInitialized || !bleEnabled ||
         !advertisingRestartPending || clientConnected) {
         return;
@@ -218,8 +231,10 @@ void serviceBLE() {
     Serial.println("[BLE][TRACE] deferred startAdvertising EXIT");
 }
 
-// Fully release the Bluetooth controller/host before light sleep.
-// beginBLE() can initialize a fresh stack after the device wakes.
+// Deinitialize the Bluetooth host/controller before light sleep, but keep
+// controller memory reserved. BLE is initialized again when the user enables
+// Bluetooth after wake; deinit(true) releases BTDM memory permanently for
+// this boot and makes that reinitialization fail.
 /**
  * @brief Stops advertising and deinitializes the BLE stack and command queue before Light Sleep.
 
@@ -230,7 +245,7 @@ void shutdownBLEForSleep() {
     }
 
     if (bleStackInitialized) {
-        BLEDevice::deinit(true);
+        BLEDevice::deinit(false);
     }
 
     bleAdvertising = nullptr;
@@ -264,7 +279,7 @@ bool isBLEEnabled() {
 bool readBLECommand(String &command) {
     if (commandQueue == nullptr) return false;
 
-    char buffer[256] = {};
+    char buffer[BLE_COMMAND_MAX_LEN] = {};
     if (xQueueReceive(commandQueue, buffer, 0) != pdTRUE) {
         return false;
     }
@@ -280,10 +295,17 @@ bool readBLECommand(String &command) {
 void sendBLENotification(const String &message) {
     if (!clientConnected || commandCharacteristic == nullptr) return;
 
-    // Default ATT MTU carries 20 bytes of notification payload.
-    for (size_t offset = 0; offset < message.length(); offset += 20) {
-        String chunk = message.substring(offset, offset + 20);
-        commandCharacteristic->setValue(chunk.c_str());
+    // Default ATT MTU carries 20 bytes of notification payload. Reuse one
+    // stack buffer instead of allocating a new Arduino String for each chunk.
+    const char *payload = message.c_str();
+    const size_t payloadLength = message.length();
+    char chunk[21];
+    for (size_t offset = 0; offset < payloadLength; offset += 20) {
+        const size_t chunkLength =
+            (payloadLength - offset) < 20 ? (payloadLength - offset) : 20;
+        memcpy(chunk, payload + offset, chunkLength);
+        chunk[chunkLength] = '\0';
+        commandCharacteristic->setValue(chunk);
         commandCharacteristic->notify();
         delay(12);
     }

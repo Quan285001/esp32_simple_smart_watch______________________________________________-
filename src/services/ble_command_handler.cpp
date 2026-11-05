@@ -2,7 +2,6 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <sys/time.h>
-#include <ArduinoJson.h>
 
 #include "ble_service.h"
 #include "weather_service.h"
@@ -15,12 +14,53 @@ extern bool wifiEnabled;
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
 extern uint8_t requestWeatherFetchForLocation();
+extern uint8_t requestWifiScan();
+extern bool isWifiScanBusy();
+extern void setAutoSleepTimeoutSeconds(uint8_t seconds);
+extern uint8_t getAutoSleepTimeoutSeconds();
 
 /**
  * @brief Parses and executes one BLE command.
  * @param cmd Input or state used by this operation.
  */
 static void handleCommand(const String &cmd) {
+    if (cmd == "GET_AUTO_SLEEP") {
+        sendBLENotification(String("AUTO_SLEEP:") + String(getAutoSleepTimeoutSeconds()));
+        return;
+    }
+
+    if (cmd.startsWith("AUTO_SLEEP:")) {
+        const String value = cmd.substring(11);
+        const int seconds = value.toInt();
+        const bool validValue = value == String(seconds) &&
+            (seconds == 0 || seconds == 10 || seconds == 12 ||
+             seconds == 15 || seconds == 18 || seconds == 20);
+        if (!validValue) {
+            sendBLENotification("ERR_AUTO_SLEEP");
+            return;
+        }
+
+        Preferences prefs;
+        if (!prefs.begin("watch", false)) {
+            sendBLENotification("ERR_AUTO_SLEEP_STORAGE");
+            return;
+        }
+        const size_t written = prefs.putUChar("autoSleepSec", static_cast<uint8_t>(seconds));
+        const uint8_t savedValue = prefs.getUChar("autoSleepSec", 0xFF);
+        prefs.end();
+
+        if (written != sizeof(uint8_t) || savedValue != static_cast<uint8_t>(seconds)) {
+            Serial.println("[POWER] Failed to persist Auto Sleep setting.");
+            sendBLENotification("ERR_AUTO_SLEEP_STORAGE");
+            return;
+        }
+
+        setAutoSleepTimeoutSeconds(static_cast<uint8_t>(seconds));
+        Serial.printf("[POWER] Auto Sleep setting saved to NVS: %d seconds.\\n", seconds);
+        sendBLENotification(String("AUTO_SLEEP_OK:") + String(seconds));
+        return;
+    }
+
     if (cmd.startsWith("SYNC_TIME:")) {
         time_t epoch = static_cast<time_t>(cmd.substring(10).toInt());
         if (epoch > 1700000000) {
@@ -74,6 +114,10 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd.startsWith("WIFI:")) {
+        if (isWifiScanBusy()) {
+            sendBLENotification("ERR_WIFI_SCAN_BUSY");
+            return;
+        }
         String value = cmd.substring(5);
         int comma = value.indexOf(',');
         if (comma < 1) { sendBLENotification("ERR_WIFI_CONFIG"); return; }
@@ -93,38 +137,12 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd == "SCAN_WIFI") {
-        Serial.println("[WIFI] BLE scan request received.");
-        sendBLENotification("WIFI_SCAN_STARTED");
-
-        const bool restoreWifiOff = !wifiEnabled;
-        Serial.printf("[WIFI] Starting scan (restore_off=%s, mode=%d, status=%d).\n",
-                      restoreWifiOff ? "true" : "false",
-                      static_cast<int>(WiFi.getMode()),
-                      static_cast<int>(WiFi.status()));
-
-        if (restoreWifiOff) WiFi.mode(WIFI_STA);
-        int count = WiFi.scanNetworks(false, true);
-        Serial.printf("[WIFI] Scan finished; result=%d.\n", count);
-
-        if (count < 0) {
-            WiFi.scanDelete();
-            if (restoreWifiOff) WiFi.mode(WIFI_OFF);
-            sendBLENotification("WIFI_SCAN_ERROR");
-            return;
-        }
-
-        JsonDocument doc;
-        JsonArray list = doc.to<JsonArray>();
-        for (int i = 0; i < count; ++i) list.add(WiFi.SSID(i));
-
-        String json;
-        serializeJson(doc, json);
-        Serial.printf("[WIFI] Sending %d networks (%u JSON bytes).\n",
-                      count, static_cast<unsigned int>(json.length()));
-
-        WiFi.scanDelete();
-        if (restoreWifiOff) WiFi.mode(WIFI_OFF);
-        sendBLENotification(json);
+        Serial.println("[WIFI] BLE asynchronous scan request received.");
+        const uint8_t result = requestWifiScan();
+        if (result == 0) sendBLENotification("WIFI_SCAN_STARTED");
+        else if (result == 1) sendBLENotification("WIFI_SCAN_BUSY");
+        else if (result == 2) sendBLENotification("WIFI_SCAN_DEFERRED");
+        else sendBLENotification("WIFI_SCAN_ERROR");
         return;
     }
 

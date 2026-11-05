@@ -5,6 +5,8 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <string.h>
+#include <ctype.h>
 #include <Preferences.h>
 #include <esp_heap_caps.h>
 
@@ -14,6 +16,24 @@
 #include "weather_service.h"
 #include "time_service.h"
 
+// Copy API/cache text into fixed-size snapshot fields without heap allocation.
+static void copyWeatherText(char *destination, size_t capacity, const char *source) {
+    if (destination == nullptr || capacity == 0) return;
+    if (source == nullptr) source = "";
+    snprintf(destination, capacity, "%s", source);
+}
+
+// Open-Meteo daily timestamps are ISO strings; retain only HH:MM.
+static void copyIsoClockTime(char *destination, size_t capacity, const char *source) {
+    if (destination == nullptr || capacity == 0) return;
+    destination[0] = '\0';
+    if (source == nullptr || strlen(source) < 16) return;
+    const char timePart[6] = {
+        source[11], source[12], ':', source[14], source[15], '\0'
+    };
+    copyWeatherText(destination, capacity, timePart);
+}
+
 // =====================================================
 // SHARED WEATHER DATA
 // =====================================================
@@ -22,8 +42,10 @@
 // complete, validated API response has been received.
 WeatherData currentWeather = {};
 
-static String weatherLatitude = WEATHER_LATITUDE;
-static String weatherLongitude = WEATHER_LONGITUDE;
+// Keep these fixed buffers large enough for signed coordinates at 4 decimals.
+// Defaults match WEATHER_LATITUDE / WEATHER_LONGITUDE in config.h.
+static char weatherLatitude[16] = "10.8231";
+static char weatherLongitude[16] = "106.6297";
 
 static SemaphoreHandle_t getCoordinatesMutex() {
     static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
@@ -31,15 +53,18 @@ static SemaphoreHandle_t getCoordinatesMutex() {
 }
 
 /** Copy both coordinates as one consistent pair before building an API URL. */
-static bool copyWeatherCoordinates(String &latitude, String &longitude) {
+static bool copyWeatherCoordinates(char *latitude, size_t latitudeCapacity,
+                                    char *longitude, size_t longitudeCapacity) {
+    if (latitude == nullptr || longitude == nullptr ||
+        latitudeCapacity == 0 || longitudeCapacity == 0) return false;
     SemaphoreHandle_t mutex = getCoordinatesMutex();
     if (mutex == nullptr ||
         xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
         return false;
     }
 
-    latitude = weatherLatitude;
-    longitude = weatherLongitude;
+    copyWeatherText(latitude, latitudeCapacity, weatherLatitude);
+    copyWeatherText(longitude, longitudeCapacity, weatherLongitude);
     xSemaphoreGive(mutex);
     return true;
 }
@@ -54,8 +79,10 @@ void setWeatherCoordinates(float latitude, float longitude) {
         latitude < -90.0f || latitude > 90.0f ||
         longitude < -180.0f || longitude > 180.0f) return;
 
-    String nextLatitude(latitude, 4);
-    String nextLongitude(longitude, 4);
+    char nextLatitude[16];
+    char nextLongitude[16];
+    snprintf(nextLatitude, sizeof(nextLatitude), "%.4f", latitude);
+    snprintf(nextLongitude, sizeof(nextLongitude), "%.4f", longitude);
     SemaphoreHandle_t mutex = getCoordinatesMutex();
     if (mutex == nullptr ||
         xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
@@ -63,12 +90,12 @@ void setWeatherCoordinates(float latitude, float longitude) {
         return;
     }
 
-    weatherLatitude = nextLatitude;
-    weatherLongitude = nextLongitude;
+    copyWeatherText(weatherLatitude, sizeof(weatherLatitude), nextLatitude);
+    copyWeatherText(weatherLongitude, sizeof(weatherLongitude), nextLongitude);
     xSemaphoreGive(mutex);
 
     Serial.printf("[GPS] Weather coordinates updated: %s, %s\n",
-                  nextLatitude.c_str(), nextLongitude.c_str());
+                  nextLatitude, nextLongitude);
 }
 
 /**
@@ -146,17 +173,17 @@ bool loadWeatherCache() {
     cached.currentTemp = doc["currentTemp"] | 0;
     cached.maxTemp = doc["maxTemp"] | 0;
     cached.minTemp = doc["minTemp"] | 0;
-    cached.conditionText = doc["conditionText"].as<String>();
+    copyWeatherText(cached.conditionText, sizeof(cached.conditionText), doc["conditionText"] | "");
     cached.windSpeed10m = doc["windSpeed10m"] | 0.0f;
     cached.surfacePressure = doc["surfacePressure"] | 0.0f;
     cached.rain = doc["rain"] | 0.0f;
     cached.sunshineDuration = doc["sunshineDuration"] | 0.0f;
     cached.daylightDuration = doc["daylightDuration"] | 0.0f;
-    cached.moonPhase = doc["moonPhase"] | "N/A";
-    cached.moonrise = doc["moonrise"] | "N/A";
-    cached.moonset = doc["moonset"] | "N/A";
-    cached.sunrise = doc["sunrise"] | "N/A";
-    cached.sunset = doc["sunset"] | "N/A";
+    copyWeatherText(cached.moonPhase, sizeof(cached.moonPhase), doc["moonPhase"] | "N/A");
+    copyWeatherText(cached.moonrise, sizeof(cached.moonrise), doc["moonrise"] | "N/A");
+    copyWeatherText(cached.moonset, sizeof(cached.moonset), doc["moonset"] | "N/A");
+    copyWeatherText(cached.sunrise, sizeof(cached.sunrise), doc["sunrise"] | "N/A");
+    copyWeatherText(cached.sunset, sizeof(cached.sunset), doc["sunset"] | "N/A");
     cached.detailsValid = doc["detailsValid"] | false;
 
     for (int i = 0; i < 24; ++i) {
@@ -185,7 +212,7 @@ bool loadWeatherCache() {
  * @brief Maps an Open-Meteo weather code to a human-readable condition.
  * @param code Input or state used by this operation.
  */
-static String weatherDescription(int code) {
+static const char* weatherDescription(int code) {
     if (code == 0) return "Clear sky";
     if (code == 1) return "Mainly clear";
     if (code == 2) return "Partly cloudy";
@@ -221,9 +248,10 @@ bool fetchHourlyWeather() {
         return false;
     }
 
-    String latitude;
-    String longitude;
-    if (!copyWeatherCoordinates(latitude, longitude)) {
+    char latitude[16] = {};
+    char longitude[16] = {};
+    if (!copyWeatherCoordinates(latitude, sizeof(latitude),
+                                longitude, sizeof(longitude))) {
         Serial.println("[WEATHER] Could not snapshot coordinates.");
         return false;
     }
@@ -241,9 +269,9 @@ bool fetchHourlyWeather() {
     // fields. If the optional lunar endpoint fails, old moon data must survive.
     WeatherData previous = getWeatherSnapshot();
     WeatherData next = {};
-    next.moonPhase = previous.moonPhase;
-    next.moonrise = previous.moonrise;
-    next.moonset = previous.moonset;
+    copyWeatherText(next.moonPhase, sizeof(next.moonPhase), previous.moonPhase);
+    copyWeatherText(next.moonrise, sizeof(next.moonrise), previous.moonrise);
+    copyWeatherText(next.moonset, sizeof(next.moonset), previous.moonset);
     next.detailsValid = false;
 
     Serial.printf(
@@ -378,8 +406,8 @@ bool fetchHourlyWeather() {
     next.maxTemp = dailyMax[0].as<int>();
     next.minTemp = dailyMin[0].as<int>();
 
-    next.conditionText =
-        weatherDescription(currentCode.as<int>());
+    copyWeatherText(next.conditionText, sizeof(next.conditionText),
+                    weatherDescription(currentCode.as<int>()));
 
     // -------------------------------------------------
     // FIND CURRENT LOCAL HOUR
@@ -403,9 +431,8 @@ bool fetchHourlyWeather() {
         );
 
         for (size_t i = 0; i < times.size(); i++) {
-            String stamp = times[i].as<String>();
-
-            if (stamp.startsWith(target)) {
+            const char* stamp = times[i] | "";
+            if (strncmp(stamp, target, 13) == 0) {
                 firstIndex = static_cast<int>(i);
                 break;
             }
@@ -437,12 +464,11 @@ bool fetchHourlyWeather() {
             break;
         }
 
-        String stamp = times[index].as<String>();
-
+        const char* stamp = times[index] | "";
         next.hourly[i].hour =
-            stamp.length() >= 13
-                ? stamp.substring(11, 13).toInt()
-                : i;
+            (strlen(stamp) >= 13 && isdigit(stamp[11]) && isdigit(stamp[12]))
+                ? static_cast<uint8_t>((stamp[11] - '0') * 10 + (stamp[12] - '0'))
+                : static_cast<uint8_t>(i);
 
         next.hourly[i].temp =
             temps[index].as<int>();
@@ -458,8 +484,8 @@ bool fetchHourlyWeather() {
 
     if (sunshine.size() > 0) next.sunshineDuration = sunshine[0].as<float>();
     if (daylight.size() > 0) next.daylightDuration = daylight[0].as<float>();
-    if (sunrise.size() > 0) next.sunrise = sunrise[0].as<String>().substring(11, 16);
-    if (sunset.size() > 0) next.sunset = sunset[0].as<String>().substring(11, 16);
+    if (sunrise.size() > 0) copyIsoClockTime(next.sunrise, sizeof(next.sunrise), sunrise[0] | "");
+    if (sunset.size() > 0) copyIsoClockTime(next.sunset, sizeof(next.sunset), sunset[0] | "");
 
     // The Open-Meteo detail fields above are already validated and usable.
     // Lunar data is optional; its endpoint must not block the expanded panel.
@@ -572,9 +598,10 @@ bool fetchLunarDetails() {
 
     // SunriseSunset.io resolves today's date from the supplied coordinates.
     // This avoids making lunar data depend on a successful NTP sync.
-    String latitude;
-    String longitude;
-    if (!copyWeatherCoordinates(latitude, longitude)) {
+    char latitude[16] = {};
+    char longitude[16] = {};
+    if (!copyWeatherCoordinates(latitude, sizeof(latitude),
+                                longitude, sizeof(longitude))) {
         Serial.println("[LUNAR] Could not snapshot coordinates.");
         return false;
     }
@@ -611,20 +638,22 @@ bool fetchLunarDetails() {
                 Serial.println("[WEATHER] Lunar API response has no results object.");
             } else {
                 JsonObjectConst result = lunarDoc["results"];
-                next.moonrise = result["moonrise"].isNull()
-                    ? "No rise" : result["moonrise"].as<String>();
-                next.moonset = result["moonset"].isNull()
-                    ? "No set" : result["moonset"].as<String>();
-                next.moonPhase = result["moon_phase"] | "N/A";
+                copyWeatherText(next.moonrise, sizeof(next.moonrise),
+                                result["moonrise"].isNull() ? "No rise" : (result["moonrise"] | "No rise"));
+                copyWeatherText(next.moonset, sizeof(next.moonset),
+                                result["moonset"].isNull() ? "No set" : (result["moonset"] | "No set"));
+                copyWeatherText(next.moonPhase, sizeof(next.moonPhase),
+                                result["moon_phase"] | "N/A");
                 lunarUpdated = true;
 
                 // Prefer the API's local sunrise/sunset values for the same date.
-                if (!result["sunrise"].isNull()) next.sunrise = result["sunrise"].as<String>();
-                if (!result["sunset"].isNull()) next.sunset = result["sunset"].as<String>();
+                if (!result["sunrise"].isNull())
+                    copyWeatherText(next.sunrise, sizeof(next.sunrise), result["sunrise"] | "");
+                if (!result["sunset"].isNull())
+                    copyWeatherText(next.sunset, sizeof(next.sunset), result["sunset"] | "");
 
                 Serial.printf("[WEATHER] Lunar data: moonrise=%s, moonset=%s, phase=%s\n",
-                              next.moonrise.c_str(), next.moonset.c_str(),
-                              next.moonPhase.c_str());
+                              next.moonrise, next.moonset, next.moonPhase);
             }
         } else {
             Serial.printf("[WEATHER] Lunar API request failed: %s\n",
@@ -643,12 +672,12 @@ bool fetchLunarDetails() {
         return false;
     }
 
-    currentWeather.moonrise = next.moonrise;
-    currentWeather.moonset = next.moonset;
-    currentWeather.moonPhase = next.moonPhase;
+    copyWeatherText(currentWeather.moonrise, sizeof(currentWeather.moonrise), next.moonrise);
+    copyWeatherText(currentWeather.moonset, sizeof(currentWeather.moonset), next.moonset);
+    copyWeatherText(currentWeather.moonPhase, sizeof(currentWeather.moonPhase), next.moonPhase);
     // Sunrise/sunset may be refined by the lunar endpoint for the same local date.
-    currentWeather.sunrise = next.sunrise;
-    currentWeather.sunset = next.sunset;
+    copyWeatherText(currentWeather.sunrise, sizeof(currentWeather.sunrise), next.sunrise);
+    copyWeatherText(currentWeather.sunset, sizeof(currentWeather.sunset), next.sunset);
     WeatherData committed = currentWeather;
     xSemaphoreGive(mutex);
 

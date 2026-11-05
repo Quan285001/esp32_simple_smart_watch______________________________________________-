@@ -14,6 +14,11 @@ static bool longPressHandled = false;
 static bool pendingSinglePress = false;
 static uint32_t pendingSingleAtMs = 0;
 static constexpr uint32_t DOUBLE_PRESS_MS = 280;
+static uint32_t lastButtonActivityMs = 0;
+
+uint32_t getLastButtonActivityMs() {
+    return lastButtonActivityMs;
+}
 
 /**
  * @brief Configures the BOOT button input and initializes the debouncing state.
@@ -24,6 +29,7 @@ void beginButtonManager() {
     stableState = digitalRead(BUTTON_PIN);
     lastRawState = stableState;
     lastChangeMs = millis();
+    lastButtonActivityMs = lastChangeMs;
 }
 
 /**
@@ -35,6 +41,7 @@ void updateButtonManager() {
     const bool raw = digitalRead(BUTTON_PIN);
 
     if (raw != lastRawState) {
+        lastButtonActivityMs = now;
         lastRawState = raw;
         lastChangeMs = now;
     }
