@@ -135,17 +135,43 @@ static void enterLightSleep() {
     // the first BOOT wake should be followed by a normal redraw.
     tft.fillScreen(TFT_BLACK);
 
-    // GPIO9 is the BOOT button. Keep its pull-up enabled and wake on LOW.
+    // GPIO9 is the BOOT button (active LOW). Configure and validate the
+    // wake source before committing to sleep; never black-screen on setup error.
     pinMode(BUTTON_PIN, INPUT_PULLUP);
-    gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
+    delay(2);
 
-    Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT sleeping.");
-    esp_light_sleep_start();
-    gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
+    const gpio_num_t wakePin = static_cast<gpio_num_t>(BUTTON_PIN);
+    const int wakePinLevel = digitalRead(BUTTON_PIN);
+    const esp_err_t pinWakeResult =
+        gpio_wakeup_enable(wakePin, GPIO_INTR_LOW_LEVEL);
+    const esp_err_t gpioWakeResult = esp_sleep_enable_gpio_wakeup();
+
+    Serial.printf(
+        "[POWER] Wake setup: pin=GPIO%d level=%d pin_cfg=%d source_cfg=%d\\n",
+        BUTTON_PIN, wakePinLevel, static_cast<int>(pinWakeResult),
+        static_cast<int>(gpioWakeResult));
+
+    if (wakePinLevel != HIGH || pinWakeResult != ESP_OK ||
+        gpioWakeResult != ESP_OK) {
+        Serial.println("[POWER][ERROR] GPIO wake setup invalid; aborting sleep.");
+        gpio_wakeup_disable(wakePin);
+        tft.fillScreen(TFT_BLACK);
+        if (restoreBleAfterWake) beginBLE();
+        beginButtonManager();
+        lastUserActivityMs = millis();
+        lastButtonActivitySeenMs = getLastButtonActivityMs();
+        drawCurrentScreen(true);
+        return;
+    }
+
+    Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT black.");
+    const esp_err_t sleepResult = esp_light_sleep_start();
+    gpio_wakeup_disable(wakePin);
 
     const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
-    Serial.printf("[POWER] Wake cause: %d\\n", static_cast<int>(wakeCause));
+    Serial.printf("[POWER] Light sleep returned: err=%d wake_cause=%d button=%d\\n",
+                  static_cast<int>(sleepResult), static_cast<int>(wakeCause),
+                  digitalRead(BUTTON_PIN));
 
     // Wait for the wake press to be released before resetting button state.
     while (digitalRead(BUTTON_PIN) == LOW) {
