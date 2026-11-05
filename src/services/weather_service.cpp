@@ -24,10 +24,10 @@ static void copyWeatherText(char *destination, size_t capacity, const char *sour
 // Open-Meteo daily timestamps are ISO strings; retain only HH:MM.
 static void copyIsoClockTime(char *destination, size_t capacity, const char *source) {
     if (destination == nullptr || capacity == 0) return;
-    destination[0] = '\\0';
+    destination[0] = '\0';
     if (source == nullptr || strlen(source) < 16) return;
     const char timePart[6] = {
-        source[11], source[12], ':', source[14], source[15], '\\0'
+        source[11], source[12], ':', source[14], source[15], '\0'
     };
     copyWeatherText(destination, capacity, timePart);
 }
