@@ -1,6 +1,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <ArduinoJson.h>
 #include <Preferences.h>
 #include <esp_sleep.h>
 #include <esp_system.h>
@@ -62,6 +63,8 @@ static volatile bool weatherFaceInitialized = false;
 static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
+static volatile bool wifiScanRunning = false;
+static bool wifiScanRestoreOff = false;
 static volatile bool locationWeatherRefreshPending = false;
 static volatile bool bootNetworkRunning = false;
 static volatile bool bootNetworkNeedsBle = false;
@@ -220,7 +223,7 @@ static bool scheduleWeatherFetch() {
         return false;
     }
 
-    if (weatherFetchRunning || bootNetworkRunning || bootNetworkNeedsBle) {
+    if (weatherFetchRunning || wifiScanRunning || bootNetworkRunning || bootNetworkNeedsBle) {
         return false;
     }
 
@@ -259,7 +262,7 @@ static bool scheduleWeatherFetch() {
  */
 uint8_t requestWeatherFetch() {
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning) return 1;
+    if (weatherFetchRunning || wifiScanRunning) return 1;
 
     const uint32_t now = millis();
     if (lastManualWeatherRequestMs != 0 &&
@@ -284,7 +287,7 @@ uint8_t requestWeatherFetchForLocation() {
     lastLocationWeatherRetryMs = 0;
 
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning) return 1;
+    if (weatherFetchRunning || wifiScanRunning) return 1;
 
     if (scheduleWeatherFetch()) {
         locationWeatherRefreshPending = false;
@@ -295,6 +298,73 @@ uint8_t requestWeatherFetchForLocation() {
 }
 
 // =====================================================
+// ASYNCHRONOUS WI-FI SCAN
+// =====================================================
+
+// Return: 0=started, 1=already busy, 2=network work has priority, 3=start failed.
+uint8_t requestWifiScan() {
+    if (wifiScanRunning) return 1;
+    if (weatherFetchRunning || bootNetworkRunning || bootNetworkNeedsBle) return 2;
+
+    wifiScanRestoreOff = !wifiEnabled;
+    if (wifiScanRestoreOff) {
+        WiFi.mode(WIFI_STA);
+    }
+
+    // Async mode returns immediately; the main loop polls scanComplete().
+    const int result = WiFi.scanNetworks(true, true);
+    if (result == WIFI_SCAN_FAILED) {
+        WiFi.scanDelete();
+        if (wifiScanRestoreOff) WiFi.mode(WIFI_OFF);
+        wifiScanRestoreOff = false;
+        Serial.println("[WIFI] Could not start asynchronous scan.");
+        return 3;
+    }
+
+    wifiScanRunning = true;
+    Serial.println("[WIFI] Asynchronous scan started.");
+    return 0;
+}
+
+static void serviceWifiScan() {
+    if (!wifiScanRunning) return;
+
+    const int count = WiFi.scanComplete();
+    if (count == WIFI_SCAN_RUNNING) return;
+
+    if (count == WIFI_SCAN_FAILED) {
+        Serial.println("[WIFI] Asynchronous scan failed.");
+        WiFi.scanDelete();
+        if (wifiScanRestoreOff) WiFi.mode(WIFI_OFF);
+        wifiScanRestoreOff = false;
+        wifiScanRunning = false;
+        sendBLENotification("WIFI_SCAN_ERROR");
+        return;
+    }
+
+    JsonDocument doc;
+    JsonArray list = doc.to<JsonArray>();
+    // Keep the BLE response bounded. Twelve SSIDs fit comfortably within
+    // the small C3 heap and avoid an unbounded notification burst.
+    const int returned = count < 12 ? count : 12;
+    for (int i = 0; i < returned; ++i) {
+        list.add(WiFi.SSID(i));
+    }
+
+    String json;
+    serializeJson(doc, json);
+    Serial.printf("[WIFI] Scan complete: %d found, %d returned, %u JSON bytes.\\n",
+                  count, returned, static_cast<unsigned int>(json.length()));
+
+    WiFi.scanDelete();
+    if (wifiScanRestoreOff) WiFi.mode(WIFI_OFF);
+    wifiScanRestoreOff = false;
+    wifiScanRunning = false;
+
+    sendBLENotification(json);
+}
+
+// =====================================================
 // WIFI CONTROL
 // =====================================================
 
@@ -302,6 +372,10 @@ uint8_t requestWeatherFetchForLocation() {
  * @brief Enables or disables the Wi-Fi station interface and updates the application state.
  */
 void toggleWiFi() {
+    if (wifiScanRunning) {
+        Serial.println("[WIFI] Toggle ignored while scan is active.");
+        return;
+    }
     if (wifiEnabled) {
         WiFi.disconnect(false, false);
         WiFi.mode(WIFI_OFF);
@@ -585,11 +659,12 @@ void loop() {
     updateButtonManager();
     handleBLECommands();
     serviceBLE();
+    serviceWifiScan();
 
     if (lightSleepRequested) {
         // Keep the UI loop responsive while HTTPS/TLS work finishes.
         // Sleep is entered on a later loop iteration once radio tasks are idle.
-        if (bootNetworkRunning || weatherFetchRunning) {
+        if (bootNetworkRunning || weatherFetchRunning || wifiScanRunning) {
             delay(2);
             return;
         }
@@ -603,7 +678,7 @@ void loop() {
 
     const wl_status_t wifiStatus = WiFi.status();
 
-    if (wifiEnabled && !bootNetworkRunning && !bootNetworkNeedsBle && wifiStatus != WL_CONNECTED) {
+    if (!wifiScanRunning && wifiEnabled && !bootNetworkRunning && !bootNetworkNeedsBle && wifiStatus != WL_CONNECTED) {
         if (now - lastWifiRetryMs >= WIFI_RETRY_MS) {
             Serial.printf(
                 "[WIFI] Still not connected (status=%s, code=%d); retrying.\n",
@@ -655,7 +730,7 @@ void loop() {
 
     // A GPS update received during an active request is refreshed as soon as
     // that request releases its TLS/JSON resources. Keep it pending while offline.
-    if (locationWeatherRefreshPending && wifiConnected && !weatherFetchRunning &&
+    if (locationWeatherRefreshPending && wifiConnected && !weatherFetchRunning && !wifiScanRunning &&
         (lastLocationWeatherRetryMs == 0 ||
          now - lastLocationWeatherRetryMs >= WEATHER_RETRY_MS)) {
         lastLocationWeatherRetryMs = now;
@@ -680,6 +755,7 @@ void loop() {
         !bootNetworkNeedsBle &&
         !hasWeatherData &&
         !weatherFetchRunning &&
+        !wifiScanRunning &&
         (
             lastWeatherRetryMs == 0 ||
             now - lastWeatherRetryMs >= WEATHER_RETRY_MS
@@ -704,6 +780,7 @@ void loop() {
         !bootNetworkNeedsBle &&
         hasWeatherData &&
         !weatherFetchRunning &&
+        !wifiScanRunning &&
         now - lastWeatherFetchMs >= WEATHER_REFRESH_MS &&
         (lastWeatherAttemptMs == 0 || now - lastWeatherAttemptMs >= WEATHER_RETRY_MS)
     ) {
