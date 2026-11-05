@@ -367,7 +367,7 @@ static void serviceWifiScan() {
 
     String json;
     serializeJson(doc, json);
-    Serial.printf("[WIFI] Scan complete: %d found, %d returned, %u JSON bytes.\\n",
+    Serial.printf("[WIFI] Scan complete: %d found, %d returned, %u JSON bytes.\n",
                   count, returned, static_cast<unsigned int>(json.length()));
 
     WiFi.scanDelete();
