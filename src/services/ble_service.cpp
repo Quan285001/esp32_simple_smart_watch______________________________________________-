@@ -10,7 +10,8 @@
 
 static constexpr char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 static constexpr char CHARACTERISTIC_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-static constexpr size_t BLE_COMMAND_MAX_LEN = 128;
+static constexpr UBaseType_t BLE_COMMAND_MAX_LEN = 128;
+static volatile uint32_t commandQueueDropCount = 0;
 static constexpr UBaseType_t BLE_COMMAND_QUEUE_LENGTH = 5;
 
 static BLEServer *bleServer = nullptr;
@@ -62,8 +63,8 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
         char buffer[BLE_COMMAND_MAX_LEN] = {};
         memcpy(buffer, value.data(), value.size());
         if (xQueueSend(commandQueue, buffer, 0) != pdTRUE) {
-            // Keep the host callback non-blocking when the application queue is full.
-            Serial.println("[BLE] Command queue full; newest command dropped.");
+            // Count drops without logging or blocking inside the host callback.
+            __atomic_fetch_add(&commandQueueDropCount, 1, __ATOMIC_RELAXED);
         }
     }
 };
@@ -202,6 +203,13 @@ void toggleBLE() {
  * @brief Processes deferred advertising restarts from the application loop.
  */
 void serviceBLE() {
+    const uint32_t dropped =
+        __atomic_exchange_n(&commandQueueDropCount, 0, __ATOMIC_RELAXED);
+    if (dropped > 0) {
+        Serial.printf("[BLE] Command queue full; dropped %lu command(s).\\n",
+                      static_cast<unsigned long>(dropped));
+    }
+
     if (!bleStackInitialized || !bleEnabled ||
         !advertisingRestartPending || clientConnected) {
         return;
