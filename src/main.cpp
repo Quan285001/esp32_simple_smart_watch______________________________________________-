@@ -117,10 +117,6 @@ static void enterLightSleep() {
     lightSleepRequested = false;
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
 
-    // Preserve whether BLE should be available after wake. A manual sleep may
-    // disconnect an active phone; automatic sleep is blocked while connected.
-    const bool restoreBleAfterWake = isBLEEnabled();
-
     // The main loop defers sleep until background radio work has completed.
     // Preserve cached weather/time in RAM and NVS; shut down radios only.
     WiFi.disconnect(false, false);
@@ -129,72 +125,23 @@ static void enterLightSleep() {
     previousWifiConnected = false;
 
     shutdownBLEForSleep();
-    Serial.println("[POWER][TRACE] BLE shutdown returned.");
 
     // Keep the GC9A01 controller awake and simply paint the panel black.
-    // Trace both sides because a blocked SPI/display call must be distinguished
-    // from a GPIO wake-configuration failure.
-    Serial.println("[POWER][TRACE] TFT clear ENTER.");
+    // This isolates ESP32-C3 Light Sleep from TFT sleep-state restoration:
+    // the first BOOT wake should be followed by a normal redraw.
     tft.fillScreen(TFT_BLACK);
-    Serial.println("[POWER][TRACE] TFT clear EXIT.");
 
-    // BOOT (GPIO9) is active-low. Keep the pull-up enabled and use the
-    // same low-level GPIO wake configuration that passed the isolated test.
-    const gpio_num_t wakePin = static_cast<gpio_num_t>(BUTTON_PIN);
+    // GPIO9 is the BOOT button. Keep its pull-up enabled and wake on LOW.
     pinMode(BUTTON_PIN, INPUT_PULLUP);
+    gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
 
-    const esp_err_t gpioPinResult =
-        gpio_wakeup_enable(wakePin, GPIO_INTR_LOW_LEVEL);
-    const esp_err_t gpioSourceResult = esp_sleep_enable_gpio_wakeup();
+    Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT sleeping.");
+    esp_light_sleep_start();
+    gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
 
-    // Temporary diagnostic fallback: if GPIO wake is not delivered in the
-    // full firmware, the timer wakes the MCU after 8 seconds so recovery can
-    // still run and the wake cause can be inspected over Serial.
-    const esp_err_t timerWakeResult =
-        esp_sleep_enable_timer_wakeup(8ULL * 1000000ULL);
-
-    const int wakePinLevel = digitalRead(BUTTON_PIN);
-
-    Serial.printf(
-        "[POWER] Wake setup: gpio_pin=%d gpio_source=%d timer=%d button=%d\n",
-        static_cast<int>(gpioPinResult),
-        static_cast<int>(gpioSourceResult),
-        static_cast<int>(timerWakeResult),
-        wakePinLevel
-    );
-    Serial.flush();
-
-    // Do not enter sleep with an unconfigured wake source. Continue through
-    // the normal recovery path below so BLE and the display are restored.
-    if (gpioPinResult == ESP_OK &&
-        gpioSourceResult == ESP_OK &&
-        timerWakeResult == ESP_OK) {
-        Serial.printf(
-            "[POWER][TRACE] PRE-SLEEP: heap=%u largest=%u button=%d\n",
-            static_cast<unsigned>(ESP.getFreeHeap()),
-            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
-            digitalRead(BUTTON_PIN)
-        );
-        Serial.flush();
-
-        Serial.println("[POWER][TRACE] LIGHT SLEEP START ENTER");
-        Serial.flush();
-        const esp_err_t sleepResult = esp_light_sleep_start();
-        Serial.println("[POWER][TRACE] LIGHT SLEEP START RETURNED");
-        Serial.flush();
-
-        const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
-        Serial.printf(
-            "[POWER] Light sleep returned: err=%d wake_cause=%d button=%d\n",
-            static_cast<int>(sleepResult),
-            static_cast<int>(wakeCause),
-            digitalRead(BUTTON_PIN)
-        );
-        Serial.flush();
-    } else {
-        Serial.println("[POWER] GPIO wake setup failed; aborting Light Sleep.");
-        Serial.flush();
-    }
+    const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
+    Serial.printf("[POWER] Wake cause: %d\\n", static_cast<int>(wakeCause));
 
     // Wait for the wake press to be released before resetting button state.
     while (digitalRead(BUTTON_PIN) == LOW) {
@@ -205,20 +152,10 @@ static void enterLightSleep() {
     // The TFT was intentionally kept awake (black screen) during MCU sleep,
     // so no panel reset or sleep-out sequence is needed. Redraw immediately.
 
-    // Rebuild BLE before returning to the UI. This avoids doing a full BLE
-    // stack initialization inside the menu action after every wake.
-    beginBLE();
-    if (!restoreBleAfterWake && isBLEEnabled()) {
-        toggleBLE();
-    }
-
+    // Radios remain OFF until explicitly enabled from the menu.
     beginButtonManager();
-    lastUserActivityMs = millis();
-    lastButtonActivitySeenMs = getLastButtonActivityMs();
-    previousBleConnected = isBLEConnected();
     drawCurrentScreen(true);
-    Serial.printf("[POWER] Wake complete; BLE %s.\n",
-                  isBLEEnabled() ? "advertising" : "disabled");
+    Serial.println("[POWER] Wake complete; radios remain OFF.");
 }
 
 /**
