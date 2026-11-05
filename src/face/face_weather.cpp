@@ -583,31 +583,23 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
     }
 
     const float slideProgress = easeInOutCubic(progress);
-
-    // Slide the complete 4-card window exactly one card-width.
-    // Draw the incoming row first, then the outgoing row on top. The shared
-    // three forecast hours stay aligned while hour N exits and hour N+4 enters.
     const int shift = (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
 
+    // Render one continuous strip of five cards: the four currently visible
+    // cards plus the next card entering from the right. This avoids drawing
+    // two overlapping four-card rows on every animation frame.
+    tft.startWrite();
     tft.setViewport(10, 120, 220, 90, true);
     tft.fillRect(0, 0, 220, 90, TFT_BLACK);
 
-    // Incoming window: starts one card to the right and moves left.
-    for (int i = 0; i < 4; ++i) {
-        const int dataIndex = (animationNewIndex + i) % 24;
-        const int centerX = cardCenterX[i] - 10 + WEATHER_SLIDE_DISTANCE - shift;
-        drawForecastCard(tft, animationWeather.hourly[dataIndex], centerX,
-                         CARD_Y - 120, false);
-    }
-
-    // Outgoing window moves left by the same amount. It preserves the
-    // currently selected card until it leaves the viewport.
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 5; ++i) {
         const int dataIndex = (animationOldIndex + i) % 24;
-        const int centerX = cardCenterX[i] - 10 - shift;
+        const int centerX = cardCenterX[0] - 10 +
+                            i * WEATHER_SLIDE_DISTANCE - shift;
         drawForecastCard(tft, animationWeather.hourly[dataIndex], centerX,
                          CARD_Y - 120, i == 0);
     }
 
     tft.resetViewport();
+    tft.endWrite();
 }
