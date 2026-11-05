@@ -65,6 +65,7 @@ static bool previousWifiConnected = false;
 static volatile bool weatherFetchRunning = false;
 static volatile bool wifiScanRunning = false;
 static bool wifiScanRestoreOff = false;
+static volatile int8_t weatherNotifyPending = -1;
 static volatile bool locationWeatherRefreshPending = false;
 static volatile bool bootNetworkRunning = false;
 static volatile bool bootNetworkNeedsBle = false;
@@ -189,7 +190,9 @@ static void weatherFetchTask(void *parameter) {
         weatherFaceInitialized = false; // redraw fresh data on the UI thread
     }
 
-    sendBLENotification(success ? "WEATHER_OK" : "WEATHER_FAILED");
+    // BLE host operations stay on the application-loop thread. The worker
+    // publishes only a small completion code for loop() to notify later.
+    weatherNotifyPending = success ? 1 : 0;
     Serial.println(success ? "[WEATHER] Weather stage finished." : "[WEATHER] Weather stage failed.");
 
     // Lunar TLS runs only after Open-Meteo has completed and released its
@@ -324,6 +327,17 @@ uint8_t requestWifiScan() {
     wifiScanRunning = true;
     Serial.println("[WIFI] Asynchronous scan started.");
     return 0;
+}
+
+static void serviceWeatherNotification() {
+    const int8_t result = weatherNotifyPending;
+    if (result < 0) return;
+    weatherNotifyPending = -1;
+    sendBLENotification(result ? "WEATHER_OK" : "WEATHER_FAILED");
+}
+
+bool isWifiScanBusy() {
+    return wifiScanRunning;
 }
 
 static void serviceWifiScan() {
@@ -659,6 +673,7 @@ void loop() {
     updateButtonManager();
     handleBLECommands();
     serviceBLE();
+    serviceWeatherNotification();
     serviceWifiScan();
 
     if (lightSleepRequested) {
