@@ -176,17 +176,25 @@ static void enterLightSleep() {
         return;
     }
 
-    // Temporary diagnostic fallback: the timer guarantees that the chip
-    // returns from Light Sleep even if the BOOT GPIO wake path is not working.
-    // Press BOOT during this 8-second window; wake_cause distinguishes GPIO
-    // from TIMER. Remove this timer after the GPIO path is verified.
+    // Temporary diagnostic fallback: wake after 8 seconds even if GPIO wake fails.
+    Serial.println("[POWER][TRACE] TIMER SETUP ENTER");
+    Serial.flush();
     const esp_err_t timerWakeResult =
         esp_sleep_enable_timer_wakeup(8ULL * 1000000ULL);
-    Serial.printf("[POWER][TRACE] timer wake setup: %d.\\n",
+    Serial.printf("[POWER][TRACE] TIMER SETUP EXIT: %d\n",
                   static_cast<int>(timerWakeResult));
+    Serial.flush();
 
-    Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT black.");
+    Serial.printf("[POWER][TRACE] PRE-SLEEP: heap=%u largest=%u button=%d\n",
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
+                  digitalRead(BUTTON_PIN));
+    Serial.flush();
+    Serial.println("[POWER][TRACE] LIGHT SLEEP START ENTER");
+    Serial.flush();
     const esp_err_t sleepResult = esp_light_sleep_start();
+    Serial.println("[POWER][TRACE] LIGHT SLEEP START RETURNED");
+    Serial.flush();
     gpio_wakeup_disable(wakePin);
 
     const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
