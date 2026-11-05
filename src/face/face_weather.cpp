@@ -89,6 +89,7 @@ static const int cardCenterX[4] = {37, 92, 147, 202};
 static WeatherData animationWeather;
 static int animationOldIndex = 0;
 static int animationNewIndex = 0;
+static int animationLastRenderedShift = 0;
 
 // =====================================================
 // 2. DIRECT FORECAST RENDERING
@@ -535,6 +536,7 @@ void advanceWeatherForecast(const WeatherData& weather) {
     animationNewIndex = (selectedForecastIndex + 1) % 24;
 
     animationStartedAt = millis();
+    animationLastRenderedShift = 0;
     weatherAnimating = true;
 }
 
@@ -584,22 +586,41 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
 
     const float slideProgress = easeInOutCubic(progress);
     const int shift = (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
+    const int delta = shift - animationLastRenderedShift;
 
-    // Render one continuous strip of five cards: the four currently visible
-    // cards plus the next card entering from the right. This avoids drawing
-    // two overlapping four-card rows on every animation frame.
+    // Skip duplicate pixel positions. The display does not need another
+    // redraw when the eased animation has not advanced by a whole pixel.
+    if (delta <= 0) return;
+
+    // Move the five-card strip without blanking the entire viewport.
+    // As each card moves left, only its newly exposed right-hand edge is
+    // erased; the card is then redrawn at its new position. This avoids the
+    // full-width black flash produced by clearing all 220x90 pixels per frame.
     tft.startWrite();
     tft.setViewport(10, 120, 220, 90, true);
-    tft.fillRect(0, 0, 220, 90, TFT_BLACK);
+
+    const int cardY = CARD_Y - 120;
+    const int eraseWidth = (delta < CARD_W) ? delta : CARD_W;
 
     for (int i = 0; i < 5; ++i) {
         const int dataIndex = (animationOldIndex + i) % 24;
-        const int centerX = cardCenterX[0] - 10 +
-                            i * WEATHER_SLIDE_DISTANCE - shift;
-        drawForecastCard(tft, animationWeather.hourly[dataIndex], centerX,
-                         CARD_Y - 120, i == 0);
+        const int oldCenterX = cardCenterX[0] - 10 +
+                               i * WEATHER_SLIDE_DISTANCE -
+                               animationLastRenderedShift;
+        const int newCenterX = oldCenterX - delta;
+
+        // Clear only the part of the previous card that is no longer covered
+        // by its new position. The viewport clips cards at both screen edges.
+        const int eraseX = (delta < CARD_W)
+                               ? oldCenterX + CARD_W / 2 - delta
+                               : oldCenterX - CARD_W / 2;
+        tft.fillRect(eraseX, cardY, eraseWidth, CARD_H, TFT_BLACK);
+
+        drawForecastCard(tft, animationWeather.hourly[dataIndex],
+                         newCenterX, cardY, i == 0);
     }
 
+    animationLastRenderedShift = shift;
     tft.resetViewport();
     tft.endWrite();
 }
