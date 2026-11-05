@@ -83,7 +83,7 @@ static constexpr int CARD_W = 42;
 static constexpr int CARD_H = 78;
 
 // Center positions of the four forecast cards.
-static const int cardCenterX[4] = {37, 92, 148, 203};
+static const int cardCenterX[4] = {37, 92, 147, 202};
 
 // Data retained while the animation is running.
 static WeatherData animationWeather;
