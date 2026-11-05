@@ -15,6 +15,7 @@ extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
 extern uint8_t requestWeatherFetchForLocation();
 extern uint8_t requestWifiScan();
+extern bool isWifiScanBusy();
 
 /**
  * @brief Parses and executes one BLE command.
@@ -74,6 +75,10 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd.startsWith("WIFI:")) {
+        if (isWifiScanBusy()) {
+            sendBLENotification("ERR_WIFI_SCAN_BUSY");
+            return;
+        }
         String value = cmd.substring(5);
         int comma = value.indexOf(',');
         if (comma < 1) { sendBLENotification("ERR_WIFI_CONFIG"); return; }
