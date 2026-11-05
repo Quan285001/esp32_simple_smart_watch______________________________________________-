@@ -69,7 +69,7 @@ static uint32_t animationStartedAt = 0;
 
 // Animation duration and slide distance.
 static constexpr uint32_t WEATHER_ANIMATION_MS = 400;
-static constexpr int WEATHER_SLIDE_DISTANCE = 47;
+static constexpr int WEATHER_SLIDE_DISTANCE = 55;
 
 // Weather panel dimensions.
 static constexpr int PANEL_X = 15;
@@ -83,12 +83,13 @@ static constexpr int CARD_W = 42;
 static constexpr int CARD_H = 78;
 
 // Center positions of the four forecast cards.
-static const int cardCenterX[4] = {37, 92, 148, 203};
+static const int cardCenterX[4] = {37, 92, 147, 202};
 
 // Data retained while the animation is running.
 static WeatherData animationWeather;
 static int animationOldIndex = 0;
 static int animationNewIndex = 0;
+static int animationLastRenderedShift = 0;
 
 // =====================================================
 // 2. DIRECT FORECAST RENDERING
@@ -279,13 +280,18 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
  * @param slideOffset Input or state used by this operation.
  */
 static void drawForecastRowDirect(const WeatherData& weather, int startIndex, int slideOffset = 0) {
-    tft.fillRect(10, 120, 220, 90, TFT_BLACK);
+    // Keep all card drawing inside the forecast strip. The viewport uses
+    // local coordinates, which also clips cards as they enter/leave the row.
+    tft.setViewport(10, 120, 220, 90, true);
+    tft.fillRect(0, 0, 220, 90, TFT_BLACK);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; ++i) {
         const int dataIndex = (startIndex + i) % 24;
-        const int centerX = cardCenterX[i] + slideOffset;
-        drawForecastCard(tft, weather.hourly[dataIndex], centerX, CARD_Y, i == 0);
+        const int centerX = cardCenterX[i] - 10 + slideOffset;
+        drawForecastCard(tft, weather.hourly[dataIndex], centerX, CARD_Y - 120, i == 0);
     }
+
+    tft.resetViewport();
 }
 
 // Render the static forecast row when no animation is active.
@@ -530,6 +536,7 @@ void advanceWeatherForecast(const WeatherData& weather) {
     animationNewIndex = (selectedForecastIndex + 1) % 24;
 
     animationStartedAt = millis();
+    animationLastRenderedShift = 0;
     weatherAnimating = true;
 }
 
@@ -577,53 +584,43 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         return;
     }
 
-    // Phase 1: selected card gets a brief lift/highlight without scaling.
-    constexpr float popPhaseEnd = 0.38f;
-    if (progress < popPhaseEnd) {
-        float popProgress = easeOutCubic(progress / popPhaseEnd);
-        drawForecastRow(animationWeather, animationOldIndex);
+    const float slideProgress = easeInOutCubic(progress);
+    const int shift = (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
+    const int delta = shift - animationLastRenderedShift;
 
-        const HourlyForecast& selected =
-            animationWeather.hourly[animationOldIndex];
+    // Skip duplicate pixel positions. The display does not need another
+    // redraw when the eased animation has not advanced by a whole pixel.
+    if (delta <= 0) return;
 
-        const int centerX = cardCenterX[0];
-        const int w = CARD_W;
-        const int h = CARD_H;
-        const int x = centerX - (int)(47.0f * popProgress);
-        const int y = CARD_Y;
-        const uint16_t bg = 0x2184;
+    // Move the five-card strip without blanking the entire viewport.
+    // As each card moves left, only its newly exposed right-hand edge is
+    // erased; the card is then redrawn at its new position. This avoids the
+    // full-width black flash produced by clearing all 220x90 pixels per frame.
+    tft.startWrite();
+    tft.setViewport(10, 120, 220, 90, true);
 
-        // Redraw the selected card at its normal size with a small upward lift.
-        tft.fillRoundRect(x, y, w, h, 11, bg);
-        tft.drawRoundRect(x, y, w, h, 11, 0xFDE0);
+    const int cardY = CARD_Y - 120;
+    const int eraseWidth = (delta < CARD_W) ? delta : CARD_W;
 
-        char temperature[8];
-        snprintf(temperature, sizeof(temperature), "%d", selected.temp);
-        tft.setTextDatum(MC_DATUM);
-        tft.setTextColor(TFT_WHITE, bg);
-        tft.drawString(temperature, centerX, y + 18, 1);
-        const int degreeX = centerX + tft.textWidth(temperature) / 2 + 2;
-        tft.drawCircle(degreeX, y + 15, 2, TFT_WHITE);
-        tft.drawString("C", degreeX + 7, y + 18, 1);
+    for (int i = 0; i < 5; ++i) {
+        const int dataIndex = (animationOldIndex + i) % 24;
+        const int oldCenterX = cardCenterX[0] - 10 +
+                               i * WEATHER_SLIDE_DISTANCE -
+                               animationLastRenderedShift;
+        const int newCenterX = oldCenterX - delta;
 
-        const bool isNight = selected.hour < 6 || selected.hour >= 18;
-        drawWeatherMiniIcon(tft, centerX, y + h / 2 + 1,
-                            selected.weatherCode, isNight);
+        // Clear only the part of the previous card that is no longer covered
+        // by its new position. The viewport clips cards at both screen edges.
+        const int eraseX = (delta < CARD_W)
+                               ? oldCenterX + CARD_W / 2 - delta
+                               : oldCenterX - CARD_W / 2;
+        tft.fillRect(eraseX, cardY, eraseWidth, CARD_H, TFT_BLACK);
 
-        char timeLabel[8];
-        snprintf(timeLabel, sizeof(timeLabel), "%02d:00", selected.hour);
-        tft.setTextColor(TFT_WHITE, bg);
-        tft.drawString(timeLabel, centerX, y + h - 11, 1);
-        return;
+        drawForecastCard(tft, animationWeather.hourly[dataIndex],
+                         newCenterX, cardY, i == 0);
     }
 
-    // Phase 2: the next row enters horizontally from the right.
-    // The selected card is no longer moved upward; it exits with the row transition.
-    float slideProgress = easeInOutCubic(
-        (progress - popPhaseEnd) / (1.0f - popPhaseEnd)
-    );
-    int slideOffset = WEATHER_SLIDE_DISTANCE -
-        (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
-
-    drawForecastRowDirect(animationWeather, animationNewIndex, slideOffset);
+    animationLastRenderedShift = shift;
+    tft.resetViewport();
+    tft.endWrite();
 }
