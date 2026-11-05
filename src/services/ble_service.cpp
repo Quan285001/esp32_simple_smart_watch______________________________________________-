@@ -10,6 +10,8 @@
 
 static constexpr char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 static constexpr char CHARACTERISTIC_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+static constexpr size_t BLE_COMMAND_MAX_LEN = 128;
+static constexpr UBaseType_t BLE_COMMAND_QUEUE_LENGTH = 5;
 
 static BLEServer *bleServer = nullptr;
 static BLEAdvertising *bleAdvertising = nullptr;
@@ -55,11 +57,14 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
         if (commandQueue == nullptr) return;
 
         std::string value = characteristic->getValue();
-        if (value.empty() || value.size() >= 256) return;
+        if (value.empty() || value.size() >= BLE_COMMAND_MAX_LEN) return;
 
-        char buffer[256] = {};
+        char buffer[BLE_COMMAND_MAX_LEN] = {};
         memcpy(buffer, value.data(), value.size());
-        xQueueSend(commandQueue, buffer, 0);
+        if (xQueueSend(commandQueue, buffer, 0) != pdTRUE) {
+            // Keep the host callback non-blocking when the application queue is full.
+            Serial.println("[BLE] Command queue full; newest command dropped.");
+        }
     }
 };
 
@@ -74,7 +79,7 @@ void beginBLE() {
     }
 
     if (commandQueue == nullptr) {
-        commandQueue = xQueueCreate(5, 256);
+        commandQueue = xQueueCreate(BLE_COMMAND_QUEUE_LENGTH, BLE_COMMAND_MAX_LEN);
     }
 
     if (commandQueue == nullptr) {
@@ -264,7 +269,7 @@ bool isBLEEnabled() {
 bool readBLECommand(String &command) {
     if (commandQueue == nullptr) return false;
 
-    char buffer[256] = {};
+    char buffer[BLE_COMMAND_MAX_LEN] = {};
     if (xQueueReceive(commandQueue, buffer, 0) != pdTRUE) {
         return false;
     }
