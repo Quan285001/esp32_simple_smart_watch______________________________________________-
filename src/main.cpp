@@ -146,19 +146,29 @@ static void enterLightSleep() {
     const esp_err_t gpioPinResult =
         gpio_wakeup_enable(wakePin, GPIO_INTR_LOW_LEVEL);
     const esp_err_t gpioSourceResult = esp_sleep_enable_gpio_wakeup();
+
+    // Temporary diagnostic fallback: if GPIO wake is not delivered in the
+    // full firmware, the timer wakes the MCU after 8 seconds so recovery can
+    // still run and the wake cause can be inspected over Serial.
+    const esp_err_t timerWakeResult =
+        esp_sleep_enable_timer_wakeup(8ULL * 1000000ULL);
+
     const int wakePinLevel = digitalRead(BUTTON_PIN);
 
     Serial.printf(
-        "[POWER] GPIO wake setup: pin=%d source=%d button=%d\n",
+        "[POWER] Wake setup: gpio_pin=%d gpio_source=%d timer=%d button=%d\n",
         static_cast<int>(gpioPinResult),
         static_cast<int>(gpioSourceResult),
+        static_cast<int>(timerWakeResult),
         wakePinLevel
     );
     Serial.flush();
 
     // Do not enter sleep with an unconfigured wake source. Continue through
     // the normal recovery path below so BLE and the display are restored.
-    if (gpioPinResult == ESP_OK && gpioSourceResult == ESP_OK) {
+    if (gpioPinResult == ESP_OK &&
+        gpioSourceResult == ESP_OK &&
+        timerWakeResult == ESP_OK) {
         Serial.printf(
             "[POWER][TRACE] PRE-SLEEP: heap=%u largest=%u button=%d\n",
             static_cast<unsigned>(ESP.getFreeHeap()),
