@@ -100,6 +100,10 @@ static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
 static uint32_t lastLoopHeartbeatMs = 0;
 static bool lightSleepRequested = false;
+static constexpr uint32_t AUTO_LIGHT_SLEEP_TIMEOUT_MS = 15000UL;
+static uint32_t lastUserActivityMs = 0;
+static uint32_t lastButtonActivitySeenMs = 0;
+static bool previousBleConnected = false;
 
 /**
  * @brief Schedules entry into Light Sleep mode from the main application loop.
@@ -112,6 +116,10 @@ void requestLightSleep() { lightSleepRequested = true; }
 static void enterLightSleep() {
     lightSleepRequested = false;
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
+
+    // Preserve whether BLE should be available after wake. A manual sleep may
+    // disconnect an active phone; automatic sleep is blocked while connected.
+    const bool restoreBleAfterWake = isBLEEnabled();
 
     // The main loop defers sleep until background radio work has completed.
     // Preserve cached weather/time in RAM and NVS; shut down radios only.
@@ -148,10 +156,20 @@ static void enterLightSleep() {
     // The TFT was intentionally kept awake (black screen) during MCU sleep,
     // so no panel reset or sleep-out sequence is needed. Redraw immediately.
 
-    // Radios remain OFF until explicitly enabled from the menu.
+    // Rebuild BLE before returning to the UI. This avoids doing a full BLE
+    // stack initialization inside the menu action after every wake.
+    beginBLE();
+    if (!restoreBleAfterWake && isBLEEnabled()) {
+        toggleBLE();
+    }
+
     beginButtonManager();
+    lastUserActivityMs = millis();
+    lastButtonActivitySeenMs = getLastButtonActivityMs();
+    previousBleConnected = isBLEConnected();
     drawCurrentScreen(true);
-    Serial.println("[POWER] Wake complete; radios remain OFF.");
+    Serial.printf("[POWER] Wake complete; BLE %s.\\n",
+                  isBLEEnabled() ? "advertising" : "disabled");
 }
 
 /**
@@ -644,6 +662,9 @@ void loop() {
             stopBootTerminalDisplay();
             drawCurrentScreen(true);
             bootUiReady = true;
+            lastUserActivityMs = millis();
+            lastButtonActivitySeenMs = getLastButtonActivityMs();
+            previousBleConnected = isBLEConnected();
             Serial.println("[BOOT] Clock interface ready.");
         }
         delay(2);
@@ -671,15 +692,44 @@ void loop() {
     // -------------------------------------------------
 
     updateButtonManager();
+
+    // Count real physical button activity, not periodic UI redraws.
+    const uint32_t buttonActivityMs = getLastButtonActivityMs();
+    if (buttonActivityMs != lastButtonActivitySeenMs) {
+        lastButtonActivitySeenMs = buttonActivityMs;
+        lastUserActivityMs = now;
+    }
+
+    // A connection/disconnection is a meaningful state transition. Start a
+    // fresh idle window after disconnect rather than sleeping immediately.
+    const bool bleConnectedNow = isBLEConnected();
+    if (bleConnectedNow != previousBleConnected) {
+        previousBleConnected = bleConnectedNow;
+        lastUserActivityMs = now;
+    }
+
     handleBLECommands();
     serviceBLE();
     serviceWeatherNotification();
     serviceWifiScan();
 
+    // Automatic sleep is deliberately disabled during an active BLE session.
+    // Manual Sleep from the menu still bypasses this connection guard.
+    const bool backgroundWorkActive =
+        bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning || wifiScanRunning;
+    if (!lightSleepRequested &&
+        !isBLEConnected() &&
+        !backgroundWorkActive &&
+        lastUserActivityMs != 0 &&
+        (now - lastUserActivityMs) >= AUTO_LIGHT_SLEEP_TIMEOUT_MS) {
+        Serial.println("[POWER] Auto Light Sleep: 15 seconds without user activity.");
+        lightSleepRequested = true;
+    }
+
     if (lightSleepRequested) {
         // Keep the UI loop responsive while HTTPS/TLS work finishes.
         // Sleep is entered on a later loop iteration once radio tasks are idle.
-        if (bootNetworkRunning || weatherFetchRunning || wifiScanRunning) {
+        if (backgroundWorkActive) {
             delay(2);
             return;
         }
