@@ -58,6 +58,23 @@ input:focus,select:focus{border-color:var(--accent)}
 </div>
 </section>
 
+<!-- Configurable power management -->
+<section>
+<h2>POWER MANAGEMENT</h2>
+<label for="autoSleepSelect">Automatic Light Sleep · Analog Clock</label>
+<select id="autoSleepSelect">
+<option value="0">Disabled</option>
+<option value="10">10 seconds</option>
+<option value="12">12 seconds</option>
+<option value="15" selected>15 seconds</option>
+<option value="18">18 seconds</option>
+<option value="20">20 seconds</option>
+</select>
+<button id="autoSleepSaveBtn" onclick="saveAutoSleepSetting()">Save Auto Sleep Setting</button>
+<div id="autoSleepStatus" class="note">Connect to the watch to read its current setting.</div>
+<p class="note">Only applies while the analog clock face is active. A connected Bluetooth session prevents automatic sleep.</p>
+</section>
+
 <!-- Device location tracking -->
 <section>
 <h2>LOCATION</h2>
@@ -118,6 +135,7 @@ async function connectBLE(){
     document.getElementById("connectBtn").textContent="Connected";
     if(latestPosition)await sendLatestPosition(true);
     else await syncTime();
+    await sendBLECommand("GET_AUTO_SLEEP");
     await requestWiFiScan();
   }catch(error){console.error(error);setStatus("Connection failed",false)}
 }
@@ -251,6 +269,19 @@ async function sendLatestPosition(force){
   }
 }
 
+async function saveAutoSleepSetting(){
+  const seconds=Number(document.getElementById("autoSleepSelect").value);
+  const status=document.getElementById("autoSleepStatus");
+  const button=document.getElementById("autoSleepSaveBtn");
+  button.disabled=true;
+  status.textContent="Sending setting to watch...";
+  const ok=await sendBLECommand("AUTO_SLEEP:"+seconds);
+  if(!ok)status.textContent="Could not send setting · check Bluetooth";
+  else status.textContent="Setting sent · waiting for confirmation...";
+  window.setTimeout(()=>{button.disabled=false},1000);
+}
+
+
 /**
  * @brief Requests Light Sleep mode on the watch.
  */
@@ -288,6 +319,23 @@ async function requestWiFiScan(){
  */
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
+  if(chunk.startsWith("AUTO_SLEEP:")){
+    const seconds=Number(chunk.split(":")[1]);
+    if(Number.isInteger(seconds)&&[0,10,12,15,18,20].includes(seconds)){
+      document.getElementById("autoSleepSelect").value=String(seconds);
+      document.getElementById("autoSleepStatus").textContent=seconds===0?"Automatic sleep is disabled":"Current setting: "+seconds+" seconds";
+    }
+    return;
+  }
+  if(chunk.startsWith("AUTO_SLEEP_OK:")){
+    const seconds=Number(chunk.split(":")[1]);
+    document.getElementById("autoSleepStatus").textContent=seconds===0?"Saved · automatic sleep disabled":"Saved · automatic sleep after "+seconds+" seconds";
+    return;
+  }
+  if(chunk==="ERR_AUTO_SLEEP"||chunk==="ERR_AUTO_SLEEP_STORAGE"){
+    document.getElementById("autoSleepStatus").textContent="Watch rejected the setting · try again";
+    return;
+  }
   if(chunk==="WIFI_SCAN_STARTED"){
     document.getElementById("wifiScanStatus").textContent="ESP32 received the command · scanning for Wi-Fi networks...";
     return;
