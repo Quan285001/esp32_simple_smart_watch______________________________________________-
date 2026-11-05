@@ -129,22 +129,34 @@ static void enterLightSleep() {
     previousWifiConnected = false;
 
     shutdownBLEForSleep();
+    Serial.println("[POWER][TRACE] BLE shutdown returned.");
 
     // Keep the GC9A01 controller awake and simply paint the panel black.
-    // This isolates ESP32-C3 Light Sleep from TFT sleep-state restoration:
-    // the first BOOT wake should be followed by a normal redraw.
+    // Trace both sides because a blocked SPI/display call must be distinguished
+    // from a GPIO wake-configuration failure.
+    Serial.println("[POWER][TRACE] TFT clear ENTER.");
     tft.fillScreen(TFT_BLACK);
+    Serial.println("[POWER][TRACE] TFT clear EXIT.");
 
     // GPIO9 is the BOOT button (active LOW). Configure and validate the
     // wake source before committing to sleep; never black-screen on setup error.
+    Serial.println("[POWER][TRACE] pinMode ENTER.");
     pinMode(BUTTON_PIN, INPUT_PULLUP);
+    Serial.println("[POWER][TRACE] pinMode EXIT.");
     delay(2);
 
     const gpio_num_t wakePin = static_cast<gpio_num_t>(BUTTON_PIN);
     const int wakePinLevel = digitalRead(BUTTON_PIN);
+    Serial.printf("[POWER][TRACE] GPIO read EXIT: level=%d.\\n", wakePinLevel);
+    Serial.println("[POWER][TRACE] gpio_wakeup_enable ENTER.");
     const esp_err_t pinWakeResult =
         gpio_wakeup_enable(wakePin, GPIO_INTR_LOW_LEVEL);
+    Serial.printf("[POWER][TRACE] gpio_wakeup_enable EXIT: %d.\\n",
+                  static_cast<int>(pinWakeResult));
+    Serial.println("[POWER][TRACE] esp_sleep_enable_gpio_wakeup ENTER.");
     const esp_err_t gpioWakeResult = esp_sleep_enable_gpio_wakeup();
+    Serial.printf("[POWER][TRACE] esp_sleep_enable_gpio_wakeup EXIT: %d.\\n",
+                  static_cast<int>(gpioWakeResult));
 
     Serial.printf(
         "[POWER] Wake setup: pin=GPIO%d level=%d pin_cfg=%d source_cfg=%d\\n",
