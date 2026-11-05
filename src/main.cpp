@@ -725,7 +725,7 @@ void loop() {
         currentScreen == SCREEN_CLOCK &&
         autoSleepTimeoutSeconds > 0 &&
         (now - lastUserActivityMs) >= static_cast<uint32_t>(autoSleepTimeoutSeconds) * 1000UL) {
-        Serial.printf("[POWER] Auto Light Sleep: %u seconds without user activity.\\n",
+        Serial.printf("[POWER] Auto Light Sleep: %u seconds without user activity.\n",
                       autoSleepTimeoutSeconds);
         lightSleepRequested = true;
     }
