@@ -108,12 +108,12 @@ static bool previousBleConnected = false;
 void setAutoSleepTimeoutSeconds(uint8_t seconds) {
     if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
           seconds == 15 || seconds == 18 || seconds == 20)) {
-        Serial.printf("[POWER] Rejected invalid Auto Sleep value: %u seconds.\\n", seconds);
+        Serial.printf("[POWER] Rejected invalid Auto Sleep value: %u seconds.\n", seconds);
         return;
     }
     autoSleepTimeoutSeconds = seconds;
     lastUserActivityMs = millis();
-    Serial.printf("[POWER] Auto Sleep timeout applied: %u seconds.\\n", autoSleepTimeoutSeconds);
+    Serial.printf("[POWER] Auto Sleep timeout applied: %u seconds.\n", autoSleepTimeoutSeconds);
 }
 
 uint8_t getAutoSleepTimeoutSeconds() { return autoSleepTimeoutSeconds; }
