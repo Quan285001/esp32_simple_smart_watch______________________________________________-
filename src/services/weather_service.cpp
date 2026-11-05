@@ -5,6 +5,8 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <string.h>
+#include <ctype.h>
 #include <Preferences.h>
 #include <esp_heap_caps.h>
 
