@@ -280,10 +280,17 @@ bool readBLECommand(String &command) {
 void sendBLENotification(const String &message) {
     if (!clientConnected || commandCharacteristic == nullptr) return;
 
-    // Default ATT MTU carries 20 bytes of notification payload.
-    for (size_t offset = 0; offset < message.length(); offset += 20) {
-        String chunk = message.substring(offset, offset + 20);
-        commandCharacteristic->setValue(chunk.c_str());
+    // Default ATT MTU carries 20 bytes of notification payload. Reuse one
+    // stack buffer instead of allocating a new Arduino String for each chunk.
+    const char *payload = message.c_str();
+    const size_t payloadLength = message.length();
+    char chunk[21];
+    for (size_t offset = 0; offset < payloadLength; offset += 20) {
+        const size_t chunkLength =
+            (payloadLength - offset) < 20 ? (payloadLength - offset) : 20;
+        memcpy(chunk, payload + offset, chunkLength);
+        chunk[chunkLength] = '\0';
+        commandCharacteristic->setValue(chunk);
         commandCharacteristic->notify();
         delay(12);
     }
