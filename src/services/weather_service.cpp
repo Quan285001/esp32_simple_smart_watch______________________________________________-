@@ -42,8 +42,8 @@ static void copyIsoClockTime(char *destination, size_t capacity, const char *sou
 // complete, validated API response has been received.
 WeatherData currentWeather = {};
 
-static String weatherLatitude = WEATHER_LATITUDE;
-static String weatherLongitude = WEATHER_LONGITUDE;
+static char weatherLatitude[16] = WEATHER_LATITUDE;
+static char weatherLongitude[16] = WEATHER_LONGITUDE;
 
 static SemaphoreHandle_t getCoordinatesMutex() {
     static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
@@ -51,15 +51,18 @@ static SemaphoreHandle_t getCoordinatesMutex() {
 }
 
 /** Copy both coordinates as one consistent pair before building an API URL. */
-static bool copyWeatherCoordinates(String &latitude, String &longitude) {
+static bool copyWeatherCoordinates(char *latitude, size_t latitudeCapacity,
+                                    char *longitude, size_t longitudeCapacity) {
+    if (latitude == nullptr || longitude == nullptr ||
+        latitudeCapacity == 0 || longitudeCapacity == 0) return false;
     SemaphoreHandle_t mutex = getCoordinatesMutex();
     if (mutex == nullptr ||
         xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
         return false;
     }
 
-    latitude = weatherLatitude;
-    longitude = weatherLongitude;
+    copyWeatherText(latitude, latitudeCapacity, weatherLatitude);
+    copyWeatherText(longitude, longitudeCapacity, weatherLongitude);
     xSemaphoreGive(mutex);
     return true;
 }
@@ -74,8 +77,10 @@ void setWeatherCoordinates(float latitude, float longitude) {
         latitude < -90.0f || latitude > 90.0f ||
         longitude < -180.0f || longitude > 180.0f) return;
 
-    String nextLatitude(latitude, 4);
-    String nextLongitude(longitude, 4);
+    char nextLatitude[16];
+    char nextLongitude[16];
+    snprintf(nextLatitude, sizeof(nextLatitude), "%.4f", latitude);
+    snprintf(nextLongitude, sizeof(nextLongitude), "%.4f", longitude);
     SemaphoreHandle_t mutex = getCoordinatesMutex();
     if (mutex == nullptr ||
         xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
@@ -83,12 +88,12 @@ void setWeatherCoordinates(float latitude, float longitude) {
         return;
     }
 
-    weatherLatitude = nextLatitude;
-    weatherLongitude = nextLongitude;
+    copyWeatherText(weatherLatitude, sizeof(weatherLatitude), nextLatitude);
+    copyWeatherText(weatherLongitude, sizeof(weatherLongitude), nextLongitude);
     xSemaphoreGive(mutex);
 
     Serial.printf("[GPS] Weather coordinates updated: %s, %s\n",
-                  nextLatitude.c_str(), nextLongitude.c_str());
+                  nextLatitude, nextLongitude);
 }
 
 /**
@@ -241,9 +246,10 @@ bool fetchHourlyWeather() {
         return false;
     }
 
-    String latitude;
-    String longitude;
-    if (!copyWeatherCoordinates(latitude, longitude)) {
+    char latitude[16] = {};
+    char longitude[16] = {};
+    if (!copyWeatherCoordinates(latitude, sizeof(latitude),
+                                longitude, sizeof(longitude))) {
         Serial.println("[WEATHER] Could not snapshot coordinates.");
         return false;
     }
@@ -590,9 +596,10 @@ bool fetchLunarDetails() {
 
     // SunriseSunset.io resolves today's date from the supplied coordinates.
     // This avoids making lunar data depend on a successful NTP sync.
-    String latitude;
-    String longitude;
-    if (!copyWeatherCoordinates(latitude, longitude)) {
+    char latitude[16] = {};
+    char longitude[16] = {};
+    if (!copyWeatherCoordinates(latitude, sizeof(latitude),
+                                longitude, sizeof(longitude))) {
         Serial.println("[LUNAR] Could not snapshot coordinates.");
         return false;
     }
