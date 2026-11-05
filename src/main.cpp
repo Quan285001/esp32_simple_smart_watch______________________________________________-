@@ -123,19 +123,31 @@ static void enterLightSleep() {
     tft.writecommand(0x10); // GC9A01 sleep-in
     delay(30);
 
+    // GPIO9 is the BOOT button. Keep its pull-up enabled and wake on LOW.
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
     gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
+
     Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT sleeping.");
-    tft.fillScreen(TFT_BLACK);
     esp_light_sleep_start();
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
 
-    // Restore only the display and input. Keep Wi-Fi/Bluetooth OFF until
-    // the user explicitly enables them from the menu.
-    tft.writecommand(0x11); // GC9A01 sleep-out
-    delay(120);
-    tft.writecommand(0x29); // Display ON
+    const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
+    Serial.printf("[POWER] Wake cause: %d\\n", static_cast<int>(wakeCause));
+
+    // Wait for the wake press to be released before resetting button state.
+    while (digitalRead(BUTTON_PIN) == LOW) {
+        delay(10);
+    }
+    delay(BUTTON_DEBOUNCE_MS);
+
+    // Fully reinitialize GC9A01 after sleep-in; this is more robust than
+    // issuing sleep-out/display-on commands to a sleeping controller.
+    tft.init();
+    tft.setRotation(0);
     tft.fillScreen(TFT_BLACK);
+
+    // Radios remain OFF until explicitly enabled from the menu.
     beginButtonManager();
     drawCurrentScreen(true);
     Serial.println("[POWER] Wake complete; radios remain OFF.");
