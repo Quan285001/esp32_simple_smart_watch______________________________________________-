@@ -96,6 +96,16 @@ static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
 static uint32_t lastLoopHeartbeatMs = 0;
 static bool lightSleepRequested = false;
+static uint8_t autoSleepTimeoutSeconds = 15; // 0 disables automatic sleep.
+static uint32_t lastUserInteractionMs = 0;
+static bool previousButtonRawState = HIGH;
+
+void setAutoSleepTimeoutSeconds(uint8_t seconds) {
+    autoSleepTimeoutSeconds = (seconds == 0 || (seconds >= 10 && seconds <= 20)) ? seconds : 15;
+    Serial.printf("[POWER] Auto sleep timeout: %u seconds.\\n", autoSleepTimeoutSeconds);
+}
+
+uint8_t getAutoSleepTimeoutSeconds() { return autoSleepTimeoutSeconds; }
 
 /**
  * @brief Schedules entry into Light Sleep mode from the main application loop.
@@ -147,6 +157,8 @@ static void enterLightSleep() {
     // Radios remain OFF until explicitly enabled from the menu.
     beginButtonManager();
     drawCurrentScreen(true);
+    lastUserInteractionMs = millis();
+    previousButtonRawState = HIGH;
     Serial.println("[POWER] Wake complete; radios remain OFF.");
 }
 
@@ -473,6 +485,8 @@ void setup() {
     if (prefs.begin("watch", true)) {
         savedLat = prefs.getFloat("lat", NAN);
         savedLon = prefs.getFloat("lon", NAN);
+        const uint8_t savedAutoSleep = prefs.getUChar("autoSleepSec", 15);
+        setAutoSleepTimeoutSeconds(savedAutoSleep);
         prefs.end();
     }
     if (isfinite(savedLat) && isfinite(savedLon)) {
@@ -556,6 +570,8 @@ void loop() {
             stopBootTerminalDisplay();
             drawCurrentScreen(true);
             bootUiReady = true;
+            lastUserInteractionMs = millis();
+            previousButtonRawState = digitalRead(BUTTON_PIN);
             Serial.println("[BOOT] Clock interface ready.");
         }
         delay(2);
@@ -582,9 +598,24 @@ void loop() {
     // BUTTON INPUT
     // -------------------------------------------------
 
+    const bool buttonRawState = digitalRead(BUTTON_PIN);
+    if (buttonRawState != previousButtonRawState) {
+        previousButtonRawState = buttonRawState;
+        lastUserInteractionMs = now;
+    }
     updateButtonManager();
     handleBLECommands();
     serviceBLE();
+
+    // Auto sleep is only armed on the analog clock face. A connected browser
+    // session or active network task keeps the device awake.
+    if (autoSleepTimeoutSeconds > 0 && currentScreen == SCREEN_CLOCK &&
+        !isBLEConnected() && !lightSleepRequested &&
+        !bootNetworkRunning && !weatherFetchRunning &&
+        now - lastUserInteractionMs >= static_cast<uint32_t>(autoSleepTimeoutSeconds) * 1000UL) {
+        Serial.println("[POWER] Analog face idle timeout reached; requesting Light Sleep.");
+        lightSleepRequested = true;
+    }
 
     if (lightSleepRequested) {
         // Keep the UI loop responsive while HTTPS/TLS work finishes.
