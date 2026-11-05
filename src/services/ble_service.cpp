@@ -231,8 +231,10 @@ void serviceBLE() {
     Serial.println("[BLE][TRACE] deferred startAdvertising EXIT");
 }
 
-// Fully release the Bluetooth controller/host before light sleep.
-// beginBLE() can initialize a fresh stack after the device wakes.
+// Deinitialize the Bluetooth host/controller before light sleep, but keep
+// controller memory reserved. BLE is initialized again when the user enables
+// Bluetooth after wake; deinit(true) releases BTDM memory permanently for
+// this boot and makes that reinitialization fail.
 /**
  * @brief Stops advertising and deinitializes the BLE stack and command queue before Light Sleep.
 
@@ -243,7 +245,7 @@ void shutdownBLEForSleep() {
     }
 
     if (bleStackInitialized) {
-        BLEDevice::deinit(true);
+        BLEDevice::deinit(false);
     }
 
     bleAdvertising = nullptr;
