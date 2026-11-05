@@ -4,6 +4,8 @@
 #include <TFT_eSPI.h>
 #include <math.h>
 #include <time.h>
+#include <WiFi.h>
+#include "../services/ble_service.h"
 #include "icons.h"
 
 extern TFT_eSPI tft;
@@ -27,7 +29,7 @@ static bool sprFaceCreated = false;
 void drawSmartWeatherIconSpr(int currentHour, int x, int y) {
     bool isNight = (currentHour < 6 || currentHour >= 18);
     if (isNight) {
-        drawMiniCrescentMoon(sprFace, x, y, COLOR_TEXT_ACCENT);
+        drawMiniCrescentMoon(sprFace, x, y, COLOR_TEXT_ACCENT, COLOR_INNER_BG);
     } else {
         drawMiniSun(sprFace, x, y, COLOR_TEXT_ACCENT);
     }
@@ -78,8 +80,12 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
     sprFace.setTextDatum(MC_DATUM);
     sprFace.setTextColor(COLOR_TEXT_ACCENT, COLOR_INNER_BG);
     sprFace.drawString("UTC+7", cx - 40, cy - 10, 1);
+    // Show the full local time in 24-hour format, including seconds.
+    char localTimeText[9];
+    snprintf(localTimeText, sizeof(localTimeText), "%02d:%02d:%02d",
+             timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
     sprFace.setTextColor(COLOR_TEXT_MAIN, COLOR_INNER_BG);
-    sprFace.drawString("LOCAL", cx - 40, cy + 6, 2);
+    sprFace.drawString(localTimeText, cx - 40, cy + 6, 1);
 
     const char* days[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
     int wday = (timeinfo.tm_wday >= 0 && timeinfo.tm_wday < 7) ? timeinfo.tm_wday : 0;
@@ -89,8 +95,20 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
     sprFace.drawNumber(timeinfo.tm_mday > 0 ? timeinfo.tm_mday : 1, cx + 40, cy + 6, 2);
 
     drawSmartWeatherIconSpr(timeinfo.tm_hour, cx, cy + 38);
+
+    // Show active connections only; BLE advertising alone is not connected.
+    const bool bluetoothConnected = isBLEConnected();
+    const bool wifiConnected = WiFi.status() == WL_CONNECTED;
+    const char* connectionLabel = "OFFLINE";
+    if (bluetoothConnected && wifiConnected) {
+        connectionLabel = "BT + Wi-Fi";
+    } else if (bluetoothConnected) {
+        connectionLabel = "Bluetooth";
+    } else if (wifiConnected) {
+        connectionLabel = "Wi-Fi";
+    }
     sprFace.setTextColor(COLOR_TEXT_ACCENT, COLOR_INNER_BG);
-    sprFace.drawString("WEATHER", cx, cy + 50, 1);
+    sprFace.drawString(connectionLabel, cx, cy + 50, 1);
 
     float exactSeconds = timeinfo.tm_sec + (millisValue / 1000.0f);
     float exactMinutes = timeinfo.tm_min + (exactSeconds / 60.0f);

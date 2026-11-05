@@ -176,9 +176,22 @@ inline void drawMiniSunCloud(TFT_eSPI &tft, int x, int y, uint16_t color) {
  * @param y Input or state used by this operation.
  * @param color Input or state used by this operation.
  */
-inline void drawMiniCrescentMoon(TFT_eSPI &tft, int x, int y, uint16_t color) {
+inline void drawMiniCrescentMoon(
+    TFT_eSPI &tft, int x, int y, uint16_t color,
+    uint16_t background = 0x1082
+) {
     tft.fillCircle(x, y, 6, color);
-    tft.fillCircle(x + 3, y - 2, 5, 0x0000);
+    tft.fillCircle(x + 3, y - 2, 5, background);
+}
+
+// Larger crescent used by the main weather panel to visually balance
+// the large daytime sun icon.
+inline void drawLargeCrescentMoon(
+    TFT_eSPI &tft, int x, int y, uint16_t color,
+    uint16_t background = 0x1082
+) {
+    tft.fillCircle(x, y, 14, color);
+    tft.fillCircle(x + 7, y - 5, 12, background);
 }
 
 /**
@@ -394,7 +407,7 @@ inline void drawWeatherIcon(
     switch (getWeatherType(code)) {
         case WEATHER_CLEAR:
             if (isNight) {
-                drawMiniCrescentMoon(tft, x, y, 0xFCE0);
+                drawLargeCrescentMoon(tft, x, y, 0xFCE0, 0x1082);
             } else {
                 tft.fillCircle(x, y, 14, 0xFDE0);
                 for (int a = 0; a < 8; ++a) {
