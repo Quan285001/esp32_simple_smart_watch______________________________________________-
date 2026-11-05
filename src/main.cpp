@@ -149,7 +149,7 @@ static void enterLightSleep() {
     const int wakePinLevel = digitalRead(BUTTON_PIN);
 
     Serial.printf(
-        "[POWER] GPIO wake setup: pin=%d source=%d button=%d\\n",
+        "[POWER] GPIO wake setup: pin=%d source=%d button=%d\n",
         static_cast<int>(gpioPinResult),
         static_cast<int>(gpioSourceResult),
         wakePinLevel
@@ -160,7 +160,7 @@ static void enterLightSleep() {
     // the normal recovery path below so BLE and the display are restored.
     if (gpioPinResult == ESP_OK && gpioSourceResult == ESP_OK) {
         Serial.printf(
-            "[POWER][TRACE] PRE-SLEEP: heap=%u largest=%u button=%d\\n",
+            "[POWER][TRACE] PRE-SLEEP: heap=%u largest=%u button=%d\n",
             static_cast<unsigned>(ESP.getFreeHeap()),
             static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
             digitalRead(BUTTON_PIN)
@@ -175,7 +175,7 @@ static void enterLightSleep() {
 
         const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
         Serial.printf(
-            "[POWER] Light sleep returned: err=%d wake_cause=%d button=%d\\n",
+            "[POWER] Light sleep returned: err=%d wake_cause=%d button=%d\n",
             static_cast<int>(sleepResult),
             static_cast<int>(wakeCause),
             digitalRead(BUTTON_PIN)
@@ -207,7 +207,7 @@ static void enterLightSleep() {
     lastButtonActivitySeenMs = getLastButtonActivityMs();
     previousBleConnected = isBLEConnected();
     drawCurrentScreen(true);
-    Serial.printf("[POWER] Wake complete; BLE %s.\\n",
+    Serial.printf("[POWER] Wake complete; BLE %s.\n",
                   isBLEEnabled() ? "advertising" : "disabled");
 }
 
@@ -680,7 +680,7 @@ void loop() {
                 toggleBLE();
             }
             Serial.printf(
-                "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\\n",
+                "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\n",
                 (unsigned int)ESP.getFreeHeap(),
                 (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
                 (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
