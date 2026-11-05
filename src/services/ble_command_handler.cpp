@@ -29,19 +29,38 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd.startsWith("AUTO_SLEEP:")) {
-        const int seconds = cmd.substring(11).toInt();
-        if (seconds != 0 && (seconds < 10 || seconds > 20)) {
+        const String value = cmd.substring(11);
+        const int seconds = value.toInt();
+        const bool validValue = value == String(seconds) &&
+            (seconds == 0 || seconds == 10 || seconds == 12 ||
+             seconds == 15 || seconds == 18 || seconds == 20);
+        if (!validValue) {
             sendBLENotification("ERR_AUTO_SLEEP");
             return;
         }
+
         Preferences prefs;
         if (!prefs.begin("watch", false)) {
             sendBLENotification("ERR_AUTO_SLEEP_STORAGE");
             return;
         }
-        prefs.putUChar("autoSleepSec", static_cast<uint8_t>(seconds));
+
+        // Acknowledge the setting only after NVS confirms the stored value.
+        const size_t written = prefs.putUChar(
+            "autoSleepSec", static_cast<uint8_t>(seconds));
+        const uint8_t savedValue = prefs.getUChar("autoSleepSec", 0xFF);
         prefs.end();
+
+        if (written != sizeof(uint8_t) ||
+            savedValue != static_cast<uint8_t>(seconds)) {
+            Serial.println("[POWER] Failed to persist Auto Sleep setting.");
+            sendBLENotification("ERR_AUTO_SLEEP_STORAGE");
+            return;
+        }
+
         setAutoSleepTimeoutSeconds(static_cast<uint8_t>(seconds));
+        Serial.printf("[POWER] Auto Sleep setting saved to NVS: %d seconds.\\n",
+                      seconds);
         sendBLENotification(String("AUTO_SLEEP_OK:") + String(seconds));
         return;
     }
