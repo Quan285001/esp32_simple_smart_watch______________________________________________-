@@ -2,7 +2,6 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <sys/time.h>
-#include <ArduinoJson.h>
 
 #include "ble_service.h"
 #include "weather_service.h"
@@ -15,6 +14,7 @@ extern bool wifiEnabled;
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
 extern uint8_t requestWeatherFetchForLocation();
+extern uint8_t requestWifiScan();
 
 /**
  * @brief Parses and executes one BLE command.
@@ -93,38 +93,12 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd == "SCAN_WIFI") {
-        Serial.println("[WIFI] BLE scan request received.");
-        sendBLENotification("WIFI_SCAN_STARTED");
-
-        const bool restoreWifiOff = !wifiEnabled;
-        Serial.printf("[WIFI] Starting scan (restore_off=%s, mode=%d, status=%d).\n",
-                      restoreWifiOff ? "true" : "false",
-                      static_cast<int>(WiFi.getMode()),
-                      static_cast<int>(WiFi.status()));
-
-        if (restoreWifiOff) WiFi.mode(WIFI_STA);
-        int count = WiFi.scanNetworks(false, true);
-        Serial.printf("[WIFI] Scan finished; result=%d.\n", count);
-
-        if (count < 0) {
-            WiFi.scanDelete();
-            if (restoreWifiOff) WiFi.mode(WIFI_OFF);
-            sendBLENotification("WIFI_SCAN_ERROR");
-            return;
-        }
-
-        JsonDocument doc;
-        JsonArray list = doc.to<JsonArray>();
-        for (int i = 0; i < count; ++i) list.add(WiFi.SSID(i));
-
-        String json;
-        serializeJson(doc, json);
-        Serial.printf("[WIFI] Sending %d networks (%u JSON bytes).\n",
-                      count, static_cast<unsigned int>(json.length()));
-
-        WiFi.scanDelete();
-        if (restoreWifiOff) WiFi.mode(WIFI_OFF);
-        sendBLENotification(json);
+        Serial.println("[WIFI] BLE asynchronous scan request received.");
+        const uint8_t result = requestWifiScan();
+        if (result == 0) sendBLENotification("WIFI_SCAN_STARTED");
+        else if (result == 1) sendBLENotification("WIFI_SCAN_BUSY");
+        else if (result == 2) sendBLENotification("WIFI_SCAN_DEFERRED");
+        else sendBLENotification("WIFI_SCAN_ERROR");
         return;
     }
 
