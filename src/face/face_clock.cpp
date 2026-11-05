@@ -29,7 +29,7 @@ static bool sprFaceCreated = false;
 void drawSmartWeatherIconSpr(int currentHour, int x, int y) {
     bool isNight = (currentHour < 6 || currentHour >= 18);
     if (isNight) {
-        drawMiniCrescentMoon(sprFace, x, y, COLOR_TEXT_ACCENT);
+        drawMiniCrescentMoon(sprFace, x, y, COLOR_TEXT_ACCENT, COLOR_INNER_BG);
     } else {
         drawMiniSun(sprFace, x, y, COLOR_TEXT_ACCENT);
     }
