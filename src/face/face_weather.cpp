@@ -582,6 +582,8 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         return;
     }
 
+    const float slideProgress = easeInOutCubic(progress);
+
     // Slide the complete 4-card window exactly one card-width.
     // Draw the incoming row first, then the outgoing row on top. The shared
     // three forecast hours stay aligned while hour N exits and hour N+4 enters.
