@@ -42,8 +42,10 @@ static void copyIsoClockTime(char *destination, size_t capacity, const char *sou
 // complete, validated API response has been received.
 WeatherData currentWeather = {};
 
-static char weatherLatitude[16] = WEATHER_LATITUDE;
-static char weatherLongitude[16] = WEATHER_LONGITUDE;
+// Keep these fixed buffers large enough for signed coordinates at 4 decimals.
+// Defaults match WEATHER_LATITUDE / WEATHER_LONGITUDE in config.h.
+static char weatherLatitude[16] = "10.8231";
+static char weatherLongitude[16] = "106.6297";
 
 static SemaphoreHandle_t getCoordinatesMutex() {
     static SemaphoreHandle_t mutex = xSemaphoreCreateMutex();
