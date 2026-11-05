@@ -138,45 +138,19 @@ static void enterLightSleep() {
     tft.fillScreen(TFT_BLACK);
     Serial.println("[POWER][TRACE] TFT clear EXIT.");
 
-    // GPIO9 is the BOOT button (active LOW). Configure and validate the
-    // wake source before committing to sleep; never black-screen on setup error.
-    Serial.println("[POWER][TRACE] pinMode ENTER.");
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
-    Serial.println("[POWER][TRACE] pinMode EXIT.");
-    delay(2);
-
+    // Diagnostic isolation: disable GPIO wake and test the RTC timer alone.
+    // If this wakes the chip, the remaining fault is in the GPIO9 wake path.
+    // If it does not, investigate Light Sleep entry / RTC timer / radio shutdown.
     const gpio_num_t wakePin = static_cast<gpio_num_t>(BUTTON_PIN);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
     const int wakePinLevel = digitalRead(BUTTON_PIN);
-    Serial.printf("[POWER][TRACE] GPIO read EXIT: level=%d.\\n", wakePinLevel);
-    Serial.println("[POWER][TRACE] gpio_wakeup_enable ENTER.");
-    const esp_err_t pinWakeResult =
-        gpio_wakeup_enable(wakePin, GPIO_INTR_LOW_LEVEL);
-    Serial.printf("[POWER][TRACE] gpio_wakeup_enable EXIT: %d.\\n",
-                  static_cast<int>(pinWakeResult));
-    Serial.println("[POWER][TRACE] esp_sleep_enable_gpio_wakeup ENTER.");
-    const esp_err_t gpioWakeResult = esp_sleep_enable_gpio_wakeup();
-    Serial.printf("[POWER][TRACE] esp_sleep_enable_gpio_wakeup EXIT: %d.\\n",
-                  static_cast<int>(gpioWakeResult));
+    const esp_err_t disableGpioWake =
+        esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_GPIO);
+    gpio_wakeup_disable(wakePin);
+    Serial.printf("[POWER][TRACE] TIMER-ONLY TEST: button=%d disable_gpio=%d\n",
+                  wakePinLevel, static_cast<int>(disableGpioWake));
+    Serial.flush();
 
-    Serial.printf(
-        "[POWER] Wake setup: pin=GPIO%d level=%d pin_cfg=%d source_cfg=%d\\n",
-        BUTTON_PIN, wakePinLevel, static_cast<int>(pinWakeResult),
-        static_cast<int>(gpioWakeResult));
-
-    if (wakePinLevel != HIGH || pinWakeResult != ESP_OK ||
-        gpioWakeResult != ESP_OK) {
-        Serial.println("[POWER][ERROR] GPIO wake setup invalid; aborting sleep.");
-        gpio_wakeup_disable(wakePin);
-        tft.fillScreen(TFT_BLACK);
-        if (restoreBleAfterWake) beginBLE();
-        beginButtonManager();
-        lastUserActivityMs = millis();
-        lastButtonActivitySeenMs = getLastButtonActivityMs();
-        drawCurrentScreen(true);
-        return;
-    }
-
-    // Temporary diagnostic fallback: wake after 8 seconds even if GPIO wake fails.
     Serial.println("[POWER][TRACE] TIMER SETUP ENTER");
     Serial.flush();
     const esp_err_t timerWakeResult =
@@ -195,8 +169,6 @@ static void enterLightSleep() {
     const esp_err_t sleepResult = esp_light_sleep_start();
     Serial.println("[POWER][TRACE] LIGHT SLEEP START RETURNED");
     Serial.flush();
-    gpio_wakeup_disable(wakePin);
-
     const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
     Serial.printf("[POWER] Light sleep returned: err=%d wake_cause=%d button=%d\\n",
                   static_cast<int>(sleepResult), static_cast<int>(wakeCause),
