@@ -206,7 +206,7 @@ void serviceBLE() {
     const uint32_t dropped =
         __atomic_exchange_n(&commandQueueDropCount, 0, __ATOMIC_RELAXED);
     if (dropped > 0) {
-        Serial.printf("[BLE] Command queue full; dropped %lu command(s).\\n",
+        Serial.printf("[BLE] Command queue full; dropped %lu command(s).\n",
                       static_cast<unsigned long>(dropped));
     }
 
