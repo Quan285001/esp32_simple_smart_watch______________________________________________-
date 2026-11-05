@@ -69,7 +69,7 @@ static uint32_t animationStartedAt = 0;
 
 // Animation duration and slide distance.
 static constexpr uint32_t WEATHER_ANIMATION_MS = 400;
-static constexpr int WEATHER_SLIDE_DISTANCE = 47;
+static constexpr int WEATHER_SLIDE_DISTANCE = 55;
 
 // Weather panel dimensions.
 static constexpr int PANEL_X = 15;
@@ -279,13 +279,18 @@ static void drawForecastCard(TFT_eSPI& display, const HourlyForecast& forecast, 
  * @param slideOffset Input or state used by this operation.
  */
 static void drawForecastRowDirect(const WeatherData& weather, int startIndex, int slideOffset = 0) {
-    tft.fillRect(10, 120, 220, 90, TFT_BLACK);
+    // Keep all card drawing inside the forecast strip. The viewport uses
+    // local coordinates, which also clips cards as they enter/leave the row.
+    tft.setViewport(10, 120, 220, 90, true);
+    tft.fillRect(0, 0, 220, 90, TFT_BLACK);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; ++i) {
         const int dataIndex = (startIndex + i) % 24;
-        const int centerX = cardCenterX[i] + slideOffset;
-        drawForecastCard(tft, weather.hourly[dataIndex], centerX, CARD_Y, i == 0);
+        const int centerX = cardCenterX[i] - 10 + slideOffset;
+        drawForecastCard(tft, weather.hourly[dataIndex], centerX, CARD_Y - 120, i == 0);
     }
+
+    tft.resetViewport();
 }
 
 // Render the static forecast row when no animation is active.
@@ -577,53 +582,30 @@ void updateWeatherFaceAnimation(const WeatherData& weather) {
         return;
     }
 
-    // Phase 1: selected card gets a brief lift/highlight without scaling.
-    constexpr float popPhaseEnd = 0.38f;
-    if (progress < popPhaseEnd) {
-        float popProgress = easeOutCubic(progress / popPhaseEnd);
-        drawForecastRow(animationWeather, animationOldIndex);
+    // Slide the complete 4-card window exactly one card-width.
+    // Draw the incoming row first, then the outgoing row on top. The shared
+    // three forecast hours stay aligned while hour N exits and hour N+4 enters.
+    const int shift = (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
 
-        const HourlyForecast& selected =
-            animationWeather.hourly[animationOldIndex];
+    tft.setViewport(10, 120, 220, 90, true);
+    tft.fillRect(0, 0, 220, 90, TFT_BLACK);
 
-        const int centerX = cardCenterX[0];
-        const int w = CARD_W;
-        const int h = CARD_H;
-        const int x = centerX - (int)(47.0f * popProgress);
-        const int y = CARD_Y;
-        const uint16_t bg = 0x2184;
-
-        // Redraw the selected card at its normal size with a small upward lift.
-        tft.fillRoundRect(x, y, w, h, 11, bg);
-        tft.drawRoundRect(x, y, w, h, 11, 0xFDE0);
-
-        char temperature[8];
-        snprintf(temperature, sizeof(temperature), "%d", selected.temp);
-        tft.setTextDatum(MC_DATUM);
-        tft.setTextColor(TFT_WHITE, bg);
-        tft.drawString(temperature, centerX, y + 18, 1);
-        const int degreeX = centerX + tft.textWidth(temperature) / 2 + 2;
-        tft.drawCircle(degreeX, y + 15, 2, TFT_WHITE);
-        tft.drawString("C", degreeX + 7, y + 18, 1);
-
-        const bool isNight = selected.hour < 6 || selected.hour >= 18;
-        drawWeatherMiniIcon(tft, centerX, y + h / 2 + 1,
-                            selected.weatherCode, isNight);
-
-        char timeLabel[8];
-        snprintf(timeLabel, sizeof(timeLabel), "%02d:00", selected.hour);
-        tft.setTextColor(TFT_WHITE, bg);
-        tft.drawString(timeLabel, centerX, y + h - 11, 1);
-        return;
+    // Incoming window: starts one card to the right and moves left.
+    for (int i = 0; i < 4; ++i) {
+        const int dataIndex = (animationNewIndex + i) % 24;
+        const int centerX = cardCenterX[i] - 10 + WEATHER_SLIDE_DISTANCE - shift;
+        drawForecastCard(tft, animationWeather.hourly[dataIndex], centerX,
+                         CARD_Y - 120, false);
     }
 
-    // Phase 2: the next row enters horizontally from the right.
-    // The selected card is no longer moved upward; it exits with the row transition.
-    float slideProgress = easeInOutCubic(
-        (progress - popPhaseEnd) / (1.0f - popPhaseEnd)
-    );
-    int slideOffset = WEATHER_SLIDE_DISTANCE -
-        (int)(slideProgress * WEATHER_SLIDE_DISTANCE);
+    // Outgoing window moves left by the same amount. It preserves the
+    // currently selected card until it leaves the viewport.
+    for (int i = 0; i < 4; ++i) {
+        const int dataIndex = (animationOldIndex + i) % 24;
+        const int centerX = cardCenterX[i] - 10 - shift;
+        drawForecastCard(tft, animationWeather.hourly[dataIndex], centerX,
+                         CARD_Y - 120, i == 0);
+    }
 
-    drawForecastRowDirect(animationWeather, animationNewIndex, slideOffset);
+    tft.resetViewport();
 }
