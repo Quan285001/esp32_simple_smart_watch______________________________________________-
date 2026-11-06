@@ -551,6 +551,7 @@ function faceDesignFromControls(){return {format:"WFACE-PROFILE",version:1,displ
 function faceApplyProject(project){
   faceProject=faceClone(project);
   faceProject.name=String(faceProject.name||"Untitled face").slice(0,32);
+  faceProject.style=["classic","minimal","digital","pilot","diver"].includes(faceProject.style)?faceProject.style:"classic";
   faceProject.colors=faceProject.colors||{};
   const defaults={background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"};
   Object.keys(defaults).forEach(key=>{if(!/^#[0-9a-fA-F]{6}$/.test(faceProject.colors[key]||""))faceProject.colors[key]=defaults[key]});
