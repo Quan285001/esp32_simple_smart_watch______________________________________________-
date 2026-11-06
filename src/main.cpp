@@ -17,6 +17,7 @@
 #include "services/ble_service.h"
 
 extern void handleBLECommands();
+extern void loadFaceStudioConfig();
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -610,6 +611,7 @@ void setup() {
     beginButtonManager();
     tft.init();
     tft.setRotation(0);
+    loadFaceStudioConfig();
     tft.fillScreen(TFT_BLACK);
 
     showBootTerminal();
