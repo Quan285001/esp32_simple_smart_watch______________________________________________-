@@ -346,6 +346,7 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
         <button class="fs-inspector-tab" id="faceTabType" onclick="setFaceInspectorTab('type')">Type</button>
       </div>
       <div id="faceDesignPanel">
+        <div id="faceLayoutFields">
         <div class="fs-field"><label>Selected element <output id="faceSelectedType">Clock face</output></label><input id="faceLayerName" type="text" value="Clock face" placeholder="Layer name"></div>
         <div class="fs-row">
           <div class="fs-field"><label>Position X <output id="faceXValue">120</output></label><input id="faceX" type="number" min="0" max="240" value="120"></div>
@@ -353,7 +354,8 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
         </div>
         <div class="fs-field"><label>Size <output id="faceSizeValue">18 px</output></label><input id="faceSize" type="range" min="8" max="72" value="18"></div>
         <div class="fs-field"><label>Opacity <output id="faceOpacityValue">100%</output></label><input id="faceOpacity" type="range" min="10" max="100" value="100"></div>
-        <div class="fs-field">
+        </div>
+        <div id="faceColorFields"><div class="fs-field">
           <label>Color target</label><select id="faceColorTarget"><option value="accent">Accent</option><option value="background">Background</option><option value="dial">Dial</option><option value="hand">Clock hands</option></select>
           <label style="margin-top:10px">Color <output id="faceColorHex">#FFFFFF</output></label>
           <div class="fs-color-current"><div class="fs-color-chip" id="faceColorChip"></div><div class="fs-color-meta" id="faceColorName">Selected color<small>HEX · RGB565 output</small></div><button class="fs-quiet fs-color-open" onclick="toggleFaceColorPicker()">Edit</button></div>
@@ -364,7 +366,8 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
             <div class="fs-swatches" id="faceSwatches"></div>
           </div>
         </div>
-        <div class="fs-field"><label>Visibility</label><label class="fs-check"><input id="faceLayerVisible" type="checkbox" checked> Visible on watch preview</label><label class="fs-check"><input id="faceShowSecondsVisible" type="checkbox" checked> Show seconds hand</label><label class="fs-check"><input id="faceShowDateVisible" type="checkbox" checked> Show date</label></div>
+        </div>
+        <div id="faceVisibilityFields"><div class="fs-field"><label>Visibility</label><label class="fs-check"><input id="faceLayerVisible" type="checkbox" checked> Visible on watch preview</label><label class="fs-check"><input id="faceShowSecondsVisible" type="checkbox" checked> Show seconds hand</label><label class="fs-check"><input id="faceShowDateVisible" type="checkbox" checked> Show date</label></div></div>
       </div>
       <div id="faceCropPanel" class="fs-hidden">
         <div class="fs-field"><label>Image crop preview</label><div class="fs-crop-box"><div class="fs-crop-preview"><img id="faceCropThumb" alt="Crop preview" hidden></div><div class="fs-note" style="font-size:9px;color:#7f92ad;margin-top:8px">Drag the image on canvas or use crop controls below.</div></div></div>
@@ -383,6 +386,8 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
         <div class="fs-field"><label>Custom font file · .TTF / .OTF</label><input id="faceFontInput" type="file" accept=".ttf,.otf,font/ttf,font/otf"></div>
         <div class="fs-field"><label class="fs-check"><input id="faceTextUpper" type="checkbox"> Uppercase text</label></div>
       </div>
+      <div id="faceStylePanel" class="fs-hidden"><div class="fs-field"><label>Display style</label><select id="faceStyleSelect"><option value="classic">Classic analog</option><option value="minimal">Minimal</option><option value="digital">Digital</option><option value="pilot">Pilot</option><option value="diver">Diver</option></select></div><p class="note">Style changes are previewed and saved in the .wface project. Firmware rendering support will be added separately.</p></div>
+      <div id="faceLibraryPanel" class="fs-hidden"><div class="fs-field"><label>Saved designs in this browser</label><select id="faceLibrarySelect" aria-label="Saved face designs"><option value="">No saved designs yet</option></select></div><div class="fs-row"><button class="fs-quiet" onclick="loadSelectedFace()">Open design</button><button class="fs-quiet" onclick="saveFaceDesign()">Save design</button></div><div class="fs-row"><button class="fs-quiet" onclick="document.getElementById('faceImportInput').click()">Import .wface</button><button class="fs-quiet" onclick="exportFaceDesign()">Export .wface</button></div></div>
       <div class="fs-capability" id="faceCapabilityNote">DEVICE PROFILE · Current firmware can apply the four base colors and seconds/date visibility. Uploaded images and custom text/fonts are previewed and saved in the .wface project; device rendering support is a later firmware phase.</div>
       <div class="fs-hidden">
         <input id="faceBg" type="color" value="#000000"><input id="faceDial" type="color" value="#18c3c3"><input id="faceHand" type="color" value="#ffffff"><input id="faceAccent" type="color" value="#fbe0a0">
