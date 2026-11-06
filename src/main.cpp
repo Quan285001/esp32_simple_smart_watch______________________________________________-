@@ -115,7 +115,7 @@ static void logMemorySnapshot(const char* tag) {
     const uint32_t largestBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
     const uint32_t freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     Serial.printf(
-        "[MEM] %s: free=%u, min_free=%u, largest_block=%u, internal_free=%u bytes\\n",
+        "[MEM] %s: free=%u, min_free=%u, largest_block=%u, internal_free=%u bytes\n",
         tag,
         static_cast<unsigned int>(freeHeap),
         static_cast<unsigned int>(minFreeHeap),
