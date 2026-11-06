@@ -21,34 +21,52 @@ static uint16_t faceHandColor = 0xFFFF;
 static uint16_t faceAccentColor = 0xFBE0;
 static uint8_t faceStudioFlags = 0x03; // bit 0: seconds, bit 1: date
 
+static void writeProfileColor(uint8_t* bytes, uint8_t offset, uint16_t color) {
+    bytes[offset] = static_cast<uint8_t>(color & 0xFF);
+    bytes[offset + 1] = static_cast<uint8_t>(color >> 8);
+}
+
+static uint16_t readProfileColor(const uint8_t* bytes, uint8_t offset) {
+    return static_cast<uint16_t>(bytes[offset]) |
+           (static_cast<uint16_t>(bytes[offset + 1]) << 8);
+}
+
 void loadFaceStudioConfig() {
     Preferences prefs;
     if (!prefs.begin("face", true)) return;
-    faceBackgroundColor = prefs.getUShort("bg", 0x0000);
-    faceDialColor = prefs.getUShort("dial", 0x18C3);
-    faceHandColor = prefs.getUShort("hand", 0xFFFF);
-    faceAccentColor = prefs.getUShort("accent", 0xFBE0);
-    faceStudioFlags = prefs.getUChar("flags", 0x03) & 0x03;
+    uint8_t profile[9] = {};
+    if (prefs.getBytesLength("profile") == sizeof(profile) &&
+        prefs.getBytes("profile", profile, sizeof(profile)) == sizeof(profile)) {
+        faceBackgroundColor = readProfileColor(profile, 0);
+        faceDialColor = readProfileColor(profile, 2);
+        faceHandColor = readProfileColor(profile, 4);
+        faceAccentColor = readProfileColor(profile, 6);
+        faceStudioFlags = profile[8] & 0x03;
+    }
     prefs.end();
 }
 
 bool setFaceStudioConfig(uint16_t background, uint16_t dial, uint16_t hand,
                          uint16_t accent, uint8_t flags) {
     if (flags > 0x03) return false;
+
+    // One bounded NVS blob makes profile replacement atomic at the key level.
+    uint8_t profile[9] = {};
+    writeProfileColor(profile, 0, background);
+    writeProfileColor(profile, 2, dial);
+    writeProfileColor(profile, 4, hand);
+    writeProfileColor(profile, 6, accent);
+    profile[8] = flags;
+
     Preferences prefs;
     if (!prefs.begin("face", false)) return false;
-    const bool written =
-        prefs.putUShort("bg", background) == sizeof(uint16_t) &&
-        prefs.putUShort("dial", dial) == sizeof(uint16_t) &&
-        prefs.putUShort("hand", hand) == sizeof(uint16_t) &&
-        prefs.putUShort("accent", accent) == sizeof(uint16_t) &&
-        prefs.putUChar("flags", flags) == sizeof(uint8_t);
-    const bool verified = written &&
-        prefs.getUShort("bg", 0xFFFF) == background &&
-        prefs.getUShort("dial", 0xFFFF) == dial &&
-        prefs.getUShort("hand", 0xFFFF) == hand &&
-        prefs.getUShort("accent", 0xFFFF) == accent &&
-        prefs.getUChar("flags", 0xFF) == flags;
+    const size_t written = prefs.putBytes("profile", profile, sizeof(profile));
+    uint8_t verify[sizeof(profile)] = {};
+    const size_t read = prefs.getBytes("profile", verify, sizeof(verify));
+    bool verified = written == sizeof(profile) && read == sizeof(profile);
+    for (uint8_t i = 0; i < sizeof(profile) && verified; ++i) {
+        if (profile[i] != verify[i]) verified = false;
+    }
     prefs.end();
     if (!verified) return false;
 
