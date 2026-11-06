@@ -67,17 +67,17 @@ static volatile bool weatherFetchRunning = false;
 static volatile bool wifiScanRunning = false;
 static bool wifiScanRestoreOff = false;
 static volatile int8_t weatherNotifyPending = -1;
-static volatile bool clearWeatherRefreshPending();
+static volatile bool locationWeatherRefreshPending = false;
 static bool manualWeatherWakePending = false;
 static uint32_t weatherRefreshPendingSinceMs = 0;
 
 static void markWeatherRefreshPending() {
-    markWeatherRefreshPending();
+    locationWeatherRefreshPending = true;
     if (weatherRefreshPendingSinceMs == 0) weatherRefreshPendingSinceMs = millis();
 }
 
 static void clearWeatherRefreshPending() {
-    clearWeatherRefreshPending();
+    locationWeatherRefreshPending = false;
     weatherRefreshPendingSinceMs = 0;
 }
 static volatile bool bootNetworkRunning = false;
