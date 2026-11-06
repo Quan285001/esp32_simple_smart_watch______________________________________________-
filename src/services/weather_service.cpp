@@ -320,7 +320,7 @@ bool fetchHourlyWeather() {
     copyWeatherText(next.moonset, sizeof(next.moonset), previous.moonset);
     next.detailsValid = false;
 
-    Serial.printf("[WEATHER] Using Open-Meteo model: %s\\n", getWeatherModel().c_str());
+    Serial.printf("[WEATHER] Using Open-Meteo model: %s\n", getWeatherModel().c_str());
 
     Serial.printf(
         "[MEM] Before Weather TLS: free=%u, largest_block=%u, min_free=%u bytes\\n",
