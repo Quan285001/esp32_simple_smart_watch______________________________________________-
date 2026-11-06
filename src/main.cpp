@@ -67,8 +67,19 @@ static volatile bool weatherFetchRunning = false;
 static volatile bool wifiScanRunning = false;
 static bool wifiScanRestoreOff = false;
 static volatile int8_t weatherNotifyPending = -1;
-static volatile bool locationWeatherRefreshPending = false;
+static volatile bool clearWeatherRefreshPending();
 static bool manualWeatherWakePending = false;
+static uint32_t weatherRefreshPendingSinceMs = 0;
+
+static void markWeatherRefreshPending() {
+    markWeatherRefreshPending();
+    if (weatherRefreshPendingSinceMs == 0) weatherRefreshPendingSinceMs = millis();
+}
+
+static void clearWeatherRefreshPending() {
+    clearWeatherRefreshPending();
+    weatherRefreshPendingSinceMs = 0;
+}
 static volatile bool bootNetworkRunning = false;
 static volatile bool bootNetworkNeedsBle = false;
 static bool bootUiReady = false;
@@ -311,7 +322,7 @@ void toggleWiFi();
 uint8_t requestWeatherFetch() {
     if (weatherFetchRunning) return 1;
     if (wifiScanRunning) {
-        locationWeatherRefreshPending = true;
+        markWeatherRefreshPending();
         lastLocationWeatherRetryMs = 0;
         manualWeatherWakePending = !wifiEnabled;
         lastManualWeatherRequestMs = millis();
@@ -328,7 +339,7 @@ uint8_t requestWeatherFetch() {
     // Wi-Fi is intentionally powered down after startup to save battery.
     // A user-requested refresh must wake the radio and reconnect with the
     // credentials already stored in Preferences instead of failing with ERR_WIFI.
-    locationWeatherRefreshPending = true;
+    markWeatherRefreshPending();
     lastLocationWeatherRetryMs = 0;
     if (!wifiEnabled) {
         toggleWiFi();
@@ -345,7 +356,7 @@ uint8_t requestWeatherFetch() {
     if (!scheduleWeatherFetch()) {
         return weatherFetchRunning ? 1 : 0;
     }
-    locationWeatherRefreshPending = false;
+    clearWeatherRefreshPending();
     lastManualWeatherRequestMs = now;
     return 0;
 }
@@ -353,12 +364,12 @@ uint8_t requestWeatherFetch() {
 /** Model changes persist immediately and queue a forecast refresh even while Wi-Fi is asleep. */
 uint8_t requestWeatherFetchNow() {
     if (weatherFetchRunning) {
-        locationWeatherRefreshPending = true;
+        markWeatherRefreshPending();
         lastLocationWeatherRetryMs = 0;
         return 1;
     }
     if (wifiScanRunning) {
-        locationWeatherRefreshPending = true;
+        markWeatherRefreshPending();
         lastLocationWeatherRetryMs = 0;
         manualWeatherWakePending = !wifiEnabled;
         lastManualWeatherRequestMs = millis();
@@ -366,7 +377,7 @@ uint8_t requestWeatherFetchNow() {
         return 0;
     }
 
-    locationWeatherRefreshPending = true;
+    markWeatherRefreshPending();
     lastLocationWeatherRetryMs = 0;
     if (!wifiEnabled) {
         toggleWiFi();
@@ -382,7 +393,7 @@ uint8_t requestWeatherFetchNow() {
     if (!scheduleWeatherFetch()) {
         return weatherFetchRunning ? 1 : 0;
     }
-    locationWeatherRefreshPending = false;
+    clearWeatherRefreshPending();
     lastManualWeatherRequestMs = millis();
     return 0;
 }
@@ -392,14 +403,14 @@ uint8_t requestWeatherFetchNow() {
  * If another fetch is running, defer one follow-up request until it completes.
  */
 uint8_t requestWeatherFetchForLocation() {
-    locationWeatherRefreshPending = true;
+    markWeatherRefreshPending();
     lastLocationWeatherRetryMs = 0;
 
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
     if (weatherFetchRunning || wifiScanRunning) return 1;
 
     if (scheduleWeatherFetch()) {
-        locationWeatherRefreshPending = false;
+        clearWeatherRefreshPending();
         return 0;
     }
     // Keep the request pending so the main loop can retry after resources recover.
@@ -812,6 +823,20 @@ void loop() {
         toggleWiFi();
     }
 
+    // Do not keep Wi-Fi powered or block automatic sleep forever if stored
+    // credentials cannot reconnect. Retain the previous weather cache.
+    if (locationWeatherRefreshPending &&
+        !wifiScanRunning &&
+        !weatherFetchRunning &&
+        WiFi.status() != WL_CONNECTED &&
+        weatherRefreshPendingSinceMs != 0 &&
+        now - weatherRefreshPendingSinceMs >= 60000UL) {
+        Serial.println("[WEATHER] Pending refresh expired after 60 seconds; keeping cached forecast.");
+        clearWeatherRefreshPending();
+        manualWeatherWakePending = false;
+        if (isBLEConnected()) sendBLENotification("WEATHER_FAILED");
+    }
+
     // Automatic sleep is deliberately disabled during an active BLE session.
     // Manual Sleep from the menu still bypasses this connection guard.
     const bool backgroundWorkActive =
@@ -903,7 +928,7 @@ void loop() {
          now - lastLocationWeatherRetryMs >= WEATHER_RETRY_MS)) {
         lastLocationWeatherRetryMs = now;
         if (scheduleWeatherFetch()) {
-            locationWeatherRefreshPending = false;
+            clearWeatherRefreshPending();
         }
     }
 
