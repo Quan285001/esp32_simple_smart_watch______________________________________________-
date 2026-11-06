@@ -584,7 +584,7 @@ function faceAddLayer(type,text){
 }
 function addFaceText(text){faceAddLayer("text",text||"New text")}
 function addFaceWidget(binding){facePushUndo();const layer={id:faceNewId(),type:"text",name:binding==="time"?"Time widget":"Date widget",binding,visible:true,opacity:100,x:120,y:170,text:"",fontFamily:"Arial",fontWeight:"700",fontSize:binding==="time"?23:14,color:"#ffffff",align:"center",uppercase:true};faceProject.layers.push(layer);faceProject.selectedLayerId=layer.id;faceSyncUI();setFaceInspectorTab("type");faceMarkChanged()}
-function removeFaceLayer(){const index=faceProject.layers.findIndex(layer=>layer.id===faceProject.selectedLayerId);if(index<0)return;facePushUndo();faceProject.layers.splice(index,1);faceProject.selectedLayerId=faceProject.layers[Math.min(index,faceProject.layers.length-1)]?.id||null;faceSyncUI();faceMarkChanged()}
+function removeFaceLayer(){if(faceProject.selectedLayerId==="__image"&&faceProject.image){facePushUndo();faceProject.image=null;faceCachedImage=null;faceCachedImageSrc="";faceProject.selectedLayerId=null;faceSyncUI();faceMarkChanged();return}const index=faceProject.layers.findIndex(layer=>layer.id===faceProject.selectedLayerId);if(index<0)return;facePushUndo();faceProject.layers.splice(index,1);faceProject.selectedLayerId=faceProject.layers[Math.min(index,faceProject.layers.length-1)]?.id||null;faceSyncUI();faceMarkChanged()}
 function moveFaceLayer(direction){const index=faceProject.layers.findIndex(layer=>layer.id===faceProject.selectedLayerId);const next=index+direction;if(index<0||next<0||next>=faceProject.layers.length)return;facePushUndo();[faceProject.layers[index],faceProject.layers[next]]=[faceProject.layers[next],faceProject.layers[index]];faceSyncUI();faceMarkChanged()}
 function toggleSelectedFaceLayer(){const layer=faceSelectedLayer();if(!layer)return;facePushUndo();layer.visible=layer.visible===false;faceSyncUI();faceMarkChanged()}
 function renderFaceLayers(){
@@ -613,7 +613,7 @@ function syncFaceInspector(){
   document.getElementById("faceSize").value=source?source.fontSize||18:18;document.getElementById("faceOpacity").value=source?source.opacity??100:100;
   document.getElementById("faceLayerVisible").checked=source?source.visible!==false:true;
   document.getElementById("faceTextContent").value=source?.text||"";
-  document.getElementById("faceFontFamily").value=source?.fontFamily||"Arial";
+  const fontSelect=document.getElementById("faceFontFamily");const selectedFont=source?.fontFamily||"Arial";if(![...fontSelect.options].some(option=>option.value===selectedFont)){const option=document.createElement("option");option.value=selectedFont;option.textContent=selectedFont==="CustomFaceFont"?"Custom uploaded font":selectedFont;fontSelect.appendChild(option)}fontSelect.value=selectedFont;
   document.getElementById("faceFontWeight").value=source?.fontWeight||"600";
   document.getElementById("faceTextAlign").value=source?.align||"center";
   document.getElementById("faceTextUpper").checked=!!source?.uppercase;
@@ -653,7 +653,7 @@ function faceApplySelectedColor(hex){
   if(!/^#[0-9a-fA-F]{6}$/.test(hex))return;
   const layer=faceSelectedLayer();
   facePushUndo();
-  if(layer)layer.color=hex;else{const target=document.getElementById("faceColorTarget").value;faceProject.colors[target]=hex;document.getElementById("face"+target.charAt(0).toUpperCase()+target.slice(1)).value=hex;}
+  if(layer)layer.color=hex;else{const target=document.getElementById("faceColorTarget").value;faceProject.colors[target]=hex;const inputId={background:"faceBg",dial:"faceDial",hand:"faceHand",accent:"faceAccent"}[target];if(inputId)document.getElementById(inputId).value=hex;}
   faceSetColorDisplay(hex);faceSetHsvUI(hex);renderFacePreview();faceMarkChanged();
 }
 function applyFaceHex(){faceApplySelectedColor(document.getElementById("faceHex").value.trim())}
@@ -701,7 +701,7 @@ function faceHitTest(point){
 faceCanvas.addEventListener("pointerdown",event=>{
   const point=faceCanvasPoint(event),hit=faceHitTest(point);
   if(!hit)return;
-  faceProject.selectedLayerId=hit.id;faceDragging={id:hit.id,start:point,original:hit.id==="__image"?{x:faceProject.image.x,y:faceProject.image.y}:{x:hit.x,y:hit.y}};
+  facePushUndo();faceProject.selectedLayerId=hit.id;faceDragging={id:hit.id,start:point,original:hit.id==="__image"?{x:faceProject.image.x,y:faceProject.image.y}:{x:hit.x,y:hit.y}};
   faceCanvas.setPointerCapture(event.pointerId);syncFaceInspector();renderFaceLayers();
 });
 faceCanvas.addEventListener("pointermove",event=>{
