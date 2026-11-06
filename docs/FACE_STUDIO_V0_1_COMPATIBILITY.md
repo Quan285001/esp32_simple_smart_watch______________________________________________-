@@ -6,9 +6,13 @@ Status: the browser editor is now a multi-panel visual design workspace. Firmwar
 
 The Face Studio workspace in `index.html` provides:
 
+- A two-page dashboard: **Watch Control** and **Face Studio**, with separate tab navigation.
+- A Google Photos-inspired category home. Users select one task (style, background, colors, clock/date, photos, text/fonts, layout, layers, or saved designs) and only that task's controls are shown.
+- Five browser preview styles: Classic analog, Minimal, Digital, Pilot, and Diver.
+
 - A three-panel desktop workspace: asset/tools sidebar, live round-watch canvas, and property inspector.
 - Responsive stacked layout for narrow screens.
-- PNG/JPG/WebP upload, client-side downsampling to a maximum 480-pixel edge, circular crop preview, zoom, and X/Y positioning.
+- Image upload through a visible Add Photo action, accepting browser-supported `image/*` formats up to 20 MB, then client-side downsampling to a maximum 512-pixel edge, circular crop preview, zoom, and X/Y positioning.
 - Text layers, live time/date widgets, draggable positioning, visibility, opacity, font family, weight, size, alignment, and uppercase controls.
 - System font selection and custom TTF/OTF font loading for browser preview. Custom font data is included in exported project files.
 - A hue/saturation/brightness color picker, HEX entry, swatches, and independent background/dial/hand/accent targets.
@@ -58,3 +62,10 @@ The next firmware stages are:
 5. Add atomic activation and rollback so an invalid face cannot replace the last working face.
 
 No arbitrary C++, native executable, filesystem access, or unrestricted script is accepted by the current firmware.
+
+
+## Weather refresh behavior
+
+Manual weather refresh and model changes now queue a fetch request and wake the Wi-Fi station using the credentials stored in Preferences when the radio is intentionally off. If a startup Wi-Fi scan is still running, the request is queued until the scan releases the radio. The selected model is persisted independently of the forecast result. The UI should therefore report model-save and forecast-download outcomes separately.
+
+The five Face Studio style templates are currently browser-preview/project styles. They are not yet applied by the ESP32 native renderer; the current firmware BLE profile remains colors plus seconds/date flags.
