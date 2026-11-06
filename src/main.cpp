@@ -160,7 +160,7 @@ static void enterLightSleep() {
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
 
     const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
-    Serial.printf("[POWER] Wake cause: %d\\n", static_cast<int>(wakeCause));
+    Serial.printf("[POWER] Wake cause: %d\n", static_cast<int>(wakeCause));
 
     // Wait for the wake press to be released before resetting button state.
     while (digitalRead(BUTTON_PIN) == LOW) {
@@ -208,7 +208,7 @@ static void enterLightSleep() {
 
     beginButtonManager();
     drawCurrentScreen(true);
-    Serial.printf("[POWER] Wake complete; Wi-Fi=%s, BLE=%s.\\n",
+    Serial.printf("[POWER] Wake complete; Wi-Fi=%s, BLE=%s.\n",
                   wifiEnabled ? "ON" : "OFF",
                   isBLEEnabled() ? "ON" : "OFF");
 }
