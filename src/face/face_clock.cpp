@@ -5,6 +5,7 @@
 #include <math.h>
 #include <time.h>
 #include <WiFi.h>
+#include <Preferences.h>
 #include "../services/ble_service.h"
 #include "icons.h"
 
@@ -13,12 +14,52 @@ extern TFT_eSPI tft;
 static TFT_eSprite sprFace = TFT_eSprite(&tft);
 static bool sprFaceCreated = false;
 
-#define COLOR_BG        0x0000
-#define COLOR_INNER_BG  0x18C3
-#define COLOR_HAND      0xFFFF
-#define COLOR_SEC_HAND  0xFBE0
-#define COLOR_TEXT_MAIN 0xFFFF
-#define COLOR_TEXT_ACCENT 0xFBE0
+// Face Studio v0.1 profile. Defaults preserve the original factory appearance.
+static uint16_t faceBackgroundColor = 0x0000;
+static uint16_t faceDialColor = 0x18C3;
+static uint16_t faceHandColor = 0xFFFF;
+static uint16_t faceAccentColor = 0xFBE0;
+static uint8_t faceStudioFlags = 0x03; // bit 0: seconds, bit 1: date
+
+void loadFaceStudioConfig() {
+    Preferences prefs;
+    if (!prefs.begin("face", true)) return;
+    faceBackgroundColor = prefs.getUShort("bg", 0x0000);
+    faceDialColor = prefs.getUShort("dial", 0x18C3);
+    faceHandColor = prefs.getUShort("hand", 0xFFFF);
+    faceAccentColor = prefs.getUShort("accent", 0xFBE0);
+    faceStudioFlags = prefs.getUChar("flags", 0x03) & 0x03;
+    prefs.end();
+}
+
+bool setFaceStudioConfig(uint16_t background, uint16_t dial, uint16_t hand,
+                         uint16_t accent, uint8_t flags) {
+    if (flags > 0x03) return false;
+    Preferences prefs;
+    if (!prefs.begin("face", false)) return false;
+    const bool written =
+        prefs.putUShort("bg", background) == sizeof(uint16_t) &&
+        prefs.putUShort("dial", dial) == sizeof(uint16_t) &&
+        prefs.putUShort("hand", hand) == sizeof(uint16_t) &&
+        prefs.putUShort("accent", accent) == sizeof(uint16_t) &&
+        prefs.putUChar("flags", flags) == sizeof(uint8_t);
+    const bool verified = written &&
+        prefs.getUShort("bg", 0xFFFF) == background &&
+        prefs.getUShort("dial", 0xFFFF) == dial &&
+        prefs.getUShort("hand", 0xFFFF) == hand &&
+        prefs.getUShort("accent", 0xFFFF) == accent &&
+        prefs.getUChar("flags", 0xFF) == flags;
+    prefs.end();
+    if (!verified) return false;
+
+    faceBackgroundColor = background;
+    faceDialColor = dial;
+    faceHandColor = hand;
+    faceAccentColor = accent;
+    faceStudioFlags = flags;
+    Serial.println("[FACE] Custom face profile saved and applied.");
+    return true;
+}
 
 /**
  * @brief Draws a sun or crescent-moon icon according to the current hour.
@@ -29,9 +70,9 @@ static bool sprFaceCreated = false;
 void drawSmartWeatherIconSpr(int currentHour, int x, int y) {
     bool isNight = (currentHour < 6 || currentHour >= 18);
     if (isNight) {
-        drawMiniCrescentMoon(sprFace, x, y, COLOR_TEXT_ACCENT, COLOR_INNER_BG);
+        drawMiniCrescentMoon(sprFace, x, y, faceAccentColor, faceDialColor);
     } else {
-        drawMiniSun(sprFace, x, y, COLOR_TEXT_ACCENT);
+        drawMiniSun(sprFace, x, y, faceAccentColor);
     }
 }
 
@@ -70,29 +111,38 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
         }
     }
 
-    sprFace.fillSprite(COLOR_BG);
+    sprFace.fillSprite(faceBackgroundColor);
 
     int cx = 80;
     int cy = 80;
 
-    sprFace.fillCircle(cx, cy, 78, COLOR_INNER_BG);
+    sprFace.fillCircle(cx, cy, 78, faceDialColor);
 
     sprFace.setTextDatum(MC_DATUM);
-    sprFace.setTextColor(COLOR_TEXT_ACCENT, COLOR_INNER_BG);
+    sprFace.setTextColor(faceAccentColor, faceDialColor);
     sprFace.drawString("UTC+7", cx - 40, cy - 10, 1);
     // Show the full local time in 24-hour format, including seconds.
     char localTimeText[9];
     snprintf(localTimeText, sizeof(localTimeText), "%02d:%02d:%02d",
              timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-    sprFace.setTextColor(COLOR_TEXT_MAIN, COLOR_INNER_BG);
-    sprFace.drawString(localTimeText, cx - 40, cy + 6, 1);
+    sprFace.setTextColor(faceHandColor, faceDialColor);
+    if (faceStudioFlags & 0x01) {
+        sprFace.drawString(localTimeText, cx - 40, cy + 6, 1);
+    } else {
+        char shortTimeText[6];
+        snprintf(shortTimeText, sizeof(shortTimeText), "%02d:%02d",
+                 timeinfo.tm_hour, timeinfo.tm_min);
+        sprFace.drawString(shortTimeText, cx - 40, cy + 6, 1);
+    }
 
-    const char* days[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
-    int wday = (timeinfo.tm_wday >= 0 && timeinfo.tm_wday < 7) ? timeinfo.tm_wday : 0;
-    sprFace.setTextColor(COLOR_TEXT_ACCENT, COLOR_INNER_BG);
-    sprFace.drawString(days[wday], cx + 40, cy - 10, 1);
-    sprFace.setTextColor(COLOR_TEXT_MAIN, COLOR_INNER_BG);
-    sprFace.drawNumber(timeinfo.tm_mday > 0 ? timeinfo.tm_mday : 1, cx + 40, cy + 6, 2);
+    if (faceStudioFlags & 0x02) {
+        const char* days[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+        int wday = (timeinfo.tm_wday >= 0 && timeinfo.tm_wday < 7) ? timeinfo.tm_wday : 0;
+        sprFace.setTextColor(faceAccentColor, faceDialColor);
+        sprFace.drawString(days[wday], cx + 40, cy - 10, 1);
+        sprFace.setTextColor(faceHandColor, faceDialColor);
+        sprFace.drawNumber(timeinfo.tm_mday > 0 ? timeinfo.tm_mday : 1, cx + 40, cy + 6, 2);
+    }
 
     drawSmartWeatherIconSpr(timeinfo.tm_hour, cx, cy + 38);
 
@@ -107,7 +157,7 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
     } else if (wifiConnected) {
         connectionLabel = "Wi-Fi";
     }
-    sprFace.setTextColor(COLOR_TEXT_ACCENT, COLOR_INNER_BG);
+    sprFace.setTextColor(faceAccentColor, faceDialColor);
     sprFace.drawString(connectionLabel, cx, cy + 50, 1);
 
     float exactSeconds = timeinfo.tm_sec + (millisValue / 1000.0f);
@@ -121,26 +171,28 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
     int hx = cx + (int)(40 * cos(angleHour));
     int hy = cy + (int)(40 * sin(angleHour));
     for (int offset = -1; offset <= 1; offset++) {
-        sprFace.drawLine(cx + offset, cy, hx + offset, hy, COLOR_HAND);
-        sprFace.drawLine(cx, cy + offset, hx, hy + offset, COLOR_HAND);
+        sprFace.drawLine(cx + offset, cy, hx + offset, hy, faceHandColor);
+        sprFace.drawLine(cx, cy + offset, hx, hy + offset, faceHandColor);
     }
 
     int mx = cx + (int)(68 * cos(angleMin));
     int my = cy + (int)(68 * sin(angleMin));
     for (int offset = -1; offset <= 1; offset++) {
-        sprFace.drawLine(cx + offset, cy, mx + offset, my, COLOR_HAND);
-        sprFace.drawLine(cx, cy + offset, mx, my + offset, COLOR_HAND);
+        sprFace.drawLine(cx + offset, cy, mx + offset, my, faceHandColor);
+        sprFace.drawLine(cx, cy + offset, mx, my + offset, faceHandColor);
     }
 
-    int sx = cx + (int)(90 * cos(angleSec));
-    int sy = cy + (int)(90 * sin(angleSec));
-    int sx_back = cx - (int)(18 * cos(angleSec));
-    int sy_back = cy - (int)(18 * sin(angleSec));
-    sprFace.drawLine(sx_back, sy_back, sx, sy, COLOR_SEC_HAND);
-    sprFace.drawLine(sx_back + 1, sy_back, sx + 1, sy, COLOR_SEC_HAND);
+    if (faceStudioFlags & 0x01) {
+        int sx = cx + (int)(90 * cos(angleSec));
+        int sy = cy + (int)(90 * sin(angleSec));
+        int sx_back = cx - (int)(18 * cos(angleSec));
+        int sy_back = cy - (int)(18 * sin(angleSec));
+        sprFace.drawLine(sx_back, sy_back, sx, sy, faceAccentColor);
+        sprFace.drawLine(sx_back + 1, sy_back, sx + 1, sy, faceAccentColor);
+    }
 
-    sprFace.fillCircle(cx, cy, 5, COLOR_SEC_HAND);
-    sprFace.fillCircle(cx, cy, 2, COLOR_TEXT_MAIN);
+    sprFace.fillCircle(cx, cy, 5, faceAccentColor);
+    sprFace.fillCircle(cx, cy, 2, faceHandColor);
 
     // Push the sprite to the main display at (40, 40).
     sprFace.pushSprite(40, 40);
