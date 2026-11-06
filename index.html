@@ -219,7 +219,7 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
       <button class="fs-quiet" onclick="faceRedo()">↷ Redo</button>
       <button class="fs-quiet" onclick="saveFaceDesign()">Save</button>
       <button class="fs-quiet" onclick="exportFaceDesign()">Export .wface</button>
-      <button class="fs-primary" onclick="applyFaceToWatch()">Send to Watch ↗</button>
+      <button class="fs-primary" id="faceApplyBtn" onclick="applyFaceToWatch()">Send to Watch ↗</button>
     </div>
   </div>
 
@@ -318,7 +318,7 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
       <div class="fs-hidden">
         <input id="faceBg" type="color" value="#000000"><input id="faceDial" type="color" value="#18c3c3"><input id="faceHand" type="color" value="#ffffff"><input id="faceAccent" type="color" value="#fbe0a0">
         <input id="faceShowSeconds" type="checkbox" checked><input id="faceShowDate" type="checkbox" checked>
-        <button id="faceApplyBtn" onclick="applyFaceToWatch()">Apply</button>
+
       </div>
     </aside>
   </div>
@@ -610,7 +610,8 @@ function syncFaceInspector(){
   const source=layer||null;
   document.getElementById("faceLayerName").value=isImage?faceProject.image.name:source?source.name:"Clock face";
   document.getElementById("faceX").value=source?source.x:120;document.getElementById("faceY").value=source?source.y:120;
-  document.getElementById("faceSize").value=source?source.fontSize||18:18;document.getElementById("faceOpacity").value=source?source.opacity??100:100;
+  document.getElementById("faceSize").value=source?source.fontSize||18:18;document.getElementById("faceSizeValue").textContent=(source?source.fontSize||18:18)+" px";document.getElementById("faceOpacity").value=source?source.opacity??100:100;document.getElementById("faceOpacityValue").textContent=(source?source.opacity??100:100)+"%";
+  document.getElementById("faceXValue").textContent=source?Math.round(source.x):"—";document.getElementById("faceYValue").textContent=source?Math.round(source.y):"—";
   document.getElementById("faceLayerVisible").checked=source?source.visible!==false:true;
   document.getElementById("faceTextContent").value=source?.text||"";
   const fontSelect=document.getElementById("faceFontFamily");const selectedFont=source?.fontFamily||"Arial";if(![...fontSelect.options].some(option=>option.value===selectedFont)){const option=document.createElement("option");option.value=selectedFont;option.textContent=selectedFont==="CustomFaceFont"?"Custom uploaded font":selectedFont;fontSelect.appendChild(option)}fontSelect.value=selectedFont;
