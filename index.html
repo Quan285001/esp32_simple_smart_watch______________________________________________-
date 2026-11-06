@@ -31,6 +31,18 @@ input,select{width:100%;border:1px solid var(--line);background:#0b1220;color:va
 input:focus,select:focus{border-color:var(--accent)}
 .note{font-size:12px;line-height:1.5;color:var(--muted);margin:10px 1px 0}
 .value{font-size:13px;color:#d7e6f8;margin-top:10px;overflow-wrap:anywhere}
+.face-preview-wrap{display:grid;place-items:center;padding:12px;background:#080d17;border:1px solid var(--line);border-radius:14px}
+#facePreview{width:min(100%,260px);height:auto;aspect-ratio:1;border-radius:50%;background:#000;touch-action:manipulation}
+.face-color-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.face-color-field{margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;background:#0b1220;border:1px solid var(--line);border-radius:10px}
+.face-color-field span{font-size:12px;color:var(--muted)}
+.face-color-field input{width:42px;height:34px;padding:2px;border:0;background:transparent}
+.face-toggle-row{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0}
+.face-toggle-row label{display:flex;align-items:center;gap:7px;margin:0;font-size:13px;color:var(--text)}
+.face-toggle-row input{width:auto;accent-color:var(--accent)}
+.face-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.face-actions button{min-width:0}
+#faceStudioStatus{min-height:18px}
 @media(min-width:520px){body{padding-top:42px}}
 </style>
 </head>
@@ -97,6 +109,39 @@ input:focus,select:focus{border-color:var(--accent)}
 <button id="weatherModelSaveBtn" onclick="saveWeatherModel()">Save Model &amp; Update Forecast</button>
 <div id="weatherModelStatus" class="note">Connect to the watch to read its current model.</div>
 <p class="note">Models differ in update frequency, resolution and forecast coverage. Best Match automatically selects suitable models for the location.</p>
+</section>
+
+<!-- Face Studio: v0.1 profile editor supported by the current firmware renderer -->
+<section id="faceStudio">
+<h2>FACE STUDIO · V0.1</h2>
+<p class="note">Customize the watch's native analog face. The preview uses the same supported settings that are sent to the ESP32-C3.</p>
+<div class="face-preview-wrap"><canvas id="facePreview" width="240" height="240" aria-label="Watch face preview"></canvas></div>
+<label for="faceName">Face name</label>
+<input id="faceName" maxlength="24" value="My custom face" autocomplete="off">
+<div class="face-color-grid" style="margin-top:12px">
+<label class="face-color-field"><span>Background</span><input id="faceBg" type="color" value="#000000"></label>
+<label class="face-color-field"><span>Dial</span><input id="faceDial" type="color" value="#18c3c3"></label>
+<label class="face-color-field"><span>Hands</span><input id="faceHand" type="color" value="#ffffff"></label>
+<label class="face-color-field"><span>Accent</span><input id="faceAccent" type="color" value="#fbe0a0"></label>
+</div>
+<div class="face-toggle-row">
+<label><input id="faceShowSeconds" type="checkbox" checked> Show seconds</label>
+<label><input id="faceShowDate" type="checkbox" checked> Show date</label>
+</div>
+<div class="stack">
+<button id="faceApplyBtn" onclick="applyFaceToWatch()">Apply to Watch via Bluetooth</button>
+<div id="faceStudioStatus" class="note">Connect Bluetooth, then apply a design.</div>
+</div>
+<label for="faceLibrarySelect">Saved faces on this browser</label>
+<select id="faceLibrarySelect"><option value="">No saved faces yet</option></select>
+<div class="face-actions" style="margin-top:9px">
+<button onclick="saveFaceDesign()">Save Design</button>
+<button onclick="loadSelectedFace()">Load Design</button>
+<button onclick="exportFaceDesign()">Export .wface</button>
+<button onclick="document.getElementById('faceImportInput').click()">Import .wface</button>
+</div>
+<input id="faceImportInput" type="file" accept=".wface,.json,application/json" hidden>
+<p class="note">V0.1 stores designs in this browser and exports a portable .wface profile. Firmware currently supports colors and visibility toggles; arbitrary layers, images and VM bytecode are planned for a later version.</p>
 </section>
 
 <!-- Device location tracking -->
@@ -246,6 +291,152 @@ async function syncWeather(){
   },15000);
 }
 
+const FACE_LIBRARY_KEY="esp32-face-studio-library-v1";
+let faceLibrary=[];
+
+function faceDesignFromControls(){
+  return {
+    format:"WFACE-PROFILE",
+    version:1,
+    displayProfile:"gc9a01-240-round",
+    rendererApi:1,
+    name:(document.getElementById("faceName").value.trim()||"Untitled face").slice(0,24),
+    background:document.getElementById("faceBg").value,
+    dial:document.getElementById("faceDial").value,
+    hand:document.getElementById("faceHand").value,
+    accent:document.getElementById("faceAccent").value,
+    showSeconds:document.getElementById("faceShowSeconds").checked,
+    showDate:document.getElementById("faceShowDate").checked
+  };
+}
+
+function applyFaceDesignToControls(face){
+  document.getElementById("faceName").value=face.name||"Imported face";
+  document.getElementById("faceBg").value=face.background||"#000000";
+  document.getElementById("faceDial").value=face.dial||"#18c3c3";
+  document.getElementById("faceHand").value=face.hand||"#ffffff";
+  document.getElementById("faceAccent").value=face.accent||"#fbe0a0";
+  document.getElementById("faceShowSeconds").checked=face.showSeconds!==false;
+  document.getElementById("faceShowDate").checked=face.showDate!==false;
+  renderFacePreview();
+}
+
+function hexToRgb565(hex){
+  const value=hex.replace("#","");
+  const r=parseInt(value.slice(0,2),16),g=parseInt(value.slice(2,4),16),b=parseInt(value.slice(4,6),16);
+  return ((r&0xF8)<<8)|((g&0xFC)<<3)|(b>>3);
+}
+
+function renderFacePreview(){
+  const canvas=document.getElementById("facePreview");
+  if(!canvas)return;
+  const ctx=canvas.getContext("2d");
+  const face=faceDesignFromControls();
+  const cx=120,cy=120;
+  ctx.clearRect(0,0,240,240);
+  ctx.fillStyle=face.background;ctx.fillRect(0,0,240,240);
+  ctx.fillStyle=face.dial;ctx.beginPath();ctx.arc(cx,cy,116,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=face.accent;ctx.lineWidth=2;
+  for(let i=0;i<60;i++){
+    const a=i*Math.PI/30-Math.PI/2;
+    const major=i%5===0;
+    const r1=major?101:107,r2=114;
+    ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);ctx.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2);ctx.stroke();
+  }
+  ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=face.accent;
+  ctx.font="11px system-ui";ctx.fillText("UTC+7",80,103);
+  ctx.fillStyle=face.hand;ctx.font="12px ui-monospace,monospace";
+  ctx.fillText(face.showSeconds?"10:10:35":"10:10",80,122);
+  if(face.showDate){ctx.fillStyle=face.accent;ctx.font="10px system-ui";ctx.fillText("FRI",160,103);ctx.fillStyle=face.hand;ctx.font="17px system-ui";ctx.fillText("06",160,122)}
+  const hand=(angle,length,width,color)=>{ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(angle)*length,cy+Math.sin(angle)*length);ctx.stroke()};
+  hand((10+10/60)*Math.PI/6-Math.PI/2,47,5,face.hand);
+  hand((10+35/60)*Math.PI/30-Math.PI/2,76,3,face.hand);
+  if(face.showSeconds)hand(35*Math.PI/30-Math.PI/2,94,1.5,face.accent);
+  ctx.fillStyle=face.accent;ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
+}
+
+function persistFaceLibrary(){
+  try{localStorage.setItem(FACE_LIBRARY_KEY,JSON.stringify(faceLibrary));}
+  catch(error){console.error(error);document.getElementById("faceStudioStatus").textContent="Browser storage is full or unavailable";}
+}
+
+function refreshFaceLibrary(){
+  const select=document.getElementById("faceLibrarySelect");
+  select.innerHTML="";
+  if(!faceLibrary.length){const option=document.createElement("option");option.value="";option.textContent="No saved faces yet";select.appendChild(option);return}
+  faceLibrary.forEach((face,index)=>{const option=document.createElement("option");option.value=String(index);option.textContent=face.name||("Face "+(index+1));select.appendChild(option)});
+}
+
+function saveFaceDesign(){
+  const face=faceDesignFromControls();
+  const existing=faceLibrary.findIndex(item=>item.name===face.name);
+  if(existing>=0)faceLibrary[existing]=face;else faceLibrary.push(face);
+  persistFaceLibrary();refreshFaceLibrary();
+  document.getElementById("faceLibrarySelect").value=String(Math.max(0,faceLibrary.findIndex(item=>item.name===face.name)));
+  document.getElementById("faceStudioStatus").textContent="Saved in this browser · "+face.name;
+}
+
+function loadSelectedFace(){
+  const index=Number(document.getElementById("faceLibrarySelect").value);
+  if(!Number.isInteger(index)||!faceLibrary[index])return;
+  applyFaceDesignToControls(faceLibrary[index]);
+  document.getElementById("faceStudioStatus").textContent="Loaded · "+faceLibrary[index].name;
+}
+
+async function applyFaceToWatch(){
+  const button=document.getElementById("faceApplyBtn");
+  const status=document.getElementById("faceStudioStatus");
+  if(!bleCharacteristic){status.textContent="Connect Bluetooth to the watch first";return}
+  const face=faceDesignFromControls();
+  const flags=(face.showSeconds?1:0)|(face.showDate?2:0);
+  const command="FACE_SET:"+[hexToRgb565(face.background),hexToRgb565(face.dial),hexToRgb565(face.hand),hexToRgb565(face.accent),flags].join(",");
+  button.disabled=true;status.textContent="Sending compatible face profile...";
+  const ok=await sendBLECommand(command);
+  if(!ok){status.textContent="Transfer failed · check Bluetooth";button.disabled=false;return}
+  status.textContent="Profile sent · waiting for firmware confirmation...";
+  window.setTimeout(()=>{button.disabled=false},1500);
+}
+
+function exportFaceDesign(){
+  const face=faceDesignFromControls();
+  const blob=new Blob([JSON.stringify(face,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;link.download=(face.name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"watch-face")+".wface";
+  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  document.getElementById("faceStudioStatus").textContent="Exported "+link.download;
+}
+
+function importFaceDesign(event){
+  const file=event.target.files&&event.target.files[0];if(!file)return;
+  if(file.size>8192){document.getElementById("faceStudioStatus").textContent="File too large · maximum 8 KB";event.target.value="";return}
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const face=JSON.parse(String(reader.result));
+      const valid=face&&face.format==="WFACE-PROFILE"&&face.version===1&&face.displayProfile==="gc9a01-240-round"&&
+        ["background","dial","hand","accent"].every(key=>/^#[0-9a-fA-F]{6}$/.test(face[key]));
+      if(!valid)throw new Error("Unsupported face profile");
+      applyFaceDesignToControls(face);
+      document.getElementById("faceStudioStatus").textContent="Imported · review then Apply to Watch";
+    }catch(error){document.getElementById("faceStudioStatus").textContent="Invalid or incompatible .wface file"}
+    event.target.value="";
+  };
+  reader.onerror=()=>{document.getElementById("faceStudioStatus").textContent="Could not read file"};
+  reader.readAsText(file);
+}
+
+function initializeFaceStudio(){
+  try{const stored=JSON.parse(localStorage.getItem(FACE_LIBRARY_KEY)||"[]");if(Array.isArray(stored))faceLibrary=stored.filter(face=>face&&face.format==="WFACE-PROFILE"&&face.version===1);}
+  catch(error){faceLibrary=[]}
+  refreshFaceLibrary();
+  ["faceBg","faceDial","faceHand","faceAccent","faceShowSeconds","faceShowDate"].forEach(id=>document.getElementById(id).addEventListener("input",renderFacePreview));
+  document.getElementById("faceImportInput").addEventListener("change",importFaceDesign);
+  renderFacePreview();
+}
+
+initializeFaceStudio();
+
 /**
  * @brief Starts or stops browser geolocation tracking and forwards position updates to the watch.
  */
@@ -360,6 +551,16 @@ async function requestWiFiScan(){
  */
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
+  if(chunk==="FACE_OK"){
+    document.getElementById("faceStudioStatus").textContent="Applied · saved on ESP32-C3";
+    document.getElementById("faceApplyBtn").disabled=false;
+    return;
+  }
+  if(chunk==="ERR_FACE"){
+    document.getElementById("faceStudioStatus").textContent="Firmware rejected this profile · check compatibility";
+    document.getElementById("faceApplyBtn").disabled=false;
+    return;
+  }
   if(chunk.startsWith("WM:")){
     const model=chunk.substring(3);
     const select=document.getElementById("weatherModelSelect");
