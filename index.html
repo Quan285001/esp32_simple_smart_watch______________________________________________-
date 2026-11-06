@@ -229,8 +229,8 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
       <div class="fs-tool-grid">
         <button class="fs-tool" onclick="document.getElementById('faceImageInput').click()"><span>▧</span><span class="fs-tool-label">Image</span></button>
         <button class="fs-tool" onclick="addFaceText()"><span>T</span><span class="fs-tool-label">Text</span></button>
-        <button class="fs-tool" onclick="addFaceText('12:45')"><span>◷</span><span class="fs-tool-label">Time</span></button>
-        <button class="fs-tool" onclick="addFaceText('MON 06')"><span>▦</span><span class="fs-tool-label">Date</span></button>
+        <button class="fs-tool" onclick="addFaceWidget('time')"><span>◷</span><span class="fs-tool-label">Time</span></button>
+        <button class="fs-tool" onclick="addFaceWidget('date')"><span>▦</span><span class="fs-tool-label">Date</span></button>
       </div>
       <input id="faceImageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
       <div class="fs-separator"></div>
@@ -285,7 +285,8 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
         <div class="fs-field"><label>Size <output id="faceSizeValue">18 px</output></label><input id="faceSize" type="range" min="8" max="72" value="18"></div>
         <div class="fs-field"><label>Opacity <output id="faceOpacityValue">100%</output></label><input id="faceOpacity" type="range" min="10" max="100" value="100"></div>
         <div class="fs-field">
-          <label>Color <output id="faceColorHex">#FFFFFF</output></label>
+          <label>Color target</label><select id="faceColorTarget"><option value="accent">Accent</option><option value="background">Background</option><option value="dial">Dial</option><option value="hand">Clock hands</option></select>
+          <label style="margin-top:10px">Color <output id="faceColorHex">#FFFFFF</output></label>
           <div class="fs-color-current"><div class="fs-color-chip" id="faceColorChip"></div><div class="fs-color-meta" id="faceColorName">Selected color<small>HEX · RGB565 output</small></div><button class="fs-quiet fs-color-open" onclick="toggleFaceColorPicker()">Edit</button></div>
           <div class="fs-color-pop" id="faceColorPopover">
             <div class="fs-sv-plane" id="faceSVPlane"><div class="fs-sv-knob" id="faceSVKnob"></div></div>
@@ -294,7 +295,7 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
             <div class="fs-swatches" id="faceSwatches"></div>
           </div>
         </div>
-        <div class="fs-field"><label>Visibility</label><label class="fs-check"><input id="faceLayerVisible" type="checkbox" checked> Visible on watch preview</label></div>
+        <div class="fs-field"><label>Visibility</label><label class="fs-check"><input id="faceLayerVisible" type="checkbox" checked> Visible on watch preview</label><label class="fs-check"><input id="faceShowSecondsVisible" type="checkbox" checked> Show seconds hand</label><label class="fs-check"><input id="faceShowDateVisible" type="checkbox" checked> Show date</label></div>
       </div>
       <div id="faceCropPanel" class="fs-hidden">
         <div class="fs-field"><label>Image crop preview</label><div class="fs-crop-box"><div class="fs-crop-preview"><img id="faceCropThumb" alt="Crop preview" hidden></div><div class="fs-note" style="font-size:9px;color:#7f92ad;margin-top:8px">Drag the image on canvas or use crop controls below.</div></div></div>
@@ -479,7 +480,7 @@ async function syncWeather(){
 const FACE_LIBRARY_KEY="esp32-face-studio-library-v2";
 let faceLibrary=[];
 let faceProject={format:"WFACE-PROJECT",version:2,displayProfile:"gc9a01-240-round",rendererApi:1,name:"My custom face",colors:{background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"},showSeconds:true,showDate:true,image:null,layers:[],selectedLayerId:null};
-let faceUndoStack=[],faceRedoStack=[],faceZoomLevel=1,faceGridVisible=false,faceDragging=null,faceHueValue=210,faceSatValue=1,faceBrightValue=1,faceCurrentColor="#ffffff",faceCustomFont=null;
+let faceUndoStack=[],faceRedoStack=[],faceZoomLevel=1,faceGridVisible=false,faceDragging=null,faceHueValue=210,faceSatValue=1,faceBrightValue=1,faceCurrentColor="#ffffff",faceCustomFont=null,faceCachedImage=null,faceCachedImageSrc="";
 const faceCanvas=document.getElementById("facePreview");
 const faceCtx=faceCanvas.getContext("2d");
 const faceFonts=["Arial","Georgia","Verdana","Trebuchet MS","Courier New","serif","sans-serif","monospace"];
@@ -497,10 +498,13 @@ function faceDesignFromControls(){return {format:"WFACE-PROFILE",version:1,displ
 function faceApplyProject(project){
   faceProject=faceClone(project);
   faceProject.name=String(faceProject.name||"Untitled face").slice(0,32);
-  faceProject.colors=faceProject.colors||{background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"};
+  faceProject.colors=faceProject.colors||{};
+  const defaults={background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"};
+  Object.keys(defaults).forEach(key=>{if(!/^#[0-9a-fA-F]{6}$/.test(faceProject.colors[key]||""))faceProject.colors[key]=defaults[key]});
   faceProject.layers=Array.isArray(faceProject.layers)?faceProject.layers:[];
   faceProject.image=faceProject.image||null;
   faceProject.selectedLayerId=faceProject.selectedLayerId||null;
+  if(faceProject.customFont?.dataUrl){try{const font=new FontFace(faceProject.customFont.family||"CustomFaceFont","url("+faceProject.customFont.dataUrl+")");font.load().then(loaded=>document.fonts.add(loaded)).then(()=>renderFacePreview())}catch(error){console.warn("Custom font could not be restored",error)}}
   document.getElementById("faceName").value=faceProject.name;
   faceSyncUI();
   faceUndoStack=[];faceRedoStack=[];
@@ -513,18 +517,19 @@ function faceSyncUI(){
   document.getElementById("faceAccent").value=faceProject.colors.accent;
   document.getElementById("faceShowSeconds").checked=faceProject.showSeconds!==false;
   document.getElementById("faceShowDate").checked=faceProject.showDate!==false;
+  document.getElementById("faceShowSecondsVisible").checked=faceProject.showSeconds!==false;
+  document.getElementById("faceShowDateVisible").checked=faceProject.showDate!==false;
   document.getElementById("faceName").value=faceProject.name;
   renderFacePreview();renderFaceLayers();renderFaceAssets();syncFaceInspector();
 }
 function faceImageObject(){
   if(!faceProject.image||!faceProject.image.dataUrl)return null;
-  if(!faceProject.image._image){
-    const img=new Image();
-    img.onload=()=>renderFacePreview();
-    img.src=faceProject.image.dataUrl;
-    faceProject.image._image=img;
+  if(!faceCachedImage||faceCachedImageSrc!==faceProject.image.dataUrl){
+    faceCachedImage=new Image();faceCachedImageSrc=faceProject.image.dataUrl;
+    faceCachedImage.onload=()=>renderFacePreview();
+    faceCachedImage.src=faceProject.image.dataUrl;
   }
-  return faceProject.image._image.complete&&faceProject.image._image.naturalWidth?faceProject.image._image:null;
+  return faceCachedImage.complete&&faceCachedImage.naturalWidth?faceCachedImage:null;
 }
 function renderFacePreview(){
   if(!faceCtx)return;
@@ -548,8 +553,9 @@ function renderFacePreview(){
   faceCtx.strokeStyle=colors.accent;faceCtx.lineWidth=2;
   for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?101:107),120+Math.sin(a)*(major?101:107));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
   faceCtx.fillStyle=colors.accent;faceCtx.font="11px Arial";faceCtx.textAlign="center";faceCtx.textBaseline="middle";faceCtx.fillText("UTC+7",80,102);
-  faceCtx.fillStyle=colors.hand;faceCtx.font="12px monospace";faceCtx.fillText(faceProject.showSeconds?"10:10:35":"10:10",80,122);
-  if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="10px Arial";faceCtx.fillText("FRI",160,102);faceCtx.fillStyle=colors.hand;faceCtx.font="17px Arial";faceCtx.fillText("06",160,122)}
+  const now=new Date();const liveTime=now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  faceCtx.fillStyle=colors.hand;faceCtx.font="12px monospace";faceCtx.fillText(faceProject.showSeconds?liveTime:liveTime.slice(0,5),80,122);
+  if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="10px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short"}).toUpperCase(),160,102);faceCtx.fillStyle=colors.hand;faceCtx.font="17px Arial";faceCtx.fillText(String(now.getDate()).padStart(2,"0"),160,122)}
   const hand=(angle,length,width,color)=>{faceCtx.strokeStyle=color;faceCtx.lineWidth=width;faceCtx.lineCap="round";faceCtx.beginPath();faceCtx.moveTo(120,120);faceCtx.lineTo(120+Math.cos(angle)*length,120+Math.sin(angle)*length);faceCtx.stroke()};
   hand((10+10/60)*Math.PI/6-Math.PI/2,47,5,colors.hand);hand((10+35/60)*Math.PI/30-Math.PI/2,76,3,colors.hand);
   if(faceProject.showSeconds)hand(35*Math.PI/30-Math.PI/2,94,1.5,colors.accent);
@@ -558,7 +564,8 @@ function renderFacePreview(){
     if(layer.visible===false)return;
     faceCtx.save();faceCtx.globalAlpha=Number(layer.opacity??100)/100;
     if(layer.type==="text"){
-      const content=layer.uppercase?String(layer.text||"Text").toUpperCase():String(layer.text||"Text");
+      let rawText=layer.binding==="time"?new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:faceProject.showSeconds?"2-digit":undefined,hour12:false}):layer.binding==="date"?new Date().toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}):String(layer.text||"Text");
+      const content=layer.uppercase?String(rawText).toUpperCase():String(rawText);
       const family=layer.fontFamily||"Arial",weight=layer.fontWeight||"400";
       faceCtx.font=weight+" "+(Number(layer.fontSize)||18)+"px '"+family+"'";
       faceCtx.fillStyle=layer.color||"#ffffff";faceCtx.textAlign=layer.align||"center";faceCtx.textBaseline="middle";
@@ -576,6 +583,7 @@ function faceAddLayer(type,text){
   faceProject.layers.push(layer);faceProject.selectedLayerId=layer.id;faceSyncUI();setFaceInspectorTab(type==="text"?"type":"design");faceMarkChanged();
 }
 function addFaceText(text){faceAddLayer("text",text||"New text")}
+function addFaceWidget(binding){facePushUndo();const layer={id:faceNewId(),type:"text",name:binding==="time"?"Time widget":"Date widget",binding,visible:true,opacity:100,x:120,y:170,text:"",fontFamily:"Arial",fontWeight:"700",fontSize:binding==="time"?23:14,color:"#ffffff",align:"center",uppercase:true};faceProject.layers.push(layer);faceProject.selectedLayerId=layer.id;faceSyncUI();setFaceInspectorTab("type");faceMarkChanged()}
 function removeFaceLayer(){const index=faceProject.layers.findIndex(layer=>layer.id===faceProject.selectedLayerId);if(index<0)return;facePushUndo();faceProject.layers.splice(index,1);faceProject.selectedLayerId=faceProject.layers[Math.min(index,faceProject.layers.length-1)]?.id||null;faceSyncUI();faceMarkChanged()}
 function moveFaceLayer(direction){const index=faceProject.layers.findIndex(layer=>layer.id===faceProject.selectedLayerId);const next=index+direction;if(index<0||next<0||next>=faceProject.layers.length)return;facePushUndo();[faceProject.layers[index],faceProject.layers[next]]=[faceProject.layers[next],faceProject.layers[index]];faceSyncUI();faceMarkChanged()}
 function toggleSelectedFaceLayer(){const layer=faceSelectedLayer();if(!layer)return;facePushUndo();layer.visible=layer.visible===false;faceSyncUI();faceMarkChanged()}
@@ -612,7 +620,8 @@ function syncFaceInspector(){
   document.getElementById("faceX").disabled=!source;document.getElementById("faceY").disabled=!source;
   document.getElementById("faceSize").disabled=!source;document.getElementById("faceOpacity").disabled=!source;
   document.getElementById("faceLayerVisible").disabled=!source;
-  const color=source?.color||faceProject.colors.accent;faceSetColorDisplay(color);
+  const target=document.getElementById("faceColorTarget");target.value=source?"accent":target.value||"accent";
+  const color=source?.color||faceProject.colors[target.value]||faceProject.colors.accent;faceSetColorDisplay(color);
   const crop=faceProject.image||{zoom:1,x:0,y:0};
   document.getElementById("faceCropZoom").value=Math.round((crop.zoom||1)*100);document.getElementById("faceCropX").value=crop.x||0;document.getElementById("faceCropY").value=crop.y||0;
   document.getElementById("faceCropThumb").hidden=!faceProject.image;
@@ -644,7 +653,7 @@ function faceApplySelectedColor(hex){
   if(!/^#[0-9a-fA-F]{6}$/.test(hex))return;
   const layer=faceSelectedLayer();
   facePushUndo();
-  if(layer)layer.color=hex;else faceProject.colors.accent=hex;
+  if(layer)layer.color=hex;else{const target=document.getElementById("faceColorTarget").value;faceProject.colors[target]=hex;document.getElementById("face"+target.charAt(0).toUpperCase()+target.slice(1)).value=hex;}
   faceSetColorDisplay(hex);faceSetHsvUI(hex);renderFacePreview();faceMarkChanged();
 }
 function applyFaceHex(){faceApplySelectedColor(document.getElementById("faceHex").value.trim())}
@@ -669,8 +678,12 @@ function faceLoadImage(file){
   reader.onload=()=>{
     const img=new Image();
     img.onload=()=>{
-      facePushUndo();faceProject.image={name:file.name,dataUrl:String(reader.result),width:img.naturalWidth,height:img.naturalHeight,zoom:1,x:0,y:0,opacity:1};
-      faceProject.selectedLayerId="__image";faceSyncUI();setFaceInspectorTab("crop");faceSetStatus("Image imported · adjust crop and position","IMAGE ADDED");faceMarkChanged();
+      const maxSide=480,scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+      const temp=document.createElement("canvas");temp.width=Math.max(1,Math.round(img.naturalWidth*scale));temp.height=Math.max(1,Math.round(img.naturalHeight*scale));
+      const tempCtx=temp.getContext("2d");tempCtx.drawImage(img,0,0,temp.width,temp.height);
+      let optimized=temp.toDataURL("image/webp",0.88);if(!optimized.startsWith("data:image/webp"))optimized=temp.toDataURL("image/png");
+      facePushUndo();faceProject.image={name:file.name,dataUrl:optimized,width:temp.width,height:temp.height,zoom:1,x:0,y:0,opacity:1};faceCachedImage=null;faceCachedImageSrc="";
+      faceProject.selectedLayerId="__image";faceSyncUI();setFaceInspectorTab("crop");faceSetStatus("Image optimized for 240 × 240 preview · adjust crop","IMAGE ADDED");faceMarkChanged();
     };
     img.onerror=()=>faceSetStatus("Could not decode this image");
     img.src=String(reader.result);
@@ -722,10 +735,13 @@ function faceBindInspector(){
   document.getElementById("faceFontInput").addEventListener("change",event=>{
     const file=event.target.files?.[0];if(!file)return;
     if(file.size>3*1024*1024){faceSetStatus("Font file exceeds 3 MB");event.target.value="";return}
-    const reader=new FileReader();reader.onload=async()=>{try{const family="CustomFaceFont";const font=new FontFace(family,"url("+String(reader.result)+")");await font.load();document.fonts.add(font);faceCustomFont={name:file.name,dataUrl:String(reader.result),family};const layer=faceSelectedLayer();if(layer){facePushUndo();layer.fontFamily=family;faceSyncUI();faceSetStatus("Custom font loaded for browser preview · embedded in project export")}else faceSetStatus("Font loaded · add or select a text layer to use it")}catch(error){faceSetStatus("Could not load this font file")}event.target.value=""};reader.readAsDataURL(file);
+    const reader=new FileReader();reader.onload=async()=>{try{const family="CustomFaceFont";const fontData=String(reader.result);const font=new FontFace(family,"url("+fontData+")");await font.load();document.fonts.add(font);faceCustomFont={name:file.name,dataUrl:fontData,family};faceProject.customFont=faceCustomFont;const layer=faceSelectedLayer();if(layer){facePushUndo();layer.fontFamily=family;faceSyncUI();faceSetStatus("Custom font loaded · included in exported project")}else faceSetStatus("Font loaded · add or select a text layer to use it")}catch(error){faceSetStatus("Could not load this font file")}event.target.value=""};reader.readAsDataURL(file);
   });
   const swatches=["#FFFFFF","#D9E7F7","#FBE0A0","#18C3C3","#5AA9FF","#7C6CFF","#F36F91","#FF8A4C","#151B2B","#000000"];
   const swatchRoot=document.getElementById("faceSwatches");swatches.forEach(color=>{const button=document.createElement("button");button.className="fs-swatch";button.style.background=color;button.title=color;button.onclick=()=>faceApplySelectedColor(color);swatchRoot.appendChild(button)});
+  document.getElementById("faceColorTarget").addEventListener("change",()=>{const layer=faceSelectedLayer();faceSetColorDisplay(layer?.color||faceProject.colors[document.getElementById("faceColorTarget").value]);faceSetHsvUI(layer?.color||faceProject.colors[document.getElementById("faceColorTarget").value])});
+  document.getElementById("faceShowSecondsVisible").addEventListener("change",e=>{facePushUndo();faceProject.showSeconds=e.target.checked;faceSyncUI();faceMarkChanged()});
+  document.getElementById("faceShowDateVisible").addEventListener("change",e=>{facePushUndo();faceProject.showDate=e.target.checked;faceSyncUI();faceMarkChanged()});
   document.getElementById("faceSVPlane").style.setProperty("--hue","hsl(210,100%,50%)");
   faceSetHsvUI("#FFFFFF");
 }
@@ -786,6 +802,7 @@ function initializeFaceStudio(){
   try{const stored=JSON.parse(localStorage.getItem(FACE_LIBRARY_KEY)||"[]");if(Array.isArray(stored))faceLibrary=stored.filter(project=>project&&["WFACE-PROJECT","WFACE-PROFILE"].includes(project.format)&&project.displayProfile==="gc9a01-240-round")}
   catch(error){faceLibrary=[]}
   refreshFaceLibrary();faceBindInspector();faceSyncUI();setFaceInspectorTab("design");
+  window.setInterval(renderFacePreview,1000);
 }
 initializeFaceStudio();
 
