@@ -389,7 +389,9 @@ async function applyFaceToWatch(){
   if(!bleCharacteristic){status.textContent="Connect Bluetooth to the watch first";return}
   const face=faceDesignFromControls();
   const flags=(face.showSeconds?1:0)|(face.showDate?2:0);
-  const command="FACE_SET:"+[hexToRgb565(face.background),hexToRgb565(face.dial),hexToRgb565(face.hand),hexToRgb565(face.accent),flags].join(",");
+  const hex4=value=>value.toString(16).toUpperCase().padStart(4,"0");
+  // Compact ASCII frame is exactly 20 bytes, fitting the default BLE ATT payload.
+  const command="FS:"+[face.background,face.dial,face.hand,face.accent].map(hex=>hex4(hexToRgb565(hex))).join("")+flags.toString();
   button.disabled=true;status.textContent="Sending compatible face profile...";
   const ok=await sendBLECommand(command);
   if(!ok){status.textContent="Transfer failed · check Bluetooth";button.disabled=false;return}
