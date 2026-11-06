@@ -104,6 +104,11 @@ static uint8_t autoSleepTimeoutSeconds = 15; // 0 disables automatic sleep.
 static uint32_t lastUserActivityMs = 0;
 static uint32_t lastButtonActivitySeenMs = 0;
 static bool previousBleConnected = false;
+static bool restoreWifiAfterLightSleep = false;
+
+// Forward declaration: Light Sleep restores the Wi-Fi state that was active
+// before sleep, without changing the user's explicit Wi-Fi OFF preference.
+void toggleWiFi();
 
 void setAutoSleepTimeoutSeconds(uint8_t seconds) {
     if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
@@ -131,7 +136,9 @@ static void enterLightSleep() {
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
 
     // The main loop defers sleep until background radio work has completed.
-    // Preserve cached weather/time in RAM and NVS; shut down radios only.
+    // Preserve whether Wi-Fi was enabled before sleep. The radio is powered
+    // down during Light Sleep, but the user's Wi-Fi preference must survive.
+    restoreWifiAfterLightSleep = wifiEnabled;
     WiFi.disconnect(false, false);
     WiFi.mode(WIFI_OFF);
     wifiEnabled = false;
@@ -165,10 +172,19 @@ static void enterLightSleep() {
     // The TFT was intentionally kept awake (black screen) during MCU sleep,
     // so no panel reset or sleep-out sequence is needed. Redraw immediately.
 
-    // Radios remain OFF until explicitly enabled from the menu.
+    // Restore Wi-Fi only if it was enabled before sleep. This reconnects
+    // asynchronously; the existing connection monitor will schedule a fresh
+    // weather fetch once the network is ready. Bluetooth remains user-controlled.
     beginButtonManager();
+    if (restoreWifiAfterLightSleep) {
+        restoreWifiAfterLightSleep = false;
+        Serial.println("[POWER] Restoring Wi-Fi state from before Light Sleep.");
+        toggleWiFi();
+    } else {
+        Serial.println("[POWER] Wi-Fi was OFF before sleep; keeping it OFF.");
+    }
     drawCurrentScreen(true);
-    Serial.println("[POWER] Wake complete; radios remain OFF.");
+    Serial.println("[POWER] Wake complete.");
 }
 
 /**
