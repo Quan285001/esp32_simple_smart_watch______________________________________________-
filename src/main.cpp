@@ -304,6 +304,9 @@ static bool scheduleWeatherFetch() {
 /**
  * @brief Validates a manual weather request and applies the single-flight and cooldown rules.
  */
+// Forward declaration: manual weather actions wake the Wi-Fi radio on demand.
+void toggleWiFi();
+
 uint8_t requestWeatherFetch() {
     if (weatherFetchRunning || wifiScanRunning) return 1;
 
