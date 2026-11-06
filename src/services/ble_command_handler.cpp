@@ -27,21 +27,33 @@ extern bool setFaceStudioConfig(uint16_t background, uint16_t dial, uint16_t han
  * @param cmd Input or state used by this operation.
  */
 static void handleCommand(const String &cmd) {
-    if (cmd.startsWith("FACE_SET:")) {
-        unsigned int background = 0, dial = 0, hand = 0, accent = 0, flags = 0;
-        char extra = 0;
-        const int fields = sscanf(cmd.c_str() + 9, "%u,%u,%u,%u,%u%c",
-                                  &background, &dial, &hand, &accent, &flags, &extra);
-        if (fields != 5 || background > 65535U || dial > 65535U ||
-            hand > 65535U || accent > 65535U || flags > 3U) {
+    if (cmd.startsWith("FS:")) {
+        // FS:<bg RGB565><dial RGB565><hand RGB565><accent RGB565><flags>
+        // 20 ASCII bytes total: safe for the default 23-byte ATT MTU.
+        if (cmd.length() != 20) {
             sendBLENotification("ERR_FACE");
             return;
         }
-        if (!setFaceStudioConfig(static_cast<uint16_t>(background),
-                                 static_cast<uint16_t>(dial),
-                                 static_cast<uint16_t>(hand),
-                                 static_cast<uint16_t>(accent),
-                                 static_cast<uint8_t>(flags))) {
+        uint16_t colors[4] = {};
+        bool valid = true;
+        for (uint8_t color = 0; color < 4; ++color) {
+            uint16_t value = 0;
+            for (uint8_t digit = 0; digit < 4; ++digit) {
+                const char ch = cmd[3 + color * 4 + digit];
+                uint8_t nibble;
+                if (ch >= '0' && ch <= '9') nibble = ch - '0';
+                else if (ch >= 'A' && ch <= 'F') nibble = ch - 'A' + 10;
+                else if (ch >= 'a' && ch <= 'f') nibble = ch - 'a' + 10;
+                else { valid = false; break; }
+                value = static_cast<uint16_t>((value << 4) | nibble);
+            }
+            colors[color] = value;
+            if (!valid) break;
+        }
+        const char flagChar = cmd[19];
+        if (flagChar < '0' || flagChar > '3') valid = false;
+        if (!valid || !setFaceStudioConfig(colors[0], colors[1], colors[2],
+                                            colors[3], static_cast<uint8_t>(flagChar - '0'))) {
             sendBLENotification("ERR_FACE");
             return;
         }
