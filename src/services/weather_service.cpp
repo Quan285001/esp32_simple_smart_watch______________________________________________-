@@ -237,23 +237,24 @@ static const char* weatherDescription(int code) {
 // =====================================================
 
 /** Keep the selectable list to global-capable models suitable for HCMC. */
+static const char* const WEATHER_MODEL_IDS[] = {
+    "best_match",
+    "ecmwf_ifs",
+    "ecmwf_ifs025",
+    "ecmwf_aifs025_single",
+    "ncep_gfs_seamless",
+    "ncep_gfs_global",
+    "icon_seamless",
+    "icon_global",
+    "jma_gsm",
+    "cmc_gem_gdps",
+    "meteofrance_arpege_world",
+    "ukmo_global_deterministic_10km",
+    "cma_grapes_global"
+};
+
 static bool isSupportedWeatherModel(const String& model) {
-    static const char* const supported[] = {
-        "best_match",
-        "ecmwf_ifs",
-        "ecmwf_ifs025",
-        "ecmwf_aifs025_single",
-        "ncep_gfs_seamless",
-        "ncep_gfs_global",
-        "icon_seamless",
-        "icon_global",
-        "jma_gsm",
-        "cmc_gem_gdps",
-        "meteofrance_arpege_world",
-        "ukmo_global_deterministic_10km",
-        "cma_grapes_global"
-    };
-    for (const char* candidate : supported) {
+    for (const char* candidate : WEATHER_MODEL_IDS) {
         if (model == candidate) return true;
     }
     return false;
@@ -276,6 +277,18 @@ bool setWeatherModel(const String& model) {
     const String saved = prefs.getString("model", "");
     prefs.end();
     return written == model.length() && saved == model;
+}
+uint8_t getWeatherModelIndex() {
+    const String model = getWeatherModel();
+    for (uint8_t i = 0; i < sizeof(WEATHER_MODEL_IDS) / sizeof(WEATHER_MODEL_IDS[0]); ++i) {
+        if (model == WEATHER_MODEL_IDS[i]) return i;
+    }
+    return 0;
+}
+
+bool setWeatherModelByIndex(uint8_t index) {
+    if (index >= sizeof(WEATHER_MODEL_IDS) / sizeof(WEATHER_MODEL_IDS[0])) return false;
+    return setWeatherModel(String(WEATHER_MODEL_IDS[index]));
 }
 
 // =====================================================
