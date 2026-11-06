@@ -375,6 +375,7 @@ uint8_t requestWeatherFetchNow() {
         markWeatherRefreshPending();
         lastLocationWeatherRetryMs = 0;
         manualWeatherWakePending = !wifiEnabled;
+        weatherRequestWokeWifi = !wifiEnabled;
         lastManualWeatherRequestMs = millis();
         Serial.println("[WEATHER] Model refresh queued behind Wi-Fi scan.");
         return 0;
