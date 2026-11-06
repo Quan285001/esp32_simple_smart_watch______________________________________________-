@@ -171,6 +171,46 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
 #faceStudio .fs-layer-dock{display:none}#faceStudio .fs-layer-dock.show{display:block}
 @media(max-width:760px){.fs-home{padding:15px}.fs-home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fs-home-card{min-height:104px;padding:12px!important}.fs-home-head{align-items:flex-start;flex-direction:column}#faceStudio .fs-workspace{grid-template-columns:1fr!important}#faceStudio .fs-right{border-left:0;border-top:1px solid #243249}.fs-category-head{flex-wrap:wrap}}
 
+
+/* Google Photos-inspired Face Studio: preview first, tools below */
+.fs-home{display:flex;flex-direction:column;gap:0;padding:18px 20px 22px;background:#0c1422}
+.fs-home-head{order:0;margin-bottom:12px}
+.fs-home>.fs-center{order:1;width:100%;min-height:0;padding:10px 12px 22px;background:transparent;border:0}
+.fs-home-grid{order:2}
+.fs-home>.fs-center .fs-canvas-toolbar{max-width:560px;margin:0 auto 12px}
+.fs-home>.fs-center .fs-canvas-stage{width:min(100%,390px)}
+.fs-home>.fs-center #facePreview{width:min(100%,360px);box-shadow:0 16px 45px #0009,0 0 0 1px #526984,0 0 0 8px #17253a}
+.fs-home.category-open .fs-home-grid{display:none}
+.fs-home.category-open .fs-home-head{margin-bottom:2px}
+.fs-home.category-open .fs-canvas-caption span:last-child{display:none}
+.fs-editor-view{background:#0c1422}
+#faceStudio .fs-workspace{display:block;min-height:0}
+#faceStudio .fs-right{max-width:760px;margin:0 auto;border:0;padding:8px 20px 22px}
+#faceStudio .fs-panel-title,#faceStudio .fs-inspector-tabs{display:none}
+.fs-style-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.fs-style-card{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:6px!important;padding:10px!important;background:#121f31!important;border:1px solid #2a3e58!important;border-radius:12px!important;text-align:left;white-space:normal!important}
+.fs-style-card.selected{border-color:#68aafa!important;background:#193452!important;box-shadow:0 0 0 1px #68aafa44}
+.fs-style-thumb{width:100%;height:82px;display:grid;place-items:center;border-radius:8px;background:radial-gradient(circle,#293d58,#0a1321);color:#e9f2ff;text-align:center;font-size:17px;line-height:1.25;font-weight:700}
+.fs-style-thumb.analog,.fs-style-thumb.minimal,.fs-style-thumb.pilot,.fs-style-thumb.diver,.fs-style-thumb.roman{border-radius:50%;width:82px;height:82px;align-self:center;border:2px solid #6c85a5}
+.fs-style-thumb.minimal{font-size:20px;letter-spacing:5px}
+.fs-style-thumb.pilot{font-size:14px}
+.fs-style-thumb.diver{border:5px solid #6c85a5;font-size:11px}
+.fs-style-thumb.roman{font-family:Georgia,serif}
+.fs-style-thumb.digital{font-family:monospace;font-size:25px}
+.fs-style-thumb.digital.stack{font-family:Arial;font-size:22px}
+.fs-style-thumb.digital small{font-size:8px;letter-spacing:1px}
+.fs-style-thumb.words{font-size:13px;letter-spacing:1px}
+.fs-style-card strong{font-size:11px;color:#edf4ff}
+.fs-style-card small{font-size:9px;color:#8294ad;line-height:1.4}
+@media(max-width:760px){
+ .fs-home{padding:12px}
+ .fs-home>.fs-center{padding:7px 4px 18px}
+ .fs-home>.fs-center .fs-canvas-stage{width:min(100%,340px)}
+ .fs-home>.fs-center #facePreview{width:min(100%,310px)}
+ #faceStudio .fs-right{padding:8px 13px 18px}
+ .fs-style-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
 </style>
 </head>
 <body>
@@ -291,7 +331,25 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
 
 <div class="fs-home" id="faceHome">
  <div class="fs-home-head"><div><h2>What would you like to change?</h2><p>Choose one section. Its settings open separately, keeping the editor clean.</p></div><button class="fs-primary" onclick="openFaceUpload()">＋ Add photo</button></div>
- <div class="fs-home-grid">
+ <div class="fs-center">
+      <div class="fs-canvas-toolbar">
+        <div class="fs-toolbar-group">
+          <button class="fs-mini-btn" onclick="faceZoom(-0.1)" aria-label="Zoom out">−</button>
+          <span class="fs-zoom-label" id="faceZoomLabel">100%</span>
+          <button class="fs-mini-btn" onclick="faceZoom(0.1)" aria-label="Zoom in">+</button>
+          <button class="fs-mini-btn" onclick="faceZoom(0,true)">Fit</button>
+        </div>
+        <div class="fs-toolbar-group">
+          <button class="fs-mini-btn" onclick="toggleFaceGrid()">▦ Grid</button>
+          <button class="fs-mini-btn" onclick="renderFacePreview()">↻ Preview</button>
+        </div>
+      </div>
+      <div class="fs-canvas-stage" id="faceCanvasStage">
+        <canvas id="facePreview" width="480" height="480" aria-label="Interactive watch face canvas"></canvas>
+      </div>
+      <div class="fs-canvas-caption"><span><i class="fs-dot"></i>LIVE PREVIEW</span><span>240 × 240 · ROUND DISPLAY</span><span>DRAG ELEMENTS TO POSITION</span></div>
+    </div>
+<div class="fs-home-grid">
   <button class="fs-home-card primary" onclick="openFaceCategory('style')"><span class="fs-home-icon">◷</span><strong>Face styles</strong><small>Classic, Minimal, Digital, Pilot and Diver</small></button>
   <button class="fs-home-card" onclick="openFaceCategory('background')"><span class="fs-home-icon">◩</span><strong>Background</strong><small>Choose a background color or photo</small></button>
   <button class="fs-home-card" onclick="openFaceCategory('colors')"><span class="fs-home-icon">◉</span><strong>Colors</strong><small>Dial, hands, accent and palette</small></button>
@@ -321,24 +379,7 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
       
     </aside>
 
-    <div class="fs-center">
-      <div class="fs-canvas-toolbar">
-        <div class="fs-toolbar-group">
-          <button class="fs-mini-btn" onclick="faceZoom(-0.1)" aria-label="Zoom out">−</button>
-          <span class="fs-zoom-label" id="faceZoomLabel">100%</span>
-          <button class="fs-mini-btn" onclick="faceZoom(0.1)" aria-label="Zoom in">+</button>
-          <button class="fs-mini-btn" onclick="faceZoom(0,true)">Fit</button>
-        </div>
-        <div class="fs-toolbar-group">
-          <button class="fs-mini-btn" onclick="toggleFaceGrid()">▦ Grid</button>
-          <button class="fs-mini-btn" onclick="renderFacePreview()">↻ Preview</button>
-        </div>
-      </div>
-      <div class="fs-canvas-stage" id="faceCanvasStage">
-        <canvas id="facePreview" width="480" height="480" aria-label="Interactive watch face canvas"></canvas>
-      </div>
-      <div class="fs-canvas-caption"><span><i class="fs-dot"></i>LIVE PREVIEW</span><span>240 × 240 · ROUND DISPLAY</span><span>DRAG ELEMENTS TO POSITION</span></div>
-    </div>
+    
 
     <aside class="fs-sidebar fs-right">
       <div class="fs-panel-title">DESIGN INSPECTOR <small id="faceSelectedLabel">FACE</small></div>
@@ -389,7 +430,18 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
         <div class="fs-field"><label>Custom font file · .TTF / .OTF</label><input id="faceFontInput" type="file" accept=".ttf,.otf,font/ttf,font/otf"></div>
         <div class="fs-field"><label class="fs-check"><input id="faceTextUpper" type="checkbox"> Uppercase text</label></div>
       </div>
-      <div id="faceStylePanel" class="fs-hidden"><div class="fs-field"><label>Display style</label><select id="faceStyleSelect"><option value="classic">Classic analog</option><option value="minimal">Minimal</option><option value="digital">Digital</option><option value="pilot">Pilot</option><option value="diver">Diver</option></select></div><p class="note">Style changes are previewed and saved in the .wface project. Firmware rendering support will be added separately.</p></div>
+      <div id="faceStylePanel" class="fs-hidden"><div class="fs-field"><label>Display style</label><select id="faceStyleSelect"><option value="classic">Classic analog</option><option value="minimal">Minimal</option><option value="digital">Digital</option><option value="pilot">Pilot</option><option value="diver">Diver</option><option value="roman">Roman numerals</option><option value="digitalStack">Digital stacked</option><option value="words">Time in words</option><option value="digitalMono">Digital monospace</option></select></div>
+<div class="fs-style-gallery">
+<button class="fs-style-card" onclick="chooseFaceStyle('classic')"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Classic hands</strong><small>Traditional analog dial</small></button>
+<button class="fs-style-card" onclick="chooseFaceStyle('minimal')"><span class="fs-style-thumb minimal">·　·　·</span><strong>Minimal</strong><small>Clean markers and hands</small></button>
+<button class="fs-style-card" onclick="chooseFaceStyle('pilot')"><span class="fs-style-thumb pilot">12　3<br>9　6</span><strong>Pilot</strong><small>Instrument-style indices</small></button>
+<button class="fs-style-card" onclick="chooseFaceStyle('diver')"><span class="fs-style-thumb diver">DIVER</span><strong>Diver</strong><small>Bold minute track</small></button>
+<button class="fs-style-card" onclick="chooseFaceStyle('roman')"><span class="fs-style-thumb roman">XII<br>IX　III<br>VI</span><strong>Roman</strong><small>Roman numeral dial</small></button>
+<button class="fs-style-card" onclick="chooseFaceStyle('digital')"><span class="fs-style-thumb digital">12:45</span><strong>Digital</strong><small>Large digital time</small></button>
+<button class="fs-style-card" onclick="chooseFaceStyle('digitalStack')"><span class="fs-style-thumb digital stack">12:45<br><small>FRI · 06 NOV</small></span><strong>Digital stacked</strong><small>Time with date below</small></button>
+<button class="fs-style-card" onclick="chooseFaceStyle('digitalMono')"><span class="fs-style-thumb digital mono">12:45:32</span><strong>Digital mono</strong><small>Monospace with seconds</small></button>
+<button class="fs-style-card" onclick="chooseFaceStyle('words')"><span class="fs-style-thumb words">TWELVE<br>FORTY FIVE</span><strong>Typography</strong><small>Time written in words</small></button>
+</div><p class="note">Styles are browser previews saved in the .wface project. The current ESP32 firmware still supports only the basic analog profile.</p></div>
       <div id="faceLibraryPanel" class="fs-hidden"><div class="fs-field"><label>Saved designs in this browser</label><select id="faceLibrarySelect" aria-label="Saved face designs"><option value="">No saved designs yet</option></select></div><div class="fs-row"><button class="fs-quiet" onclick="loadSelectedFace()">Open design</button><button class="fs-quiet" onclick="saveFaceDesign()">Save design</button></div><div class="fs-row"><button class="fs-quiet" onclick="document.getElementById('faceImportInput').click()">Import .wface</button><button class="fs-quiet" onclick="exportFaceDesign()">Export .wface</button></div></div>
       <div class="fs-capability" id="faceCapabilityNote">DEVICE PROFILE · Current firmware can apply the four base colors and seconds/date visibility. Uploaded images and custom text/fonts are previewed and saved in the .wface project; device rendering support is a later firmware phase.</div>
       <div class="fs-hidden">
@@ -612,6 +664,9 @@ function renderFacePreview(){
   if(style==="minimal"){
     faceCtx.lineWidth=2;
     for(let i=0;i<12;i++){const a=i*Math.PI/6-Math.PI/2;faceCtx.beginPath();faceCtx.arc(120+Math.cos(a)*103,120+Math.sin(a)*103, i%3===0?2.4:1.3,0,Math.PI*2);faceCtx.fill()}
+  }else if(style==="roman"){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<12;i++){const a=i*Math.PI/6-Math.PI/2;const nums=["XII","I","II","III","IV","V","VI","VII","VIII","IX","X","XI"];faceCtx.fillStyle=colors.hand;faceCtx.font="bold 13px Georgia";faceCtx.fillText(nums[i],120+Math.cos(a)*88,120+Math.sin(a)*88)}
   }else if(style==="pilot"){
     faceCtx.lineWidth=2;
     for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?94:105),120+Math.sin(a)*(major?94:105));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
@@ -625,7 +680,19 @@ function renderFacePreview(){
     faceCtx.lineWidth=2;
     for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?101:107),120+Math.sin(a)*(major?101:107));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
   }
-  if(style==="digital"){
+  if(style==="words"){
+    const hourWords=["TWELVE","ONE","TWO","THREE","FOUR","FIVE","SIX","SEVEN","EIGHT","NINE","TEN","ELEVEN"];
+    const minuteWords=["O'CLOCK","FIVE","TEN","FIFTEEN","TWENTY","TWENTY FIVE","THIRTY","THIRTY FIVE","FORTY","FORTY FIVE","FIFTY","FIFTY FIVE"];
+    const hour=now.getHours()%12,minute=now.getMinutes(),rounded=Math.round(minute/5)%12;
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 12px Arial";faceCtx.fillText("THE TIME IS",120,83);
+    faceCtx.fillStyle=colors.hand;faceCtx.font="bold 27px Arial";faceCtx.fillText(hourWords[hour],120,111);
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 19px Arial";faceCtx.fillText(minuteWords[rounded],120,140);
+    if(faceProject.showDate){faceCtx.font="10px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,170)}
+  }else if(style==="digitalStack"||style==="digitalMono"){
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 10px Arial";faceCtx.fillText("LOCAL TIME",120,83);
+    faceCtx.fillStyle=colors.hand;faceCtx.font=style==="digitalMono"?"bold 28px monospace":"bold 36px Arial";faceCtx.fillText(style==="digitalMono"?liveTime:liveTime.slice(0,5),120,119);
+    if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="11px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,153)}
+  }else if(style==="digital"){
     faceCtx.fillStyle=colors.accent;faceCtx.font="bold 11px Arial";faceCtx.fillText("LOCAL TIME",120,82);
     faceCtx.fillStyle=colors.hand;faceCtx.font="bold 34px monospace";faceCtx.fillText(faceProject.showSeconds?liveTime:liveTime.slice(0,5),120,119);
     if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="12px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,151)}
@@ -886,8 +953,22 @@ async function applyFaceToWatch(){
   status.textContent="Profile sent · waiting for firmware confirmation...";
   window.setTimeout(()=>{button.disabled=false},2500);
 }
+function chooseFaceStyle(style){
+  const allowed=["classic","minimal","pilot","diver","roman","digital","digitalStack","digitalMono","words"];
+  if(!allowed.includes(style))return;
+  facePushUndo();faceProject.style=style;
+  const select=document.getElementById("faceStyleSelect");if(select)select.value=style;
+  renderFacePreview();renderFaceStyleSelection();faceMarkChanged();
+}
+function renderFaceStyleSelection(){
+  document.querySelectorAll(".fs-style-card").forEach(card=>{
+    const match=card.getAttribute("onclick")?.match(/chooseFaceStyle\('([^']+)'\)/);
+    card.classList.toggle("selected",!!match&&match[1]===(faceProject.style||"classic"));
+  });
+}
+
 function closeFaceCategory(){
-  document.getElementById("faceHome").classList.remove("fs-hidden");
+  document.getElementById("faceHome").classList.remove("category-open");
   document.getElementById("faceEditorWorkspace").classList.add("fs-hidden");
   document.getElementById("faceLayerDock").classList.remove("show");
 }
@@ -904,7 +985,7 @@ function openFaceCategory(category){
     library:["My designs","Open saved designs or import and export a project."]
   };
   const item=meta[category]||meta.style;
-  document.getElementById("faceHome").classList.add("fs-hidden");
+  document.getElementById("faceHome").classList.add("category-open");
   document.getElementById("faceEditorWorkspace").classList.remove("fs-hidden");
   document.getElementById("faceCategoryTitle").textContent=item[0];
   document.getElementById("faceCategoryDescription").textContent=item[1];
@@ -913,6 +994,7 @@ function openFaceCategory(category){
   document.getElementById("faceVisibilityFields").classList.toggle("fs-hidden",category!=="clock");
   document.getElementById("faceLayerDock").classList.toggle("show",["layout","layers"].includes(category));
   document.getElementById("faceCapabilityNote").classList.toggle("fs-hidden",!["style","background","colors","clock","images","text"].includes(category));
+  if(category==="style"){renderFaceStyleSelection();document.getElementById("faceStyleSelect").value=faceProject.style||"classic"}
   if(category==="background"){document.getElementById("faceColorTarget").value="background";faceSetColorDisplay(faceProject.colors.background);faceSetHsvUI(faceProject.colors.background);setFaceInspectorTab("design")}
   else if(category==="colors"){document.getElementById("faceColorTarget").value="accent";faceSetColorDisplay(faceProject.colors.accent);faceSetHsvUI(faceProject.colors.accent);setFaceInspectorTab("design")}
   else if(category==="clock"||category==="layout"||category==="layers")setFaceInspectorTab("design");
@@ -925,7 +1007,7 @@ function openFaceCategory(category){
 function initializeFaceStudio(){
   try{const stored=JSON.parse(localStorage.getItem(FACE_LIBRARY_KEY)||"[]");if(Array.isArray(stored))faceLibrary=stored.filter(project=>project&&["WFACE-PROJECT","WFACE-PROFILE"].includes(project.format)&&project.displayProfile==="gc9a01-240-round")}
   catch(error){faceLibrary=[]}
-  refreshFaceLibrary();faceBindInspector();faceSyncUI();setFaceInspectorTab("design");
+  refreshFaceLibrary();faceBindInspector();faceSyncUI();renderFaceStyleSelection();setFaceInspectorTab("design");
   window.setInterval(renderFacePreview,1000);
 }
 initializeFaceStudio();
