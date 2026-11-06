@@ -305,7 +305,6 @@ static bool scheduleWeatherFetch() {
  * @brief Validates a manual weather request and applies the single-flight and cooldown rules.
  */
 uint8_t requestWeatherFetch() {
-    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
     if (weatherFetchRunning || wifiScanRunning) return 1;
 
     const uint32_t now = millis();
@@ -314,29 +313,54 @@ uint8_t requestWeatherFetch() {
         return 3;
     }
 
-    if (!scheduleWeatherFetch()) {
-        return weatherFetchRunning ? 1 : 2;
+    // Wi-Fi is intentionally powered down after startup to save battery.
+    // A user-requested refresh must wake the radio and reconnect with the
+    // credentials already stored in Preferences instead of failing with ERR_WIFI.
+    locationWeatherRefreshPending = true;
+    lastLocationWeatherRetryMs = 0;
+    if (!wifiEnabled) {
+        toggleWiFi();
+        Serial.println("[WEATHER] Manual refresh queued; Wi-Fi is reconnecting.");
+        lastManualWeatherRequestMs = now;
+        return 0;
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[WEATHER] Manual refresh queued; waiting for Wi-Fi.");
+        lastManualWeatherRequestMs = now;
+        return 0;
     }
 
+    if (!scheduleWeatherFetch()) {
+        return weatherFetchRunning ? 1 : 0;
+    }
+    locationWeatherRefreshPending = false;
     lastManualWeatherRequestMs = now;
     return 0;
 }
 
-/** Model changes must immediately download a forecast, bypassing manual retry cooldown. */
+/** Model changes persist immediately and queue a forecast refresh even while Wi-Fi is asleep. */
 uint8_t requestWeatherFetchNow() {
-    // Preserve a model refresh request if Wi-Fi is unavailable or another
-    // network operation is active. The main loop retries it when possible.
-    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) {
-        locationWeatherRefreshPending = true;
-        return 2;
-    }
     if (weatherFetchRunning || wifiScanRunning) {
         locationWeatherRefreshPending = true;
+        lastLocationWeatherRetryMs = 0;
         return 1;
     }
+
+    locationWeatherRefreshPending = true;
+    lastLocationWeatherRetryMs = 0;
+    if (!wifiEnabled) {
+        toggleWiFi();
+        Serial.println("[WEATHER] Model refresh queued; Wi-Fi is reconnecting.");
+        lastManualWeatherRequestMs = millis();
+        return 0;
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[WEATHER] Model refresh queued; waiting for Wi-Fi.");
+        lastManualWeatherRequestMs = millis();
+        return 0;
+    }
     if (!scheduleWeatherFetch()) {
-        locationWeatherRefreshPending = true;
-        return weatherFetchRunning ? 1 : 2;
+        return weatherFetchRunning ? 1 : 0;
     }
     locationWeatherRefreshPending = false;
     lastManualWeatherRequestMs = millis();
