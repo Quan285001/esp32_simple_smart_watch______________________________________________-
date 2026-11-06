@@ -676,7 +676,7 @@ function renderFacePreview(){
     faceCtx.lineWidth=4;faceCtx.beginPath();faceCtx.arc(120,120,108,0,Math.PI*2);faceCtx.stroke();
     for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.lineWidth=major?3:1;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?91:104),120+Math.sin(a)*(major?91:104));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
     faceCtx.fillStyle=colors.accent;faceCtx.font="bold 10px Arial";faceCtx.fillText("DIVER",120,66);
-  }else if(style!=="digital"){
+  }else if(!["digital","digitalStack","digitalMono","words"].includes(style)){
     faceCtx.lineWidth=2;
     for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?101:107),120+Math.sin(a)*(major?101:107));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
   }
