@@ -431,6 +431,12 @@ function handleNotifications(event){
     const [message,ok,finished]=weatherMessages[chunk];
     clearTimeout(weatherResponseTimer);
     document.getElementById("weatherStatus").textContent=message;
+    if(chunk==="WEATHER_OK"){
+      const modelSelect=document.getElementById("weatherModelSelect");
+      document.getElementById("weatherModelStatus").textContent="Forecast updated · "+modelSelect.options[modelSelect.selectedIndex].text;
+    }else if(chunk==="WEATHER_FAILED"){
+      document.getElementById("weatherModelStatus").textContent="Model saved · update failed, previous forecast cache retained";
+    }
     if(finished)document.getElementById("weatherBtn").disabled=false;
     if(chunk==="WEATHER_STARTED")weatherResponseTimer=window.setTimeout(()=>{
       const button=document.getElementById("weatherBtn");
