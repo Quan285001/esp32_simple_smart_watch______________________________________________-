@@ -838,7 +838,6 @@ void loop() {
     if (locationWeatherRefreshPending &&
         !wifiScanRunning &&
         !weatherFetchRunning &&
-        WiFi.status() != WL_CONNECTED &&
         weatherRefreshPendingSinceMs != 0 &&
         now - weatherRefreshPendingSinceMs >= 60000UL) {
         Serial.println("[WEATHER] Pending refresh expired after 60 seconds; keeping cached forecast.");
