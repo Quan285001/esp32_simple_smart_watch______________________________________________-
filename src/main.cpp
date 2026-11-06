@@ -69,6 +69,7 @@ static bool wifiScanRestoreOff = false;
 static volatile int8_t weatherNotifyPending = -1;
 static volatile bool locationWeatherRefreshPending = false;
 static bool manualWeatherWakePending = false;
+static bool weatherRequestWokeWifi = false;
 static uint32_t weatherRefreshPendingSinceMs = 0;
 
 static void markWeatherRefreshPending() {
@@ -325,6 +326,7 @@ uint8_t requestWeatherFetch() {
         markWeatherRefreshPending();
         lastLocationWeatherRetryMs = 0;
         manualWeatherWakePending = !wifiEnabled;
+        weatherRequestWokeWifi = !wifiEnabled;
         lastManualWeatherRequestMs = millis();
         Serial.println("[WEATHER] Manual refresh queued behind Wi-Fi scan.");
         return 0;
@@ -342,6 +344,7 @@ uint8_t requestWeatherFetch() {
     markWeatherRefreshPending();
     lastLocationWeatherRetryMs = 0;
     if (!wifiEnabled) {
+        weatherRequestWokeWifi = true;
         toggleWiFi();
         Serial.println("[WEATHER] Manual refresh queued; Wi-Fi is reconnecting.");
         lastManualWeatherRequestMs = now;
@@ -380,6 +383,7 @@ uint8_t requestWeatherFetchNow() {
     markWeatherRefreshPending();
     lastLocationWeatherRetryMs = 0;
     if (!wifiEnabled) {
+        weatherRequestWokeWifi = true;
         toggleWiFi();
         Serial.println("[WEATHER] Model refresh queued; Wi-Fi is reconnecting.");
         lastManualWeatherRequestMs = millis();
@@ -451,6 +455,13 @@ static void serviceWeatherNotification() {
     const int8_t result = weatherNotifyPending;
     if (result < 0) return;
     weatherNotifyPending = -1;
+
+    // If this request woke Wi-Fi solely for a one-shot refresh, power the
+    // radio back down after the forecast task has saved its result.
+    if (weatherRequestWokeWifi) {
+        if (wifiEnabled) toggleWiFi();
+        weatherRequestWokeWifi = false;
+    }
     sendBLENotification(result ? "WEATHER_OK" : "WEATHER_FAILED");
 }
 
@@ -834,6 +845,10 @@ void loop() {
         Serial.println("[WEATHER] Pending refresh expired after 60 seconds; keeping cached forecast.");
         clearWeatherRefreshPending();
         manualWeatherWakePending = false;
+        if (weatherRequestWokeWifi) {
+            if (wifiEnabled) toggleWiFi();
+            weatherRequestWokeWifi = false;
+        }
         if (isBLEConnected()) sendBLENotification("WEATHER_FAILED");
     }
 
