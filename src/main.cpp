@@ -105,6 +105,25 @@ static uint32_t lastUserActivityMs = 0;
 static uint32_t lastButtonActivitySeenMs = 0;
 static bool previousBleConnected = false;
 
+/**
+ * @brief Reports heap health at important lifecycle boundaries.
+ * Values are runtime diagnostics, not a compile-time RAM usage percentage.
+ */
+static void logMemorySnapshot(const char* tag) {
+    const uint32_t freeHeap = ESP.getFreeHeap();
+    const uint32_t minFreeHeap = ESP.getMinFreeHeap();
+    const uint32_t largestBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    const uint32_t freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    Serial.printf(
+        "[MEM] %s: free=%u, min_free=%u, largest_block=%u, internal_free=%u bytes\\n",
+        tag,
+        static_cast<unsigned int>(freeHeap),
+        static_cast<unsigned int>(minFreeHeap),
+        static_cast<unsigned int>(largestBlock),
+        static_cast<unsigned int>(freeInternal)
+    );
+}
+
 void setAutoSleepTimeoutSeconds(uint8_t seconds) {
     if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
           seconds == 15 || seconds == 18 || seconds == 20)) {
@@ -169,6 +188,7 @@ static void enterLightSleep() {
     beginButtonManager();
     drawCurrentScreen(true);
     Serial.println("[POWER] Wake complete; radios remain OFF.");
+    logMemorySnapshot("AFTER_LIGHT_SLEEP_WAKE");
 }
 
 /**
@@ -199,8 +219,10 @@ static void weatherFetchTask(void *parameter) {
     (void)parameter;
 
     Serial.println("[WEATHER] Background fetch started.");
+    logMemorySnapshot("WEATHER_TASK_START");
 
     const bool success = fetchHourlyWeather();
+    logMemorySnapshot(success ? "WEATHER_FETCH_OK" : "WEATHER_FETCH_FAILED");
     if (success) {
         lastWeatherFetchMs = millis(); // Advance the refresh countdown only after valid data is committed.
         weatherDataValid = true;
@@ -221,6 +243,7 @@ static void weatherFetchTask(void *parameter) {
     }
 
     weatherFetchRunning = false;
+    logMemorySnapshot("WEATHER_TASK_END");
 
     vTaskDelete(nullptr);
 }
@@ -364,6 +387,7 @@ uint8_t requestWifiScan() {
 
     wifiScanRunning = true;
     Serial.println("[WIFI] Asynchronous scan started.");
+    logMemorySnapshot("WIFI_SCAN_START");
     return 0;
 }
 
@@ -407,6 +431,7 @@ static void serviceWifiScan() {
     serializeJson(doc, json);
     Serial.printf("[WIFI] Scan complete: %d found, %d returned, %u JSON bytes.\n",
                   count, returned, static_cast<unsigned int>(json.length()));
+    logMemorySnapshot("WIFI_SCAN_SERIALIZED");
 
     WiFi.scanDelete();
     if (wifiScanRestoreOff) WiFi.mode(WIFI_OFF);
@@ -580,10 +605,7 @@ void setup() {
 
     Serial.println("\n[BOOT] ESP32-C3 Smart Watch");
     Serial.printf("[BOOT] Reset reason: %d\n", static_cast<int>(esp_reset_reason()));
-    Serial.printf("[BOOT] Heap: free=%u, largest_block=%u, min_free=%u bytes\n",
-                  static_cast<unsigned int>(ESP.getFreeHeap()),
-                  static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
-                  static_cast<unsigned int>(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)));
+    logMemorySnapshot("BOOT");
 
     beginButtonManager();
     tft.init();
@@ -662,12 +684,7 @@ void loop() {
             if (isBLEEnabled()) {
                 toggleBLE();
             }
-            Serial.printf(
-                "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\n",
-                (unsigned int)ESP.getFreeHeap(),
-                (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-                (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
-            );
+            logMemorySnapshot("AFTER_BLE_INIT");
 
             WiFi.disconnect(false, false);
             WiFi.mode(WIFI_OFF);
@@ -700,9 +717,10 @@ void loop() {
     if (now - lastLoopHeartbeatMs >= 1000UL) {
         lastLoopHeartbeatMs = now;
         Serial.printf(
-            "[LOOP] Alive: uptime=%lu ms, free_heap=%u, largest_block=%u bytes\n",
+            "[LOOP] Alive: uptime=%lu ms, free_heap=%u, min_free_heap=%u, largest_block=%u bytes\n",
             static_cast<unsigned long>(now),
             static_cast<unsigned int>(ESP.getFreeHeap()),
+            static_cast<unsigned int>(ESP.getMinFreeHeap()),
             static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT))
         );
     }
@@ -728,6 +746,7 @@ void loop() {
     if (bleConnectedNow != previousBleConnected) {
         previousBleConnected = bleConnectedNow;
         lastUserActivityMs = now;
+        logMemorySnapshot(bleConnectedNow ? "BLE_CONNECTED" : "BLE_DISCONNECTED");
     }
 
     handleBLECommands();
