@@ -19,12 +19,35 @@ extern uint8_t requestWifiScan();
 extern bool isWifiScanBusy();
 extern void setAutoSleepTimeoutSeconds(uint8_t seconds);
 extern uint8_t getAutoSleepTimeoutSeconds();
+extern bool setFaceStudioConfig(uint16_t background, uint16_t dial, uint16_t hand,
+                                uint16_t accent, uint8_t flags);
 
 /**
  * @brief Parses and executes one BLE command.
  * @param cmd Input or state used by this operation.
  */
 static void handleCommand(const String &cmd) {
+    if (cmd.startsWith("FACE_SET:")) {
+        unsigned int background = 0, dial = 0, hand = 0, accent = 0, flags = 0;
+        char extra = 0;
+        const int fields = sscanf(cmd.c_str() + 9, "%u,%u,%u,%u,%u%c",
+                                  &background, &dial, &hand, &accent, &flags, &extra);
+        if (fields != 5 || background > 65535U || dial > 65535U ||
+            hand > 65535U || accent > 65535U || flags > 3U) {
+            sendBLENotification("ERR_FACE");
+            return;
+        }
+        if (!setFaceStudioConfig(static_cast<uint16_t>(background),
+                                 static_cast<uint16_t>(dial),
+                                 static_cast<uint16_t>(hand),
+                                 static_cast<uint16_t>(accent),
+                                 static_cast<uint8_t>(flags))) {
+            sendBLENotification("ERR_FACE");
+            return;
+        }
+        sendBLENotification("FACE_OK");
+        return;
+    }
     if (cmd == "GET_WEATHER_MODEL") {
         sendBLENotification(String("WM:") + String(getWeatherModelIndex()));
         return;
