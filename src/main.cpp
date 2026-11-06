@@ -68,6 +68,7 @@ static volatile bool wifiScanRunning = false;
 static bool wifiScanRestoreOff = false;
 static volatile int8_t weatherNotifyPending = -1;
 static volatile bool locationWeatherRefreshPending = false;
+static bool manualWeatherWakePending = false;
 static volatile bool bootNetworkRunning = false;
 static volatile bool bootNetworkNeedsBle = false;
 static bool bootUiReady = false;
@@ -308,7 +309,15 @@ static bool scheduleWeatherFetch() {
 void toggleWiFi();
 
 uint8_t requestWeatherFetch() {
-    if (weatherFetchRunning || wifiScanRunning) return 1;
+    if (weatherFetchRunning) return 1;
+    if (wifiScanRunning) {
+        locationWeatherRefreshPending = true;
+        lastLocationWeatherRetryMs = 0;
+        manualWeatherWakePending = !wifiEnabled;
+        lastManualWeatherRequestMs = millis();
+        Serial.println("[WEATHER] Manual refresh queued behind Wi-Fi scan.");
+        return 0;
+    }
 
     const uint32_t now = millis();
     if (lastManualWeatherRequestMs != 0 &&
@@ -343,10 +352,18 @@ uint8_t requestWeatherFetch() {
 
 /** Model changes persist immediately and queue a forecast refresh even while Wi-Fi is asleep. */
 uint8_t requestWeatherFetchNow() {
-    if (weatherFetchRunning || wifiScanRunning) {
+    if (weatherFetchRunning) {
         locationWeatherRefreshPending = true;
         lastLocationWeatherRetryMs = 0;
         return 1;
+    }
+    if (wifiScanRunning) {
+        locationWeatherRefreshPending = true;
+        lastLocationWeatherRetryMs = 0;
+        manualWeatherWakePending = !wifiEnabled;
+        lastManualWeatherRequestMs = millis();
+        Serial.println("[WEATHER] Model refresh queued behind Wi-Fi scan.");
+        return 0;
     }
 
     locationWeatherRefreshPending = true;
@@ -782,6 +799,18 @@ void loop() {
     serviceBLE();
     serviceWeatherNotification();
     serviceWifiScan();
+
+    // A manual refresh may arrive while the dashboard's startup Wi-Fi scan
+    // temporarily powers the radio. Wake Wi-Fi only after that scan releases it.
+    if (manualWeatherWakePending &&
+        !wifiEnabled &&
+        !wifiScanRunning &&
+        !weatherFetchRunning &&
+        !bootNetworkRunning &&
+        !bootNetworkNeedsBle) {
+        manualWeatherWakePending = false;
+        toggleWiFi();
+    }
 
     // Automatic sleep is deliberately disabled during an active BLE session.
     // Manual Sleep from the menu still bypasses this connection guard.
