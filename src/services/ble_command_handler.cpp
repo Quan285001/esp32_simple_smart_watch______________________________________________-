@@ -13,6 +13,7 @@ extern bool wifiEnabled;
  */
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
+extern uint8_t requestWeatherFetchNow();
 extern uint8_t requestWeatherFetchForLocation();
 extern uint8_t requestWifiScan();
 extern bool isWifiScanBusy();
@@ -30,14 +31,14 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd.startsWith("WEATHER_MODEL:")) {
-        const String model = cmd.substring(13);
+        const String model = cmd.substring(14);
         if (!setWeatherModel(model)) {
             sendBLENotification("ERR_WEATHER_MODEL_STORAGE");
             return;
         }
-        Serial.printf("[WEATHER] Model saved: %s\\n", model.c_str());
+        Serial.printf("[WEATHER] Model saved: %s\n", model.c_str());
         sendBLENotification(String("WEATHER_MODEL_OK:") + model);
-        const uint8_t result = requestWeatherFetch();
+        const uint8_t result = requestWeatherFetchNow();
         if (result == 0) sendBLENotification("WEATHER_STARTED");
         else if (result == 1) sendBLENotification("WEATHER_BUSY");
         else if (result == 2) sendBLENotification("ERR_WIFI");
