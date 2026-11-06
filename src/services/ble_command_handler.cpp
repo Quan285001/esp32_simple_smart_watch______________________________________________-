@@ -26,18 +26,20 @@ extern uint8_t getAutoSleepTimeoutSeconds();
  */
 static void handleCommand(const String &cmd) {
     if (cmd == "GET_WEATHER_MODEL") {
-        sendBLENotification(String("WEATHER_MODEL:") + getWeatherModel());
+        sendBLENotification(String("WM:") + String(getWeatherModelIndex()));
         return;
     }
 
-    if (cmd.startsWith("WEATHER_MODEL:")) {
-        const String model = cmd.substring(14);
-        if (!setWeatherModel(model)) {
-            sendBLENotification("ERR_WEATHER_MODEL_STORAGE");
+    if (cmd.startsWith("WM_SET:")) {
+        const String value = cmd.substring(7);
+        const int index = value.toInt();
+        if (value != String(index) || index < 0 || index > 12 ||
+            !setWeatherModelByIndex(static_cast<uint8_t>(index))) {
+            sendBLENotification("ERR_WM");
             return;
         }
-        Serial.printf("[WEATHER] Model saved: %s\n", model.c_str());
-        sendBLENotification(String("WEATHER_MODEL_OK:") + model);
+        Serial.printf("[WEATHER] Model index saved: %d\n", index);
+        sendBLENotification(String("WM_OK:") + String(index));
         const uint8_t result = requestWeatherFetchNow();
         if (result == 0) sendBLENotification("WEATHER_STARTED");
         else if (result == 1) sendBLENotification("WEATHER_BUSY");
