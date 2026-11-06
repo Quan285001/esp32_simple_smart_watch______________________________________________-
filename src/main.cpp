@@ -825,13 +825,12 @@ void loop() {
     // A manual refresh may arrive while the dashboard's startup Wi-Fi scan
     // temporarily powers the radio. Wake Wi-Fi only after that scan releases it.
     if (manualWeatherWakePending &&
-        !wifiEnabled &&
         !wifiScanRunning &&
         !weatherFetchRunning &&
         !bootNetworkRunning &&
         !bootNetworkNeedsBle) {
         manualWeatherWakePending = false;
-        toggleWiFi();
+        if (!wifiEnabled) toggleWiFi();
     }
 
     // Do not keep Wi-Fi powered or block automatic sleep forever if stored
