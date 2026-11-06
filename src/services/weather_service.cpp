@@ -233,6 +233,52 @@ static const char* weatherDescription(int code) {
 }
 
 // =====================================================
+// OPEN-METEO MODEL SELECTION
+// =====================================================
+
+/** Keep the selectable list to global-capable models suitable for HCMC. */
+static bool isSupportedWeatherModel(const String& model) {
+    static const char* const supported[] = {
+        "best_match",
+        "ecmwf_ifs",
+        "ecmwf_ifs025",
+        "ecmwf_aifs025_single",
+        "ncep_gfs_seamless",
+        "ncep_gfs_global",
+        "icon_seamless",
+        "icon_global",
+        "jma_gsm",
+        "cmc_gem_gdps",
+        "meteofrance_arpege_world",
+        "ukmo_global_deterministic_10km",
+        "cma_grapes_global"
+    };
+    for (const char* candidate : supported) {
+        if (model == candidate) return true;
+    }
+    return false;
+}
+
+String getWeatherModel() {
+    Preferences prefs;
+    if (!prefs.begin("weather", true)) return "best_match";
+    String model = prefs.getString("model", "best_match");
+    prefs.end();
+    if (!isSupportedWeatherModel(model)) return "best_match";
+    return model;
+}
+
+bool setWeatherModel(const String& model) {
+    if (!isSupportedWeatherModel(model)) return false;
+    Preferences prefs;
+    if (!prefs.begin("weather", false)) return false;
+    const size_t written = prefs.putString("model", model);
+    const String saved = prefs.getString("model", "");
+    prefs.end();
+    return written == model.length() && saved == model;
+}
+
+// =====================================================
 // FETCH WEATHER
 // =====================================================
 
@@ -263,7 +309,7 @@ bool fetchHourlyWeather() {
         "&current=temperature_2m,weather_code" +
         "&hourly=temperature_2m,weather_code,wind_speed_10m,surface_pressure,precipitation" +
         "&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,sunrise,sunset" +
-        "&forecast_days=2&timezone=auto";
+        "&forecast_days=2&timezone=auto&models=" + getWeatherModel();
 
     // Start a fresh weather payload but carry forward the last saved lunar
     // fields. If the optional lunar endpoint fails, old moon data must survive.
@@ -273,6 +319,8 @@ bool fetchHourlyWeather() {
     copyWeatherText(next.moonrise, sizeof(next.moonrise), previous.moonrise);
     copyWeatherText(next.moonset, sizeof(next.moonset), previous.moonset);
     next.detailsValid = false;
+
+    Serial.printf("[WEATHER] Using Open-Meteo model: %s\\n", getWeatherModel().c_str());
 
     Serial.printf(
         "[MEM] Before Weather TLS: free=%u, largest_block=%u, min_free=%u bytes\\n",
