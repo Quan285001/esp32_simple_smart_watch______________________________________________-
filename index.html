@@ -136,7 +136,9 @@ async function connectBLE(){
     if(latestPosition)await sendLatestPosition(true);
     else await syncTime();
     await sendBLECommand("GET_AUTO_SLEEP");
-    await requestWiFiScan();
+    // Wi-Fi scanning is user-triggered, not part of BLE connection setup.
+    // Starting Wi-Fi while BLE is establishing can create avoidable radio/heap
+    // pressure on an ESP32-C3 that has been running for a long time.
   }catch(error){console.error(error);setStatus("Connection failed",false)}
 }
 
