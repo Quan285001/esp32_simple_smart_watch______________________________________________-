@@ -80,19 +80,19 @@ input:focus,select:focus{border-color:var(--accent)}
 <h2>WEATHER FORECAST MODEL</h2>
 <label for="weatherModelSelect">Forecast model</label>
 <select id="weatherModelSelect">
-<option value="best_match">Best Match · Recommended</option>
-<option value="ecmwf_ifs">ECMWF IFS HRES · 9 km</option>
-<option value="ecmwf_ifs025">ECMWF IFS · 0.25°</option>
-<option value="ecmwf_aifs025_single">ECMWF AIFS · AI model</option>
-<option value="ncep_gfs_seamless">NOAA GFS · Seamless</option>
-<option value="ncep_gfs_global">NOAA GFS · Global</option>
-<option value="icon_seamless">DWD ICON · Seamless</option>
-<option value="icon_global">DWD ICON · Global</option>
-<option value="jma_gsm">JMA GSM · Global</option>
-<option value="cmc_gem_gdps">Canada GEM · Global</option>
-<option value="meteofrance_arpege_world">Météo-France ARPEGE · World</option>
-<option value="ukmo_global_deterministic_10km">UK Met Office · Global 10 km</option>
-<option value="cma_grapes_global">CMA GRAPES · Global</option>
+<option value="0">Best Match · Recommended</option>
+<option value="1">ECMWF IFS HRES · 9 km</option>
+<option value="2">ECMWF IFS · 0.25°</option>
+<option value="3">ECMWF AIFS · AI model</option>
+<option value="4">NOAA GFS · Seamless</option>
+<option value="5">NOAA GFS · Global</option>
+<option value="6">DWD ICON · Seamless</option>
+<option value="7">DWD ICON · Global</option>
+<option value="8">JMA GSM · Global</option>
+<option value="9">Canada GEM · Global</option>
+<option value="10">Météo-France ARPEGE · World</option>
+<option value="11">UK Met Office · Global 10 km</option>
+<option value="12">CMA GRAPES · Global</option>
 </select>
 <button id="weatherModelSaveBtn" onclick="saveWeatherModel()">Save Model &amp; Update Forecast</button>
 <div id="weatherModelStatus" class="note">Connect to the watch to read its current model.</div>
@@ -300,7 +300,7 @@ async function saveWeatherModel(){
   const button=document.getElementById("weatherModelSaveBtn");
   button.disabled=true;
   status.textContent="Saving model and requesting a new forecast...";
-  const ok=await sendBLECommand("WEATHER_MODEL:"+model);
+  const ok=await sendBLECommand("WM_SET:"+model);
   if(!ok){
     status.textContent="Could not send model · check Bluetooth";
     button.disabled=false;
@@ -360,8 +360,8 @@ async function requestWiFiScan(){
  */
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
-  if(chunk.startsWith("WEATHER_MODEL:")){
-    const model=chunk.substring("WEATHER_MODEL:".length);
+  if(chunk.startsWith("WM:")){
+    const model=chunk.substring(3);
     const select=document.getElementById("weatherModelSelect");
     if([...select.options].some(option=>option.value===model)){
       select.value=model;
@@ -369,14 +369,14 @@ function handleNotifications(event){
     }
     return;
   }
-  if(chunk.startsWith("WEATHER_MODEL_OK:")){
-    const model=chunk.substring("WEATHER_MODEL_OK:".length);
+  if(chunk.startsWith("WM_OK:")){
+    const model=chunk.substring(6);
     const select=document.getElementById("weatherModelSelect");
     if([...select.options].some(option=>option.value===model))select.value=model;
     document.getElementById("weatherModelStatus").textContent="Saved · downloading forecast with "+select.options[select.selectedIndex].text;
     return;
   }
-  if(chunk==="ERR_WEATHER_MODEL"||chunk==="ERR_WEATHER_MODEL_STORAGE"){
+  if(chunk==="ERR_WM"){
     document.getElementById("weatherModelStatus").textContent="Watch rejected the model or could not save it";
     document.getElementById("weatherModelSaveBtn").disabled=false;
     return;
