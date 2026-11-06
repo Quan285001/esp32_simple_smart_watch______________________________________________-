@@ -815,7 +815,8 @@ void loop() {
     // Automatic sleep is deliberately disabled during an active BLE session.
     // Manual Sleep from the menu still bypasses this connection guard.
     const bool backgroundWorkActive =
-        bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning || wifiScanRunning;
+        bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning ||
+        wifiScanRunning || locationWeatherRefreshPending || manualWeatherWakePending;
     if (!lightSleepRequested &&
         !isBLEConnected() &&
         !backgroundWorkActive &&
