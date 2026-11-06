@@ -300,9 +300,21 @@ uint8_t requestWeatherFetch() {
 
 /** Model changes must immediately download a forecast, bypassing manual retry cooldown. */
 uint8_t requestWeatherFetchNow() {
-    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning || wifiScanRunning) return 1;
-    if (!scheduleWeatherFetch()) return weatherFetchRunning ? 1 : 2;
+    // Preserve a model refresh request if Wi-Fi is unavailable or another
+    // network operation is active. The main loop retries it when possible.
+    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) {
+        locationWeatherRefreshPending = true;
+        return 2;
+    }
+    if (weatherFetchRunning || wifiScanRunning) {
+        locationWeatherRefreshPending = true;
+        return 1;
+    }
+    if (!scheduleWeatherFetch()) {
+        locationWeatherRefreshPending = true;
+        return weatherFetchRunning ? 1 : 2;
+    }
+    locationWeatherRefreshPending = false;
     lastManualWeatherRequestMs = millis();
     return 0;
 }
