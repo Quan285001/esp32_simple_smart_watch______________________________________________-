@@ -1,6 +1,6 @@
 # Face Studio / WFace Bytecode Specification v1 (Draft)
 
-Status: architecture draft; no VM runtime is implemented by this document.
+Status: architecture draft; no VM runtime is implemented by this document. The current firmware has a smaller Face Studio v0.1 native-renderer profile bridge, documented in `FACE_STUDIO_V0_1_COMPATIBILITY.md`.
 
 ## 1. Product goal
 
