@@ -13,6 +13,7 @@ extern bool wifiEnabled;
  */
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
+extern uint8_t requestWeatherFetchNow();
 extern uint8_t requestWeatherFetchForLocation();
 extern uint8_t requestWifiScan();
 extern bool isWifiScanBusy();
@@ -24,6 +25,29 @@ extern uint8_t getAutoSleepTimeoutSeconds();
  * @param cmd Input or state used by this operation.
  */
 static void handleCommand(const String &cmd) {
+    if (cmd == "GET_WEATHER_MODEL") {
+        sendBLENotification(String("WM:") + String(getWeatherModelIndex()));
+        return;
+    }
+
+    if (cmd.startsWith("WM_SET:")) {
+        const String value = cmd.substring(7);
+        const int index = value.toInt();
+        if (value != String(index) || index < 0 || index > 12 ||
+            !setWeatherModelByIndex(static_cast<uint8_t>(index))) {
+            sendBLENotification("ERR_WM");
+            return;
+        }
+        Serial.printf("[WEATHER] Model index saved: %d\n", index);
+        sendBLENotification(String("WM_OK:") + String(index));
+        const uint8_t result = requestWeatherFetchNow();
+        if (result == 0) sendBLENotification("WEATHER_STARTED");
+        else if (result == 1) sendBLENotification("WEATHER_BUSY");
+        else if (result == 2) sendBLENotification("ERR_WIFI");
+        else sendBLENotification("WEATHER_COOLDOWN");
+        return;
+    }
+
     if (cmd == "GET_AUTO_SLEEP") {
         sendBLENotification(String("AUTO_SLEEP:") + String(getAutoSleepTimeoutSeconds()));
         return;

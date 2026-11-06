@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <Arduino.h>
+
 #include "config.h"
 
 /** @brief Returns a thread-safe copy of the current weather snapshot. */
@@ -15,3 +17,13 @@ bool loadWeatherCache();
 void setWeatherCoordinates(float latitude, float longitude);
 /** @brief Fetches optional sunrise, sunset, and lunar information. */
 bool fetchLunarDetails();
+
+/** @brief Returns the currently persisted Open-Meteo forecast model ID. */
+String getWeatherModel();
+/** @brief Validates and persists an Open-Meteo forecast model ID. */
+bool setWeatherModel(const String& model);
+
+/** @brief Returns the selected model's compact BLE index. */
+uint8_t getWeatherModelIndex();
+/** @brief Persists a model selected by its compact BLE index. */
+bool setWeatherModelByIndex(uint8_t index);
