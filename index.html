@@ -75,6 +75,30 @@ input:focus,select:focus{border-color:var(--accent)}
 <p class="note">Only applies while the analog clock face is active. A connected Bluetooth session prevents automatic sleep.</p>
 </section>
 
+<!-- Open-Meteo weather model selection -->
+<section>
+<h2>WEATHER FORECAST MODEL</h2>
+<label for="weatherModelSelect">Forecast model</label>
+<select id="weatherModelSelect">
+<option value="best_match">Best Match · Recommended</option>
+<option value="ecmwf_ifs">ECMWF IFS HRES · 9 km</option>
+<option value="ecmwf_ifs025">ECMWF IFS · 0.25°</option>
+<option value="ecmwf_aifs025_single">ECMWF AIFS · AI model</option>
+<option value="ncep_gfs_seamless">NOAA GFS · Seamless</option>
+<option value="ncep_gfs_global">NOAA GFS · Global</option>
+<option value="icon_seamless">DWD ICON · Seamless</option>
+<option value="icon_global">DWD ICON · Global</option>
+<option value="jma_gsm">JMA GSM · Global</option>
+<option value="cmc_gem_gdps">Canada GEM · Global</option>
+<option value="meteofrance_arpege_world">Météo-France ARPEGE · World</option>
+<option value="ukmo_global_deterministic_10km">UK Met Office · Global 10 km</option>
+<option value="cma_grapes_global">CMA GRAPES · Global</option>
+</select>
+<button id="weatherModelSaveBtn" onclick="saveWeatherModel()">Save Model &amp; Update Forecast</button>
+<div id="weatherModelStatus" class="note">Connect to the watch to read its current model.</div>
+<p class="note">Models differ in update frequency, resolution and forecast coverage. Best Match automatically selects suitable models for the location.</p>
+</section>
+
 <!-- Device location tracking -->
 <section>
 <h2>LOCATION</h2>
@@ -136,6 +160,7 @@ async function connectBLE(){
     if(latestPosition)await sendLatestPosition(true);
     else await syncTime();
     await sendBLECommand("GET_AUTO_SLEEP");
+    await sendBLECommand("GET_WEATHER_MODEL");
     await requestWiFiScan();
   }catch(error){console.error(error);setStatus("Connection failed",false)}
 }
@@ -269,6 +294,22 @@ async function sendLatestPosition(force){
   }
 }
 
+async function saveWeatherModel(){
+  const model=document.getElementById("weatherModelSelect").value;
+  const status=document.getElementById("weatherModelStatus");
+  const button=document.getElementById("weatherModelSaveBtn");
+  button.disabled=true;
+  status.textContent="Saving model and requesting a new forecast...";
+  const ok=await sendBLECommand("WEATHER_MODEL:"+model);
+  if(!ok){
+    status.textContent="Could not send model · check Bluetooth";
+    button.disabled=false;
+    return;
+  }
+  status.textContent="Waiting for the watch to save the model...";
+  window.setTimeout(()=>{button.disabled=false},1500);
+}
+
 async function saveAutoSleepSetting(){
   const seconds=Number(document.getElementById("autoSleepSelect").value);
   const status=document.getElementById("autoSleepStatus");
@@ -319,6 +360,27 @@ async function requestWiFiScan(){
  */
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
+  if(chunk.startsWith("WEATHER_MODEL:")){
+    const model=chunk.substring("WEATHER_MODEL:".length);
+    const select=document.getElementById("weatherModelSelect");
+    if([...select.options].some(option=>option.value===model)){
+      select.value=model;
+      document.getElementById("weatherModelStatus").textContent="Current model: "+select.options[select.selectedIndex].text;
+    }
+    return;
+  }
+  if(chunk.startsWith("WEATHER_MODEL_OK:")){
+    const model=chunk.substring("WEATHER_MODEL_OK:".length);
+    const select=document.getElementById("weatherModelSelect");
+    if([...select.options].some(option=>option.value===model))select.value=model;
+    document.getElementById("weatherModelStatus").textContent="Saved · downloading forecast with "+select.options[select.selectedIndex].text;
+    return;
+  }
+  if(chunk==="ERR_WEATHER_MODEL"||chunk==="ERR_WEATHER_MODEL_STORAGE"){
+    document.getElementById("weatherModelStatus").textContent="Watch rejected the model or could not save it";
+    document.getElementById("weatherModelSaveBtn").disabled=false;
+    return;
+  }
   if(chunk.startsWith("AUTO_SLEEP:")){
     const seconds=Number(chunk.split(":")[1]);
     if(Number.isInteger(seconds)&&[0,10,12,15,18,20].includes(seconds)){
