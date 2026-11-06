@@ -149,6 +149,28 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
 #slideControl{max-width:720px;margin:0 auto}#slideControl>section{max-width:none!important}
 #slideFace{max-width:1200px;margin:0 auto}#faceStudio{margin:0!important}
 
+
+.fs-home{padding:24px;background:#0c1422;border:1px solid #25344a;border-top:0;border-radius:0 0 16px 16px}
+.fs-home-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:19px}
+.fs-home-head h2{font-size:19px;letter-spacing:-.4px;margin:0;color:#f1f5fb}
+.fs-home-head p{font-size:12px;line-height:1.5;color:#8b9bb1;margin:6px 0 0}
+.fs-home-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.fs-home-card{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:9px!important;min-height:112px;padding:15px!important;background:#121f31!important;border:1px solid #293d58!important;border-radius:13px!important;text-align:left;white-space:normal!important}
+.fs-home-card:hover{background:#192b43!important;border-color:#5786bd!important}
+.fs-home-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#203956;color:#b9d8ff;font-size:18px}
+.fs-home-card strong{font-size:12px;color:#edf4ff}.fs-home-card small{font-size:10px;line-height:1.4;color:#8294ad;font-weight:450}
+.fs-home-card.primary{background:#17365a!important;border-color:#376da5!important}.fs-home-card.primary .fs-home-icon{background:#2d65a1}
+.fs-editor-view{border:1px solid #25344a;border-top:0;border-radius:0 0 16px 16px;overflow:hidden}
+.fs-category-head{display:flex;align-items:center;gap:12px;padding:13px 16px;background:#101a2b;border-bottom:1px solid #243249}
+.fs-back-btn{width:auto!important;flex:none;padding:8px 11px!important;background:#19283d!important;border:1px solid #30445f!important}
+.fs-category-copy{min-width:0;flex:1}.fs-category-copy strong{display:block;font-size:13px;color:#edf4ff}.fs-category-copy small{display:block;margin-top:3px;font-size:10px;color:#8395ae}
+.fs-upload-btn{width:auto!important;background:#2e6bb0!important;border-color:#4a8bd3!important}
+#faceStudio .fs-workspace{grid-template-columns:minmax(0,1fr) 310px;min-height:530px}
+#faceStudio .fs-left{display:none!important}#faceStudio .fs-inspector-tabs{display:none}
+#faceStudio .fs-right{border-left:1px solid #243249;padding:19px}
+#faceStudio .fs-layer-dock{display:none}#faceStudio .fs-layer-dock.show{display:block}
+@media(max-width:760px){.fs-home{padding:15px}.fs-home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fs-home-card{min-height:104px;padding:12px!important}.fs-home-head{align-items:flex-start;flex-direction:column}#faceStudio .fs-workspace{grid-template-columns:1fr!important}#faceStudio .fs-right{border-left:0;border-top:1px solid #243249}.fs-category-head{flex-wrap:wrap}}
+
 </style>
 </head>
 <body>
@@ -265,6 +287,22 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
     </div>
   </div>
 
+<div class="fs-home" id="faceHome">
+ <div class="fs-home-head"><div><h2>What would you like to change?</h2><p>Choose one section. Its settings open separately, keeping the editor clean.</p></div><button class="fs-primary" onclick="openFaceUpload()">＋ Add photo</button></div>
+ <div class="fs-home-grid">
+  <button class="fs-home-card primary" onclick="openFaceCategory('style')"><span class="fs-home-icon">◷</span><strong>Face styles</strong><small>Classic, Minimal, Digital, Pilot and Diver</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('background')"><span class="fs-home-icon">◩</span><strong>Background</strong><small>Choose a background color or photo</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('colors')"><span class="fs-home-icon">◉</span><strong>Colors</strong><small>Dial, hands, accent and palette</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('clock')"><span class="fs-home-icon">◷</span><strong>Clock & date</strong><small>Seconds hand and date visibility</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('images')"><span class="fs-home-icon">▧</span><strong>Photos</strong><small>Upload, crop, zoom and reposition</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('text')"><span class="fs-home-icon">T</span><strong>Text & fonts</strong><small>Add text and choose typography</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('layout')"><span class="fs-home-icon">⌗</span><strong>Position & layout</strong><small>Move and resize selected elements</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('layers')"><span class="fs-home-icon">▤</span><strong>Layers</strong><small>Reorder, hide and delete elements</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('library')"><span class="fs-home-icon">▣</span><strong>My designs</strong><small>Open, save, import and export</small></button>
+ </div>
+</div>
+  <div id="faceEditorWorkspace" class="fs-editor-view fs-hidden">
+   <div class="fs-category-head"><button class="fs-back-btn" onclick="closeFaceCategory()">← All options</button><div class="fs-category-copy"><strong id="faceCategoryTitle">Face styles</strong><small id="faceCategoryDescription">Choose a visual style for your watch face.</small></div><button class="fs-upload-btn" onclick="openFaceUpload()">＋ Photo</button></div>
   <div class="fs-workspace">
     <aside class="fs-sidebar fs-left">
       <div class="fs-panel-title">ADD ELEMENT <small>TOOLS</small></div>
@@ -274,22 +312,11 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
         <button class="fs-tool" onclick="addFaceWidget('time')"><span>◷</span><span class="fs-tool-label">Time</span></button>
         <button class="fs-tool" onclick="addFaceWidget('date')"><span>▦</span><span class="fs-tool-label">Date</span></button>
       </div>
-      <input id="faceImageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+      <input id="faceImageInput" type="file" accept="image/*" hidden>
       <div class="fs-separator"></div>
       <div class="fs-panel-title">ASSETS <small id="faceAssetCount">0 ITEMS</small></div>
       <div id="faceAssetList"><div class="fs-empty">Upload an image to add a background or visual asset to your design.</div></div>
-      <div class="fs-separator"></div>
-      <div class="fs-panel-title">PROJECT <small>LOCAL</small></div>
-      <select id="faceLibrarySelect" aria-label="Saved face designs"><option value="">No saved designs yet</option></select>
-      <div class="fs-row" style="margin-top:8px">
-        <button class="fs-quiet" onclick="loadSelectedFace()">Open</button>
-        <button class="fs-quiet" onclick="document.getElementById('faceImportInput').click()">Import</button>
-      </div>
       <input id="faceImportInput" type="file" accept=".wface,.json,application/json" hidden>
-      <div class="fs-row" style="margin-top:7px">
-        <button class="fs-quiet" onclick="exportFaceDesign()">Export</button>
-        <button class="fs-quiet" onclick="saveFaceDesign()">Save copy</button>
-      </div>
     </aside>
 
     <div class="fs-center">
@@ -365,9 +392,10 @@ main>section:not(#faceStudio){max-width:460px;margin:12px auto}
     </aside>
   </div>
 
-  <div class="fs-layer-dock">
+  <div class="fs-layer-dock" id="faceLayerDock">
     <div class="fs-layer-head"><div class="fs-panel-title" style="margin:0">LAYERS <small id="faceLayerCount">0 ELEMENTS</small></div><div class="fs-layer-actions"><button class="fs-quiet" onclick="moveFaceLayer(-1)">↑</button><button class="fs-quiet" onclick="moveFaceLayer(1)">↓</button><button class="fs-quiet" onclick="toggleSelectedFaceLayer()">◉</button><button class="fs-quiet" onclick="removeFaceLayer()">Delete</button></div></div>
     <div class="fs-layer-list" id="faceLayerList"></div>
+  </div>
   </div>
   <div class="fs-statusbar"><span id="faceStudioStatus">Ready · design is stored locally in this browser.</span><strong id="faceStatusRight">UNSAVED CHANGES</strong></div>
 </section>
