@@ -130,6 +130,12 @@ static void enterLightSleep() {
     lightSleepRequested = false;
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
 
+    // Remember the user's radio preferences before powering the interfaces down.
+    // Wi-Fi must be restored after wake so the normal reconnect path can refresh
+    // weather; otherwise the clock wakes permanently offline until manual toggle.
+    const bool restoreWifiAfterWake = wifiEnabled;
+    const bool restoreBleAfterWake = isBLEEnabled();
+
     // The main loop defers sleep until background radio work has completed.
     // Preserve cached weather/time in RAM and NVS; shut down radios only.
     WiFi.disconnect(false, false);
@@ -154,7 +160,7 @@ static void enterLightSleep() {
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
 
     const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
-    Serial.printf("[POWER] Wake cause: %d\\n", static_cast<int>(wakeCause));
+    Serial.printf("[POWER] Wake cause: %d\n", static_cast<int>(wakeCause));
 
     // Wait for the wake press to be released before resetting button state.
     while (digitalRead(BUTTON_PIN) == LOW) {
@@ -165,10 +171,46 @@ static void enterLightSleep() {
     // The TFT was intentionally kept awake (black screen) during MCU sleep,
     // so no panel reset or sleep-out sequence is needed. Redraw immediately.
 
-    // Radios remain OFF until explicitly enabled from the menu.
+    // Restore only the radios that were enabled before sleep. In particular,
+    // reconnect Wi-Fi so the existing connection-transition handler can
+    // restart NTP and schedule an immediate weather refresh.
+    if (restoreWifiAfterWake) {
+        Preferences prefs;
+        String savedSsid = WIFI_SSID;
+        String savedPass = WIFI_PASSWORD;
+        if (prefs.begin("watch", true)) {
+            savedSsid = prefs.getString("ssid", WIFI_SSID);
+            savedPass = prefs.getString("pass", WIFI_PASSWORD);
+            prefs.end();
+        }
+        if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
+        if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
+
+        wifiEnabled = true;
+        WiFi.mode(WIFI_STA);
+        WiFi.setAutoReconnect(true);
+        WiFi.begin(savedSsid.c_str(), savedPass.c_str());
+        lastWifiRetryMs = millis();
+        lastWifiStatusLogMs = 0;
+        lastWeatherFetchMs = 0;
+        lastWeatherAttemptMs = 0;
+        lastWeatherRetryMs = 0;
+        previousWifiConnected = false;
+        Serial.println("[POWER] Wi-Fi restore requested; weather will refresh after reconnect.");
+    }
+
+    if (restoreBleAfterWake) {
+        beginBLE();
+        Serial.println(isBLEEnabled()
+            ? "[POWER] Bluetooth advertising restored."
+            : "[POWER] Bluetooth restore failed; enable it from the menu.");
+    }
+
     beginButtonManager();
     drawCurrentScreen(true);
-    Serial.println("[POWER] Wake complete; radios remain OFF.");
+    Serial.printf("[POWER] Wake complete; Wi-Fi=%s, BLE=%s.\n",
+                  wifiEnabled ? "ON" : "OFF",
+                  isBLEEnabled() ? "ON" : "OFF");
 }
 
 /**
@@ -707,6 +749,15 @@ void loop() {
     if (bleConnectedNow != previousBleConnected) {
         previousBleConnected = bleConnectedNow;
         lastUserActivityMs = now;
+
+        // Keep callback code minimal; collect diagnostics safely in loop().
+        Serial.printf(
+            "[BLE] Client %s: free_heap=%u, largest_block=%u, min_free=%u bytes\n",
+            bleConnectedNow ? "CONNECTED" : "DISCONNECTED",
+            static_cast<unsigned int>(ESP.getFreeHeap()),
+            static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
+            static_cast<unsigned int>(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT))
+        );
     }
 
     handleBLECommands();
