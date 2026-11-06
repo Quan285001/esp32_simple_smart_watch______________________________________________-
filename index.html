@@ -416,7 +416,7 @@ function importFaceDesign(event){
   reader.onload=()=>{
     try{
       const face=JSON.parse(String(reader.result));
-      const valid=face&&face.format==="WFACE-PROFILE"&&face.version===1&&face.displayProfile==="gc9a01-240-round"&&
+      const valid=face&&face.format==="WFACE-PROFILE"&&face.version===1&&face.displayProfile==="gc9a01-240-round"&&face.rendererApi===1&&
         ["background","dial","hand","accent"].every(key=>/^#[0-9a-fA-F]{6}$/.test(face[key]));
       if(!valid)throw new Error("Unsupported face profile");
       applyFaceDesignToControls(face);
@@ -429,7 +429,7 @@ function importFaceDesign(event){
 }
 
 function initializeFaceStudio(){
-  try{const stored=JSON.parse(localStorage.getItem(FACE_LIBRARY_KEY)||"[]");if(Array.isArray(stored))faceLibrary=stored.filter(face=>face&&face.format==="WFACE-PROFILE"&&face.version===1);}
+  try{const stored=JSON.parse(localStorage.getItem(FACE_LIBRARY_KEY)||"[]");if(Array.isArray(stored))faceLibrary=stored.filter(face=>face&&face.format==="WFACE-PROFILE"&&face.version===1&&face.rendererApi===1&&face.displayProfile==="gc9a01-240-round");}
   catch(error){faceLibrary=[]}
   refreshFaceLibrary();
   ["faceBg","faceDial","faceHand","faceAccent","faceShowSeconds","faceShowDate"].forEach(id=>document.getElementById(id).addEventListener("input",renderFacePreview));
