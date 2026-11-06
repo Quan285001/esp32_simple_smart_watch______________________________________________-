@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <Arduino.h>
+
 #include "config.h"
 
 /** @brief Returns a thread-safe copy of the current weather snapshot. */
