@@ -20,3 +20,8 @@ bool fetchLunarDetails();
 String getWeatherModel();
 /** @brief Validates and persists an Open-Meteo forecast model ID. */
 bool setWeatherModel(const String& model);
+
+/** @brief Returns the selected model's compact BLE index. */
+uint8_t getWeatherModelIndex();
+/** @brief Persists a model selected by its compact BLE index. */
+bool setWeatherModelByIndex(uint8_t index);
