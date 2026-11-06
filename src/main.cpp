@@ -298,6 +298,15 @@ uint8_t requestWeatherFetch() {
     return 0;
 }
 
+/** Model changes must immediately download a forecast, bypassing manual retry cooldown. */
+uint8_t requestWeatherFetchNow() {
+    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
+    if (weatherFetchRunning || wifiScanRunning) return 1;
+    if (!scheduleWeatherFetch()) return weatherFetchRunning ? 1 : 2;
+    lastManualWeatherRequestMs = millis();
+    return 0;
+}
+
 /**
  * @brief Requests an immediate weather/timezone refresh after a new phone GPS fix.
  * If another fetch is running, defer one follow-up request until it completes.
