@@ -529,7 +529,7 @@ async function syncWeather(){
 
 const FACE_LIBRARY_KEY="esp32-face-studio-library-v2";
 let faceLibrary=[];
-let faceProject={format:"WFACE-PROJECT",version:2,displayProfile:"gc9a01-240-round",rendererApi:1,name:"My custom face",colors:{background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"},showSeconds:true,showDate:true,image:null,layers:[],selectedLayerId:null};
+let faceProject={format:"WFACE-PROJECT",version:2,displayProfile:"gc9a01-240-round",rendererApi:1,name:"My custom face",style:"classic",colors:{background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"},showSeconds:true,showDate:true,image:null,layers:[],selectedLayerId:null};
 let faceUndoStack=[],faceRedoStack=[],faceZoomLevel=1,faceGridVisible=false,faceDragging=null,faceHueValue=210,faceSatValue=1,faceBrightValue=1,faceCurrentColor="#ffffff",faceCustomFont=null,faceCachedImage=null,faceCachedImageSrc="";
 const faceCanvas=document.getElementById("facePreview");
 const faceCtx=faceCanvas.getContext("2d");
@@ -561,6 +561,7 @@ function faceApplyProject(project){
   faceMarkChanged();
 }
 function faceSyncUI(){
+  document.getElementById("faceStyleSelect").value=faceProject.style||"classic";
   document.getElementById("faceBg").value=faceProject.colors.background;
   document.getElementById("faceDial").value=faceProject.colors.dial;
   document.getElementById("faceHand").value=faceProject.colors.hand;
@@ -600,16 +601,38 @@ function renderFacePreview(){
       faceCtx.globalAlpha=1;
     }
   }
-  faceCtx.strokeStyle=colors.accent;faceCtx.lineWidth=2;
-  for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?101:107),120+Math.sin(a)*(major?101:107));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
-  faceCtx.fillStyle=colors.accent;faceCtx.font="11px Arial";faceCtx.textAlign="center";faceCtx.textBaseline="middle";faceCtx.fillText("UTC+7",80,102);
-  const now=new Date();const liveTime=now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
-  faceCtx.fillStyle=colors.hand;faceCtx.font="12px monospace";faceCtx.fillText(faceProject.showSeconds?liveTime:liveTime.slice(0,5),80,122);
-  if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="10px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short"}).toUpperCase(),160,102);faceCtx.fillStyle=colors.hand;faceCtx.font="17px Arial";faceCtx.fillText(String(now.getDate()).padStart(2,"0"),160,122)}
-  const hand=(angle,length,width,color)=>{faceCtx.strokeStyle=color;faceCtx.lineWidth=width;faceCtx.lineCap="round";faceCtx.beginPath();faceCtx.moveTo(120,120);faceCtx.lineTo(120+Math.cos(angle)*length,120+Math.sin(angle)*length);faceCtx.stroke()};
-  hand((10+10/60)*Math.PI/6-Math.PI/2,47,5,colors.hand);hand((10+35/60)*Math.PI/30-Math.PI/2,76,3,colors.hand);
-  if(faceProject.showSeconds)hand(35*Math.PI/30-Math.PI/2,94,1.5,colors.accent);
-  faceCtx.fillStyle=colors.accent;faceCtx.beginPath();faceCtx.arc(120,120,5,0,Math.PI*2);faceCtx.fill();faceCtx.fillStyle=colors.hand;faceCtx.beginPath();faceCtx.arc(120,120,2,0,Math.PI*2);faceCtx.fill();
+  const style=faceProject.style||"classic";
+  const now=new Date();
+  const liveTime=now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  faceCtx.strokeStyle=colors.accent;faceCtx.fillStyle=colors.accent;faceCtx.textAlign="center";faceCtx.textBaseline="middle";
+  if(style==="minimal"){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<12;i++){const a=i*Math.PI/6-Math.PI/2;faceCtx.beginPath();faceCtx.arc(120+Math.cos(a)*103,120+Math.sin(a)*103, i%3===0?2.4:1.3,0,Math.PI*2);faceCtx.fill()}
+  }else if(style==="pilot"){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?94:105),120+Math.sin(a)*(major?94:105));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
+    faceCtx.fillStyle=colors.hand;faceCtx.font="bold 15px Arial";
+    [12,3,6,9].forEach((n)=>{const a=n*Math.PI/6-Math.PI/2;faceCtx.fillText(String(n),120+Math.cos(a)*78,120+Math.sin(a)*78)});
+  }else if(style==="diver"){
+    faceCtx.lineWidth=4;faceCtx.beginPath();faceCtx.arc(120,120,108,0,Math.PI*2);faceCtx.stroke();
+    for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.lineWidth=major?3:1;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?91:104),120+Math.sin(a)*(major?91:104));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 10px Arial";faceCtx.fillText("DIVER",120,66);
+  }else if(style!=="digital"){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?101:107),120+Math.sin(a)*(major?101:107));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
+  }
+  if(style==="digital"){
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 11px Arial";faceCtx.fillText("LOCAL TIME",120,82);
+    faceCtx.fillStyle=colors.hand;faceCtx.font="bold 34px monospace";faceCtx.fillText(faceProject.showSeconds?liveTime:liveTime.slice(0,5),120,119);
+    if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="12px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,151)}
+  }else{
+    if(style==="classic"||style==="pilot"){faceCtx.fillStyle=colors.accent;faceCtx.font="11px Arial";faceCtx.fillText("UTC+7",80,102);faceCtx.fillStyle=colors.hand;faceCtx.font="12px monospace";faceCtx.fillText(faceProject.showSeconds?liveTime:liveTime.slice(0,5),80,122)}
+    if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="10px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short"}).toUpperCase(),160,102);faceCtx.fillStyle=colors.hand;faceCtx.font="17px Arial";faceCtx.fillText(String(now.getDate()).padStart(2,"0"),160,122)}
+    const hand=(angle,length,width,color)=>{faceCtx.strokeStyle=color;faceCtx.lineWidth=width;faceCtx.lineCap="round";faceCtx.beginPath();faceCtx.moveTo(120,120);faceCtx.lineTo(120+Math.cos(angle)*length,120+Math.sin(angle)*length);faceCtx.stroke()};
+    hand((10+10/60)*Math.PI/6-Math.PI/2,47,5,colors.hand);hand((10+35/60)*Math.PI/30-Math.PI/2,76,3,colors.hand);
+    if(faceProject.showSeconds)hand(35*Math.PI/30-Math.PI/2,94,1.5,colors.accent);
+    faceCtx.fillStyle=colors.accent;faceCtx.beginPath();faceCtx.arc(120,120,5,0,Math.PI*2);faceCtx.fill();faceCtx.fillStyle=colors.hand;faceCtx.beginPath();faceCtx.arc(120,120,2,0,Math.PI*2);faceCtx.fill();
+  }
   faceProject.layers.forEach(layer=>{
     if(layer.visible===false)return;
     faceCtx.save();faceCtx.globalAlpha=Number(layer.opacity??100)/100;
@@ -679,7 +702,12 @@ function syncFaceInspector(){
   if(faceProject.image)document.getElementById("faceCropThumb").src=faceProject.image.dataUrl;
 }
 function setFaceInspectorTab(tab){
-  ["design","crop","type"].forEach(key=>{document.getElementById("face"+key.charAt(0).toUpperCase()+key.slice(1)+"Panel").classList.toggle("fs-hidden",key!==tab);document.getElementById("faceTab"+key.charAt(0).toUpperCase()+key.slice(1)).classList.toggle("active",key===tab)});
+  ["design","crop","type","style","library"].forEach(key=>{
+    const panel=document.getElementById("face"+key.charAt(0).toUpperCase()+key.slice(1)+"Panel");
+    if(panel)panel.classList.toggle("fs-hidden",key!==tab);
+    const tabButton=document.getElementById("faceTab"+key.charAt(0).toUpperCase()+key.slice(1));
+    if(tabButton)tabButton.classList.toggle("active",key===tab);
+  });
 }
 function faceSetColorDisplay(color){
   faceCurrentColor=color||"#ffffff";document.getElementById("faceColorChip").style.background=faceCurrentColor;document.getElementById("faceColorHex").textContent=faceCurrentColor.toUpperCase();document.getElementById("faceHex").value=faceCurrentColor.toUpperCase();document.getElementById("faceColorName").firstChild.textContent="Selected color";
@@ -721,25 +749,29 @@ function faceUpdateCrop(){
   facePushUndo();faceProject.image.zoom=Number(document.getElementById("faceCropZoom").value)/100;faceProject.image.x=Number(document.getElementById("faceCropX").value);faceProject.image.y=Number(document.getElementById("faceCropY").value);
   document.getElementById("faceCropZoomValue").textContent=Math.round(faceProject.image.zoom*100)+"%";document.getElementById("faceCropXValue").textContent=faceProject.image.x;document.getElementById("faceCropYValue").textContent=faceProject.image.y;renderFacePreview();faceMarkChanged();
 }
+function openFaceUpload(){document.getElementById("faceImageInput").click()}
 function faceLoadImage(file){
   if(!file)return;
-  if(!["image/png","image/jpeg","image/webp"].includes(file.type)){faceSetStatus("Unsupported image. Choose PNG, JPG or WebP.");return}
-  if(file.size>8*1024*1024){faceSetStatus("Image exceeds 8 MB. Resize it before importing.");return}
-  const reader=new FileReader();
-  reader.onload=()=>{
-    const img=new Image();
-    img.onload=()=>{
-      const maxSide=480,scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+  if(file.type&&!file.type.startsWith("image/")){faceSetStatus("Please choose an image file.");return}
+  if(file.size>20*1024*1024){faceSetStatus("This photo is over 20 MB. Choose a smaller image.");return}
+  faceSetStatus("Loading photo…","IMPORTING PHOTO");
+  const objectUrl=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    try{
+      const maxSide=512,scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
       const temp=document.createElement("canvas");temp.width=Math.max(1,Math.round(img.naturalWidth*scale));temp.height=Math.max(1,Math.round(img.naturalHeight*scale));
       const tempCtx=temp.getContext("2d");tempCtx.drawImage(img,0,0,temp.width,temp.height);
-      let optimized=temp.toDataURL("image/webp",0.88);if(!optimized.startsWith("data:image/webp"))optimized=temp.toDataURL("image/png");
-      facePushUndo();faceProject.image={name:file.name,dataUrl:optimized,width:temp.width,height:temp.height,zoom:1,x:0,y:0,opacity:1};faceCachedImage=null;faceCachedImageSrc="";
-      faceProject.selectedLayerId="__image";faceSyncUI();setFaceInspectorTab("crop");faceSetStatus("Image optimized for 240 × 240 preview · adjust crop","IMAGE ADDED");faceMarkChanged();
-    };
-    img.onerror=()=>faceSetStatus("Could not decode this image");
-    img.src=String(reader.result);
+      let optimized=temp.toDataURL("image/webp",0.84);
+      if(!optimized.startsWith("data:image/webp"))optimized=temp.toDataURL("image/png");
+      facePushUndo();faceProject.image={name:file.name||"Photo",dataUrl:optimized,width:temp.width,height:temp.height,zoom:1,x:0,y:0,opacity:1};
+      faceCachedImage=null;faceCachedImageSrc="";faceProject.selectedLayerId="__image";
+      faceSyncUI();openFaceCategory("images");faceSetStatus("Photo added. Adjust the crop or position.","PHOTO ADDED");faceMarkChanged();
+    }catch(error){console.error(error);faceSetStatus("Could not process this photo. Try a JPG or PNG image.");}
+    URL.revokeObjectURL(objectUrl);
   };
-  reader.readAsDataURL(file);
+  img.onerror=()=>{URL.revokeObjectURL(objectUrl);faceSetStatus("This image format is not supported by the browser. Try JPG or PNG.")};
+  img.src=objectUrl;
 }
 function faceCanvasPoint(event){
   const rect=faceCanvas.getBoundingClientRect();return {x:(event.clientX-rect.left)/rect.width*240,y:(event.clientY-rect.top)/rect.height*240};
@@ -768,6 +800,7 @@ function faceBindInspector(){
   const updateLayer=(key,value)=>{const layer=faceSelectedLayer();if(!layer)return;facePushUndo();layer[key]=value;renderFacePreview();renderFaceLayers();faceMarkChanged()};
   document.getElementById("faceImageInput").addEventListener("change",event=>{faceLoadImage(event.target.files?.[0]);event.target.value=""});
   document.getElementById("faceImportInput").addEventListener("change",importFaceDesign);
+  document.getElementById("faceStyleSelect").addEventListener("change",e=>{facePushUndo();faceProject.style=e.target.value;renderFacePreview();faceMarkChanged()});
   document.getElementById("faceX").addEventListener("change",e=>updateLayer("x",Math.max(0,Math.min(240,Number(e.target.value)||0))));
   document.getElementById("faceY").addEventListener("change",e=>updateLayer("y",Math.max(0,Math.min(240,Number(e.target.value)||0))));
   document.getElementById("faceSize").addEventListener("input",e=>{document.getElementById("faceSizeValue").textContent=e.target.value+" px";updateLayer("fontSize",Number(e.target.value))});
@@ -848,6 +881,42 @@ async function applyFaceToWatch(){
   if(!ok){status.textContent="Transfer failed · check Bluetooth";button.disabled=false;return}
   status.textContent="Profile sent · waiting for firmware confirmation...";
   window.setTimeout(()=>{button.disabled=false},2500);
+}
+function closeFaceCategory(){
+  document.getElementById("faceHome").classList.remove("fs-hidden");
+  document.getElementById("faceEditorWorkspace").classList.add("fs-hidden");
+  document.getElementById("faceLayerDock").classList.remove("show");
+}
+function openFaceCategory(category){
+  const meta={
+    style:["Face styles","Choose a display style and preview it on the watch."],
+    background:["Background","Choose the main background color or add a photo."],
+    colors:["Colors","Adjust dial, hands and accent colors."],
+    clock:["Clock & date","Choose which clock details are visible."],
+    images:["Photos","Upload a photo, then crop and position it."],
+    text:["Text & fonts","Add text, choose a typeface and adjust typography."],
+    layout:["Position & layout","Select an element on the preview and adjust its position."],
+    layers:["Layers","Choose, reorder, hide or delete design elements."],
+    library:["My designs","Open saved designs or import and export a project."]
+  };
+  const item=meta[category]||meta.style;
+  document.getElementById("faceHome").classList.add("fs-hidden");
+  document.getElementById("faceEditorWorkspace").classList.remove("fs-hidden");
+  document.getElementById("faceCategoryTitle").textContent=item[0];
+  document.getElementById("faceCategoryDescription").textContent=item[1];
+  document.getElementById("faceLayoutFields").classList.toggle("fs-hidden",!["layout","layers"].includes(category));
+  document.getElementById("faceColorFields").classList.toggle("fs-hidden",!["background","colors"].includes(category));
+  document.getElementById("faceVisibilityFields").classList.toggle("fs-hidden",category!=="clock");
+  document.getElementById("faceLayerDock").classList.toggle("show",["layout","layers"].includes(category));
+  document.getElementById("faceCapabilityNote").classList.toggle("fs-hidden",!["style","background","colors","clock","images","text"].includes(category));
+  if(category==="background"){document.getElementById("faceColorTarget").value="background";faceSetColorDisplay(faceProject.colors.background);faceSetHsvUI(faceProject.colors.background);setFaceInspectorTab("design")}
+  else if(category==="colors"){document.getElementById("faceColorTarget").value="accent";faceSetColorDisplay(faceProject.colors.accent);faceSetHsvUI(faceProject.colors.accent);setFaceInspectorTab("design")}
+  else if(category==="clock"||category==="layout"||category==="layers")setFaceInspectorTab("design");
+  else if(category==="images")setFaceInspectorTab("crop");
+  else if(category==="text")setFaceInspectorTab("type");
+  else if(category==="style")setFaceInspectorTab("style");
+  else if(category==="library")setFaceInspectorTab("library");
+  document.getElementById("faceStudioStatus").textContent="Editing · "+item[0];
 }
 function initializeFaceStudio(){
   try{const stored=JSON.parse(localStorage.getItem(FACE_LIBRARY_KEY)||"[]");if(Array.isArray(stored))faceLibrary=stored.filter(project=>project&&["WFACE-PROJECT","WFACE-PROFILE"].includes(project.format)&&project.displayProfile==="gc9a01-240-round")}
