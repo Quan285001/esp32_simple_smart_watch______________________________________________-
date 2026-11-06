@@ -24,6 +24,27 @@ extern uint8_t getAutoSleepTimeoutSeconds();
  * @param cmd Input or state used by this operation.
  */
 static void handleCommand(const String &cmd) {
+    if (cmd == "GET_WEATHER_MODEL") {
+        sendBLENotification(String("WEATHER_MODEL:") + getWeatherModel());
+        return;
+    }
+
+    if (cmd.startsWith("WEATHER_MODEL:")) {
+        const String model = cmd.substring(13);
+        if (!setWeatherModel(model)) {
+            sendBLENotification("ERR_WEATHER_MODEL_STORAGE");
+            return;
+        }
+        Serial.printf("[WEATHER] Model saved: %s\\n", model.c_str());
+        sendBLENotification(String("WEATHER_MODEL_OK:") + model);
+        const uint8_t result = requestWeatherFetch();
+        if (result == 0) sendBLENotification("WEATHER_STARTED");
+        else if (result == 1) sendBLENotification("WEATHER_BUSY");
+        else if (result == 2) sendBLENotification("ERR_WIFI");
+        else sendBLENotification("WEATHER_COOLDOWN");
+        return;
+    }
+
     if (cmd == "GET_AUTO_SLEEP") {
         sendBLENotification(String("AUTO_SLEEP:") + String(getAutoSleepTimeoutSeconds()));
         return;
