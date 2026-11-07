@@ -18,6 +18,7 @@
 #include "system/diagnostics.h"
 #include "display/display_manager.h"
 #include "storage/storage_manager.h"
+#include "watchface/face_manager.h"
 
 extern void handleBLECommands();
 
@@ -557,6 +558,7 @@ void setup() {
 
     showBootTerminal();
     StorageManager::begin();
+    FaceManager::begin();
     bootTerminalLog("[BOOT] Restoring saved state", TFT_YELLOW);
 
     Preferences prefs;
@@ -893,12 +895,26 @@ void loop() {
             elapsed = 999;
         }
 
-        drawAnalogClockFace(
-            cachedTime,
-            static_cast<int>(elapsed),
-            0,
-            0
-        );
+        if (FaceManager::hasActiveFace()) {
+            static int lastCustomFaceSecond = -1;
+            if (cachedTime.tm_sec != lastCustomFaceSecond) {
+                const FaceRenderStatus status = FaceManager::renderActive(cachedTime, getWeatherSnapshot());
+                if (status == FaceRenderStatus::Ok) {
+                    lastCustomFaceSecond = cachedTime.tm_sec;
+                } else {
+                    Serial.printf("[FACE] Custom renderer rejected frame (%u); reverting to built-in face.\\n",
+                                  static_cast<unsigned int>(status));
+                    lastCustomFaceSecond = -1;
+                }
+            }
+        } else {
+            drawAnalogClockFace(
+                cachedTime,
+                static_cast<int>(elapsed),
+                0,
+                0
+            );
+        }
 
         lastClockDrawMs = now;
     }
