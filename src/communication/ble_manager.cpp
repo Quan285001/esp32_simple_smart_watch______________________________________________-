@@ -141,10 +141,9 @@ void sendCapabilities() {
     const size_t stageCapacity = StorageManager::freeBytes() + inactiveBytes;
     char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
     const int length = snprintf(payload, sizeof(payload),
-        "{\"schema\":1,\"package\":1,\"profile\":\"esp32-c3-gc9a01-240\","
-        "\"maxObjects\":%u,\"maxLayoutBytes\":16384,\"maxFrameBytes\":%u,"
-        "\"mtu\":%u,\"elements\":[\"text\",\"digital-clock\",\"analog-clock\",\"date\",\"weather\",\"shape\"],"
-        "\"assetEncodings\":[],\"packageInstall\":false,\"storageFree\":%lu,\"stageCapacity\":%lu,\"heapFree\":%lu}",
+        "{\\"sv\\":1,\\"pv\\":1,\\"obj\\":%u,\\"json\\":16384,\\"frame\\":%u,"
+        "\\"mtu\\":%u,\\"el\\":\\"text,digital-clock,analog-clock,date,weather,shape\\","
+        "\\"img\\":0,\\"upload\\":1,\\"free\\":%lu,\\"stage\\":%lu,\\"heap\\":%lu}",
         FACE_MAX_OBJECTS, static_cast<unsigned int>(WfsProtocol::MAX_DATA_FRAME_BYTES),
         static_cast<unsigned int>(BLEDevice::getMTU()),
         static_cast<unsigned long>(StorageManager::freeBytes()),
