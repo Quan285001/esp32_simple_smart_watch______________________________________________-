@@ -13,6 +13,7 @@ constexpr size_t MAX_LAYOUT_FILE_BYTES = 16384;
 FaceModel activeFace{};
 FaceModel candidateFace{};
 bool activeFaceValid = false;
+bool activeFaceNeedsFullRender = false;
 }
 
 bool begin() {
@@ -30,6 +31,7 @@ bool begin() {
             if (valid) {
                 activeFace = candidateFace;
                 activeFaceValid = true;
+                activeFaceNeedsFullRender = true;
                 Serial.printf("[FACE] Restored package '%s' (%u objects).\\n",
                               activeFace.name, activeFace.objectCount);
                 return true;
@@ -49,6 +51,7 @@ bool begin() {
             if (fallbackValid && FaceStorage::activateSlot(fallbackSlot)) {
                 activeFace = candidateFace;
                 activeFaceValid = true;
+                activeFaceNeedsFullRender = true;
                 Serial.printf("[FACE] Recovered previous package from slot %u.\\n", fallbackSlot);
                 return true;
             }
@@ -80,11 +83,13 @@ bool setActiveModel(const FaceModel& model) {
         strcmp(model.deviceProfileId, "esp32-c3-gc9a01-240") != 0) return false;
     activeFace = model;
     activeFaceValid = true;
+    activeFaceNeedsFullRender = true;
     return true;
 }
 
 void disableActive() {
     activeFaceValid = false;
+    activeFaceNeedsFullRender = false;
 }
 
 const FaceModel* getActiveFace() {
@@ -124,16 +129,20 @@ FaceParseResult loadJsonFile(const char* path) {
 
     activeFace = candidateFace;
     activeFaceValid = true;
+    activeFaceNeedsFullRender = true;
     return result;
 }
 
 FaceRenderStatus renderActive(const struct tm& timeInfo, const WeatherData& weather) {
     if (!activeFaceValid) return FaceRenderStatus::UnsupportedTransform;
-    return renderWatchFace(activeFace, timeInfo, weather);
+    const FaceRenderStatus status = renderWatchFace(activeFace, timeInfo, weather);
+    if (status == FaceRenderStatus::Ok) activeFaceNeedsFullRender = false;
+    return status;
 }
 
 FaceRenderStatus renderActiveDynamic(const struct tm& timeInfo, const WeatherData& weather) {
     if (!activeFaceValid) return FaceRenderStatus::UnsupportedTransform;
+    if (activeFaceNeedsFullRender) return renderActive(timeInfo, weather);
     return renderWatchFaceDynamic(activeFace, timeInfo, weather);
 }
 
