@@ -324,11 +324,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         if (object.type != FaceElementType::Image) continue;
         hasImageObjects = true;
         bool found = false;
-        if (hasImageObjects && !imageCapabilityDeclared) {
-        error = PackageValidationError::UnsupportedCapability;
-        return false;
-    }
-    for (uint8_t a = 0; a < output.assetCount; ++a) {
+        for (uint8_t a = 0; a < output.assetCount; ++a) {
             const FaceAsset& asset = output.assets[a];
             if (strcmp(asset.id, object.assetId) == 0) {
                 const uint16_t objectWidth = static_cast<uint16_t>(lroundf(object.transform.width));
@@ -346,6 +342,10 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
             error = PackageValidationError::AssetManifest;
             return false;
         }
+    }
+    if (hasImageObjects && !imageCapabilityDeclared) {
+        error = PackageValidationError::UnsupportedCapability;
+        return false;
     }
     for (uint8_t a = 0; a < output.assetCount; ++a) {
         if (!referenced[a]) {
