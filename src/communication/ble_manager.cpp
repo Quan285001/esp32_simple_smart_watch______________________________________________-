@@ -104,10 +104,10 @@ void writeU32(uint8_t* p, uint32_t value) {
 bool parseDigest(const char* hex, uint8_t output[32]) {
     if (hex == nullptr || strlen(hex) != 64) return false;
     for (size_t i = 0; i < 32; ++i) {
-        char pair[3] = {hex[i * 2], hex[i * 2 + 1], '\\0'};
+        char pair[3] = {hex[i * 2], hex[i * 2 + 1], '\0'};
         char* end = nullptr;
         const unsigned long value = strtoul(pair, &end, 16);
-        if (end == nullptr || *end != '\\0' || value > 255) return false;
+        if (end == nullptr || *end != '\0' || value > 255) return false;
         output[i] = static_cast<uint8_t>(value);
     }
     return true;
@@ -141,9 +141,9 @@ void sendCapabilities() {
     const size_t stageCapacity = StorageManager::freeBytes() + inactiveBytes;
     char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
     const int length = snprintf(payload, sizeof(payload),
-        "{\\"sv\\":1,\\"pv\\":1,\\"obj\\":%u,\\"json\\":16384,\\"frame\\":%u,"
-        "\\"mtu\\":%u,\\"el\\":\\"text,digital-clock,analog-clock,date,weather,shape\\","
-        "\\"img\\":0,\\"upload\\":1,\\"free\\":%lu,\\"stage\\":%lu,\\"heap\\":%lu}",
+        "{\"sv\":1,\"pv\":1,\"obj\":%u,\"json\":16384,\"frame\":%u,"
+        "\"mtu\":%u,\"el\":\"text,digital-clock,analog-clock,date,weather,shape\","
+        "\"img\":0,\"upload\":1,\"free\":%lu,\"stage\":%lu,\"heap\":%lu}",
         FACE_MAX_OBJECTS, static_cast<unsigned int>(WfsProtocol::MAX_DATA_FRAME_BYTES),
         static_cast<unsigned int>(BLEDevice::getMTU()),
         static_cast<unsigned long>(StorageManager::freeBytes()),
@@ -225,7 +225,7 @@ void handleControlPacket(const WfsPacket& packet) {
             }
             char response[160] = {};
             const int responseLength = snprintf(response, sizeof(response),
-                "{\\"transferId\\":%lu,\\"chunkSize\\":216,\\"nextChunk\\":0}",
+                "{\"transferId\":%lu,\"chunkSize\":216,\"nextChunk\":0}",
                 static_cast<unsigned long>(transferId));
             if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::TransferReady,
                 reinterpret_cast<const uint8_t*>(response), static_cast<uint16_t>(responseLength));
@@ -242,7 +242,7 @@ void handleControlPacket(const WfsPacket& packet) {
             const bool verified = TransferManager::finish(transferId);
             char response[160] = {};
             const int responseLength = snprintf(response, sizeof(response),
-                "{\\"transferId\\":%lu,\\"ok\\":%s,\\"error\\":\\"%s\\"}",
+                "{\"transferId\":%lu,\"ok\":%s,\"error\":\"%s\"}",
                 static_cast<unsigned long>(transferId), verified ? "true" : "false",
                 TransferManager::errorName(TransferManager::snapshot().error));
             if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::VerifyResult,
@@ -261,7 +261,7 @@ void handleControlPacket(const WfsPacket& packet) {
             const FaceModel* active = FaceManager::getActiveFace();
             char response[180] = {};
             const int responseLength = snprintf(response, sizeof(response),
-                "{\\"transferId\\":%lu,\\"ok\\":%s,\\"designId\\":\\"%s\\"}",
+                "{\"transferId\":%lu,\"ok\":%s,\"designId\":\"%s\"}",
                 static_cast<unsigned long>(transferId), applied ? "true" : "false",
                 applied && active != nullptr ? active->designId : "");
             if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::ApplyResult,
