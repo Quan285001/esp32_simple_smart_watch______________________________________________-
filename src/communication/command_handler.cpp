@@ -10,6 +10,7 @@
 
 #include "../services/weather_service.h"
 #include "../services/time_service.h"
+#include "../services/wifi_service.h"
 
 extern bool wifiEnabled;
 extern void requestLightSleep();
@@ -170,14 +171,10 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
             setResult(result, false, 0x0050, "wifi_scan_busy");
             return false;
         }
-        if (!persistWifi(ssid, password)) {
-            setResult(result, false, 0x0023, "wifi_credentials_storage_failed");
+        if (!WifiService::configureCredentials(ssid, password)) {
+            setResult(result, false, 0x0023, "wifi_credentials_storage_or_connect_failed");
             return false;
         }
-        WiFi.mode(WIFI_STA);
-        WiFi.setAutoReconnect(true);
-        wifiEnabled = true;
-        WiFi.begin(ssid, password);
         setResult(result, true, 0, "wifi_credentials_saved_connecting");
         return true;
     }
