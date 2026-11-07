@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "face_parser.h"
+#include "face_renderer.h"
 
 namespace {
 constexpr size_t WFS_HEADER_SIZE = 64;
@@ -291,6 +292,11 @@ bool validateWfsPackage(File& file, size_t expectedFileLength,
     }
     if (strcmp(output.designId, designId) != 0) {
         error = PackageValidationError::DesignIdMismatch;
+        return false;
+    }
+
+    if (validateFaceModelForRenderer(output) != FaceRenderStatus::Ok) {
+        error = PackageValidationError::UnsupportedCapability;
         return false;
     }
 
