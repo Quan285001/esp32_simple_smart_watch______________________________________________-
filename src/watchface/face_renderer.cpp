@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "../display/display_manager.h"
+#include "elements/image.h"
 
 namespace {
 constexpr float PI_F = 3.14159265358979323846f;
@@ -58,7 +59,18 @@ FaceRenderStatus preflight(const FaceModel& face) {
             object.letterSpacing != 0 || (object.fontWeight != 400 && object.fontWeight != 600)) {
             return FaceRenderStatus::UnsupportedTransform;
         }
-        if (object.type == FaceElementType::Image) return FaceRenderStatus::UnsupportedAsset;
+        if (object.type == FaceElementType::Image) {
+            bool foundAsset = false;
+            for (uint8_t assetIndex = 0; assetIndex < face.assetCount; ++assetIndex) {
+                const FaceAsset& asset = face.assets[assetIndex];
+                if (strcmp(asset.id, object.assetId) == 0) {
+                    foundAsset = asset.width == static_cast<uint16_t>(lroundf(object.transform.width)) &&
+                                 asset.height == static_cast<uint16_t>(lroundf(object.transform.height));
+                    break;
+                }
+            }
+            if (!foundAsset) return FaceRenderStatus::UnsupportedAsset;
+        }
         if (object.fontFamily[0] != '\0' &&
             strcmp(object.fontFamily, "system-ui") != 0 &&
             strcmp(object.fontFamily, "sans-serif") != 0 &&
@@ -186,33 +198,33 @@ void drawAnalogClock(const FaceObject& object, const struct tm& timeInfo) {
     tft.fillCircle(cx, cy, 3, color);
 }
 
-void drawObject(const FaceObject& object, const struct tm& timeInfo,
-                const WeatherData& weather) {
-    if (!object.visible) return;
+bool drawObject(const FaceModel& face, const FaceObject& object,
+                const struct tm& timeInfo, const WeatherData& weather) {
+    if (!object.visible) return true;
     switch (object.type) {
         case FaceElementType::Shape:
             drawShape(object);
-            break;
+            return true;
         case FaceElementType::AnalogClock:
             drawAnalogClock(object, timeInfo);
-            break;
+            return true;
         case FaceElementType::DigitalClock: {
             char value[FACE_TEXT_CAPACITY] = {};
             formatTime(value, sizeof(value), object, timeInfo);
             drawTextInBounds(value, object, object.textColor);
-            break;
+            return true;
         }
         case FaceElementType::Date: {
             char value[FACE_TEXT_CAPACITY] = {};
             formatDate(value, sizeof(value), object, timeInfo);
             drawTextInBounds(value, object, object.textColor);
-            break;
+            return true;
         }
         case FaceElementType::Weather: {
             if (!weather.valid) {
                 drawTextInBounds(object.text[0] ? object.text : "Weather unavailable",
                                  object, object.textColor);
-                break;
+                return true;
             }
             if (object.showWeatherTemperature && object.showWeatherCondition) {
                 char temperature[24] = {};
@@ -232,14 +244,15 @@ void drawObject(const FaceObject& object, const struct tm& timeInfo,
                 snprintf(temperature, sizeof(temperature), "%d C", weather.currentTemp);
                 drawTextInBounds(temperature, object, object.textColor);
             }
-            break;
+            return true;
         }
         case FaceElementType::Text:
             drawTextInBounds(object.text, object, object.textColor);
-            break;
+            return true;
         case FaceElementType::Image:
-            break;
+            return drawImageElement(face, object);
     }
+    return false;
 }
 }
 
@@ -256,7 +269,7 @@ FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInf
     uint8_t order[FACE_MAX_OBJECTS] = {};
     sortObjectIndices(face, order);
     for (uint8_t i = 0; i < face.objectCount; ++i) {
-        drawObject(face.objects[order[i]], timeInfo, weather);
+        if (!drawObject(face, face.objects[order[i]], timeInfo, weather)) return FaceRenderStatus::AssetReadFailed;
     }
     return FaceRenderStatus::Ok;
 }
@@ -285,7 +298,7 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
         for (uint8_t j = 0; j < face.objectCount; ++j) {
             const FaceObject& candidate = face.objects[order[j]];
             if (candidate.visible && intersects(candidate, x, y, w, h)) {
-                drawObject(candidate, timeInfo, weather);
+                if (!drawObject(face, candidate, timeInfo, weather)) return FaceRenderStatus::AssetReadFailed;
             }
         }
     }
