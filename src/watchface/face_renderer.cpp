@@ -60,7 +60,8 @@ FaceRenderStatus preflight(const FaceModel& face) {
         if (object.type == FaceElementType::Image) return FaceRenderStatus::UnsupportedAsset;
         if (object.fontFamily[0] != '\0' &&
             strcmp(object.fontFamily, "system-ui") != 0 &&
-            strcmp(object.fontFamily, "sans-serif") != 0) {
+            strcmp(object.fontFamily, "sans-serif") != 0 &&
+            strcmp(object.fontFamily, "inherit") != 0) {
             return FaceRenderStatus::UnsupportedFont;
         }
     }
@@ -207,11 +208,29 @@ void drawObject(const FaceObject& object, const struct tm& timeInfo,
             break;
         }
         case FaceElementType::Weather: {
-            char value[FACE_TEXT_CAPACITY] = {};
-            if (weather.valid) snprintf(value, sizeof(value), "%d C", weather.currentTemp);
-            else snprintf(value, sizeof(value), "%s",
-                          object.text[0] ? object.text : "Weather unavailable");
-            drawTextInBounds(value, object, object.textColor);
+            if (!weather.valid) {
+                drawTextInBounds(object.text[0] ? object.text : "Weather unavailable",
+                                 object, object.textColor);
+                break;
+            }
+            if (object.showWeatherTemperature && object.showWeatherCondition) {
+                char temperature[24] = {};
+                snprintf(temperature, sizeof(temperature), "%d C", weather.currentTemp);
+                FaceObject top = object;
+                top.transform.height = object.transform.height * 0.58f;
+                drawTextInBounds(temperature, top, object.textColor);
+                FaceObject bottom = object;
+                bottom.transform.y += object.transform.height * 0.48f;
+                bottom.transform.height = object.transform.height * 0.52f;
+                bottom.fontSize = object.fontSize > 12 ? object.fontSize / 2 : 8;
+                drawTextInBounds(weather.conditionText, bottom, object.textColor);
+            } else if (object.showWeatherCondition) {
+                drawTextInBounds(weather.conditionText, object, object.textColor);
+            } else {
+                char temperature[24] = {};
+                snprintf(temperature, sizeof(temperature), "%d C", weather.currentTemp);
+                drawTextInBounds(temperature, object, object.textColor);
+            }
             break;
         }
         case FaceElementType::Text:
