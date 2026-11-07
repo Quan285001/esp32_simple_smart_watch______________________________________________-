@@ -4,6 +4,8 @@
 #include <string.h>
 
 #include "../storage/storage_manager.h"
+#include "../storage/face_storage.h"
+#include "package_validator.h"
 
 namespace FaceManager {
 namespace {
@@ -15,24 +17,53 @@ bool activeFaceValid = false;
 
 bool begin() {
     if (!StorageManager::isReady()) return false;
-    if (!StorageManager::exists("/face.json")) {
-        Serial.println("[FACE] No installed custom face; using built-in fallback.");
-        return false;
+
+    const uint8_t slot = FaceStorage::activeSlot();
+    if (slot <= 1) {
+        File packageFile = FaceStorage::openSlot(slot, "r");
+        PackageValidationError packageError = PackageValidationError::None;
+        if (packageFile) {
+            FaceModel candidate{};
+            const bool valid = validateWfsPackage(packageFile, packageFile.size(),
+                                                   nullptr, nullptr, candidate, packageError);
+            packageFile.close();
+            if (valid) {
+                activeFace = candidate;
+                activeFaceValid = true;
+                Serial.printf("[FACE] Restored package '%s' (%u objects).\\n",
+                              activeFace.name, activeFace.objectCount);
+                return true;
+            }
+        }
+        Serial.printf("[FACE] Active package rejected: %s.\\n",
+                      packageValidationErrorName(packageError));
     }
 
-    const FaceParseResult result = loadJsonFile("/face.json");
-    if (!result) {
-        Serial.printf("[FACE] Stored design rejected: %s (object=%u).\n",
+    if (StorageManager::exists("/face.json")) {
+        const FaceParseResult result = loadJsonFile("/face.json");
+        if (result) {
+            Serial.printf("[FACE] Loaded raw test design '%s' (%u objects).\\n",
+                          activeFace.name, activeFace.objectCount);
+            return true;
+        }
+        Serial.printf("[FACE] Raw test design rejected: %s (object=%u).\\n",
                       faceParseErrorName(result.error), result.objectIndex);
-        return false;
     }
-    Serial.printf("[FACE] Loaded design '%s' (%u objects).\n",
-                  activeFace.name, activeFace.objectCount);
-    return true;
+
+    Serial.println("[FACE] No valid installed custom face; using built-in fallback.");
+    return false;
 }
 
 bool hasActiveFace() {
     return activeFaceValid;
+}
+
+bool setActiveModel(const FaceModel& model) {
+    if (model.schemaVersion != 1 || model.objectCount > FACE_MAX_OBJECTS ||
+        model.canvasWidth != 240 || model.canvasHeight != 240) return false;
+    activeFace = model;
+    activeFaceValid = true;
+    return true;
 }
 
 void disableActive() {
