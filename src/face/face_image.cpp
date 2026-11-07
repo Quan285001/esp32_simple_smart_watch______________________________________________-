@@ -11,7 +11,6 @@ namespace {
 constexpr uint16_t IMAGE_WIDTH = 160;
 constexpr uint16_t IMAGE_HEIGHT = 160;
 constexpr uint32_t IMAGE_BYTES = IMAGE_WIDTH * IMAGE_HEIGHT * 2U;
-constexpr uint32_t SLOT_BYTES = 0x10000;
 constexpr uint32_t HEADER_BYTES = 32;
 constexpr uint32_t IMAGE_MAGIC = 0x474D4946; // "FIMG"
 constexpr uint8_t PROTOCOL_VERSION = 1;
@@ -29,7 +28,7 @@ struct __attribute__((packed)) ImageHeader {
     uint32_t dataLength;
     uint32_t crc32;
 };
-static_assert(sizeof(ImageHeader) == HEADER_BYTES, "Unexpected image header size");
+static_assert(sizeof(ImageHeader) == 20, "Unexpected image header size");
 
 const esp_partition_t* activePartition = nullptr;
 const esp_partition_t* stagingPartition = nullptr;
