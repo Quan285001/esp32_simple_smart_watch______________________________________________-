@@ -178,7 +178,8 @@ void sendCapabilities() {
     const size_t inactiveBytes = FaceStorage::slotSize(FaceStorage::inactiveSlot());
     const size_t stageCapacity = StorageManager::freeBytes() + inactiveBytes;
     const uint16_t mtu = BLEDevice::getMTU();
-    const uint16_t frameLimit = mtu > 3 ? min<uint16_t>(WfsProtocol::MAX_DATA_FRAME_BYTES, mtu - 3) : 0;
+    uint16_t frameLimit = mtu > 3 ? static_cast<uint16_t>(mtu - 3) : 0;
+    if (frameLimit > WfsProtocol::MAX_DATA_FRAME_BYTES) frameLimit = WfsProtocol::MAX_DATA_FRAME_BYTES;
     const uint16_t chunkLimit = negotiatedChunkSize();
     char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
     const int length = snprintf(payload, sizeof(payload),
