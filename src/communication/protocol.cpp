@@ -81,13 +81,13 @@ FrameError decodeFrame(const uint8_t* bytes, size_t length,
     const uint16_t expectedCrc = readU16(bytes + 14);
     if (crc16CcittFalse(bytes, 14) != expectedCrc) return FrameError::InvalidHeaderCrc;
 
-    const uint32_t sessionId = readU32(bytes + 6);
+    const uint32_t sessionId = readU32(bytes + 8);
     if (expectedSessionId != 0 && sessionId != expectedSessionId) {
         return FrameError::InvalidSession;
     }
 
     output.type = static_cast<MessageType>(bytes[4]);
-    output.sequence = readU16(bytes + 8);
+    output.sequence = readU16(bytes + 6);
     output.sessionId = sessionId;
     output.payload = bytes + FRAME_HEADER_SIZE;
     output.payloadLength = payloadLength;
