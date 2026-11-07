@@ -1,6 +1,6 @@
 #include "diagnostics.h"
 
-#include <esp_heap_caps.h>
+#include "memory_monitor.h"
 
 namespace SystemDiagnostics {
 namespace {
@@ -15,16 +15,12 @@ void begin() {
     logMemory("boot");
 }
 
-MemorySnapshot captureMemory() {
-    MemorySnapshot snapshot{};
-    snapshot.freeHeap = ESP.getFreeHeap();
-    snapshot.minimumFreeHeap = heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
-    snapshot.largestFreeBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    return snapshot;
+MemoryMonitor::Snapshot captureMemory() {
+    return MemoryMonitor::capture();
 }
 
 void logMemory(const char* reason) {
-    const MemorySnapshot m = captureMemory();
+    const MemoryMonitor::Snapshot m = captureMemory();
     Serial.printf(
         "[MEM] %s free=%lu min_free=%lu largest_block=%lu bytes\n",
         reason != nullptr ? reason : "snapshot",
