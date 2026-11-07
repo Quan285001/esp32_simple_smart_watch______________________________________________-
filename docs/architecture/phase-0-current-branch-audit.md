@@ -1,5 +1,8 @@
 # Phase 0 — Current Branch Repository Audit Addendum
 
+> **Historical snapshot:** audited at commit 50130f7. The statements below about the Upload placeholder, missing WFS service, missing package pipeline and missing renderer are no longer current. See `phase-0-current-state-addendum-2026-11-07.md`, `phase-2-core-foundation.md` and `phase-1-architecture-contract.md` for the current implementation and verification status.
+
+
 **Audit date:** 2026-11-07  
 **Repository:** Quan285001/esp32_very_simple_smart_watch.  
 **Audited branch:** rebuild/watch-face-studio-v2  
