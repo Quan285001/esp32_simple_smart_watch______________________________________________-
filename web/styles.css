@@ -68,3 +68,11 @@ body[data-view="settings"] .main{max-width:1200px;margin:0 auto;width:100%}
 :root[data-theme="system"] .canvas-stage{background-color:#e8edf2;background-image:linear-gradient(#1b273508 1px,transparent 1px),linear-gradient(90deg,#1b273508 1px,transparent 1px)}
 :root[data-theme="system"] .tool-btn{background:#fff;color:#344054}
 }
+
+:root[data-theme="light"] .btn,:root[data-theme="system"] .btn{background:#eef2f6;color:#263244;border-color:#d5dce5}
+:root[data-theme="light"] .btn.primary,:root[data-theme="system"] .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+:root[data-theme="light"] .btn.danger,:root[data-theme="system"] .btn.danger{color:#b8323e}
+:root[data-theme="light"] .template-card,:root[data-theme="system"] .template-card{color:#17202c}
+:root[data-theme="light"] .design-card,:root[data-theme="system"] .design-card{color:#17202c}
+:root[data-theme="light"] .panel-heading h3,:root[data-theme="system"] .panel-heading h3{color:#17202c}
+:root[data-theme="light"] .canvas-footer,:root[data-theme="system"] .canvas-footer{color:#657184}
