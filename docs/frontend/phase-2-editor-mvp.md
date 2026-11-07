@@ -4,7 +4,7 @@ This branch now contains the first usable Web editor slice. It replaces the old 
 
 ## Implemented in this slice
 
-- Responsive editor shell with Editor, Templates, and My Designs views.
+- Responsive editor shell with Editor, Templates, and My Designs views, including a mobile quick-insert toolbar.
 - Starter templates for digital, analog, weather, monochrome, and daylight layouts.
 - Add text, digital time, analog clock, date, weather, image, and basic shape layers.
 - Select layers, drag them on the round 240×240 preview, edit basic position/size/rotation/typography/color, toggle visibility, lock, and delete.
