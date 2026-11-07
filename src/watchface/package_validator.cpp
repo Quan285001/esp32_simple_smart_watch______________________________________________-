@@ -279,6 +279,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         return false;
     }
 
+    bool imageCapabilityDeclared = false;
     JsonArrayConst requiredCapabilities = manifest["requiredCapabilities"].as<JsonArrayConst>();
     if (requiredCapabilities.isNull()) {
         free(manifestText);
@@ -293,6 +294,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
             error = PackageValidationError::UnsupportedCapability;
             return false;
         }
+        if (strcmp(capability.as<const char*>(), "image.rgb565") == 0) imageCapabilityDeclared = true;
     }
 
     // Release manifest parsing memory before allocating the layout parser
@@ -316,11 +318,17 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     for (uint8_t i = 0; i < parsedAssetCount; ++i) output.assets[i] = parsedAssets[i];
 
     bool referenced[FACE_MAX_ASSETS] = {};
+    bool hasImageObjects = false;
     for (uint8_t i = 0; i < output.objectCount; ++i) {
         const FaceObject& object = output.objects[i];
         if (object.type != FaceElementType::Image) continue;
+        hasImageObjects = true;
         bool found = false;
-        for (uint8_t a = 0; a < output.assetCount; ++a) {
+        if (hasImageObjects && !imageCapabilityDeclared) {
+        error = PackageValidationError::UnsupportedCapability;
+        return false;
+    }
+    for (uint8_t a = 0; a < output.assetCount; ++a) {
             const FaceAsset& asset = output.assets[a];
             if (strcmp(asset.id, object.assetId) == 0) {
                 const uint16_t objectWidth = static_cast<uint16_t>(lroundf(object.transform.width));
