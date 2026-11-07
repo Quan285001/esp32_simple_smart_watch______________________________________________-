@@ -11,7 +11,7 @@ enum class FaceRenderStatus : uint8_t {
     UnsupportedFont
 };
 
-// Performs a complete frame render. Call on screen/design changes; a separate
-// dirty-region scheduler will be introduced before second-by-second activation.
 FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInfo,
                                  const WeatherData& weather);
+FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& timeInfo,
+                                        const WeatherData& weather);
