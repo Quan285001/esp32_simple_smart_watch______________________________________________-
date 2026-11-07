@@ -167,16 +167,27 @@ void sendDeviceStatus() {
     }
 }
 
+uint16_t negotiatedChunkSize() {
+    const uint16_t mtu = BLEDevice::getMTU();
+    if (mtu <= 27) return 0;
+    const uint16_t available = static_cast<uint16_t>(mtu - 27);
+    return available < 216 ? available : 216;
+}
+
 void sendCapabilities() {
     const size_t inactiveBytes = FaceStorage::slotSize(FaceStorage::inactiveSlot());
     const size_t stageCapacity = StorageManager::freeBytes() + inactiveBytes;
+    const uint16_t mtu = BLEDevice::getMTU();
+    const uint16_t frameLimit = mtu > 3 ? min<uint16_t>(WfsProtocol::MAX_DATA_FRAME_BYTES, mtu - 3) : 0;
+    const uint16_t chunkLimit = negotiatedChunkSize();
     char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
     const int length = snprintf(payload, sizeof(payload),
         "{\"sv\":1,\"pv\":1,\"obj\":%u,\"json\":16384,\"frame\":%u,"
-        "\"mtu\":%u,\"el\":\"text,digital-clock,analog-clock,date,weather,shape\","
-        "\"img\":0,\"upload\":1,\"free\":%lu,\"stage\":%lu,\"heap\":%lu}",
-        FACE_MAX_OBJECTS, static_cast<unsigned int>(WfsProtocol::MAX_DATA_FRAME_BYTES),
-        static_cast<unsigned int>(BLEDevice::getMTU()),
+        "\"mtu\":%u,\"chunk\":%u,\"el\":\"text,digital-clock,analog-clock,date,weather,shape\","
+        "\"img\":0,\"upload\":%u,\"free\":%lu,\"stage\":%lu,\"heap\":%lu}",
+        FACE_MAX_OBJECTS, static_cast<unsigned int>(frameLimit),
+        static_cast<unsigned int>(mtu), static_cast<unsigned int>(chunkLimit),
+        chunkLimit >= 16 ? 1U : 0U,
         static_cast<unsigned long>(StorageManager::freeBytes()),
         static_cast<unsigned long>(stageCapacity),
         static_cast<unsigned long>(ESP.getFreeHeap()));
@@ -272,6 +283,11 @@ void handleControlPacket(const WfsPacket& packet) {
             const char* designId = request["designId"] | "";
             const char* digestText = request["payloadSha256"] | "";
             uint8_t digest[32] = {};
+            const uint16_t chunkSize = negotiatedChunkSize();
+            if (chunkSize < 16) {
+                sendError(0x0023, "negotiated_mtu_too_small");
+                break;
+            }
             if (!parseDigest(digestText, digest) ||
                 !TransferManager::begin(transferId, packageLength, digest, designId)) {
                 sendError(0x0023, TransferManager::errorName(TransferManager::snapshot().error));
@@ -279,8 +295,8 @@ void handleControlPacket(const WfsPacket& packet) {
             }
             char response[160] = {};
             const int responseLength = snprintf(response, sizeof(response),
-                "{\"transferId\":%lu,\"chunkSize\":216,\"nextChunk\":0}",
-                static_cast<unsigned long>(transferId));
+                "{\"transferId\":%lu,\"chunkSize\":%u,\"nextChunk\":0}",
+                static_cast<unsigned long>(transferId), static_cast<unsigned int>(chunkSize));
             if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::TransferReady,
                 reinterpret_cast<const uint8_t*>(response), static_cast<uint16_t>(responseLength));
             break;
