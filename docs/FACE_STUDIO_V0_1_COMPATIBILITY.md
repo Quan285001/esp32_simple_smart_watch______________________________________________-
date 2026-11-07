@@ -21,12 +21,13 @@ The Face Studio workspace in `index.html` provides:
 
 ## What the current ESP32-C3 firmware can apply
 
-The firmware still renders its native analog face and accepts only:
+The firmware renders its native analog face and accepts the following settings and asset in the image-background feature branch:
 
 - Background color (RGB565)
 - Dial fill color (RGB565)
 - Clock-hand color (RGB565)
 - Accent color (RGB565)
+- One static 160 × 160 RGB565 photo background transferred over BLE and stored in alternating Flash slots (feature branch only)
 - Show/hide seconds (flag bit 0)
 - Show/hide date (flag bit 1)
 
