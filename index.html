@@ -30,6 +30,7 @@
     <button class="nav-item active" data-nav="editor"><span class="nav-icon">✳</span> Editor</button>
     <button class="nav-item" data-nav="templates"><span class="nav-icon">▦</span> Templates</button>
     <button class="nav-item" data-nav="library"><span class="nav-icon">▣</span> My designs</button>
+    <button class="nav-item" data-nav="device"><span class="nav-icon">⌚</span> Device</button>
     <button class="nav-item" data-nav="settings"><span class="nav-icon">⚙</span> Settings</button>
     <div class="side-divider"></div>
     <div class="side-title">Add elements</div>
@@ -41,12 +42,6 @@
     <button class="nav-item" id="addImage"><span class="nav-icon">▧</span> Image</button>
     <button class="nav-item" id="addShape"><span class="nav-icon">◇</span> Shape</button>
     <div class="side-divider"></div>
-    <div class="device-card">
-      <div class="device-row"><span>My device</span><span class="pill">C3 · 240</span></div>
-      <p><span class="status-dot" id="deviceDot"></span><span id="deviceStatus">Not connected</span><br>GC9A01 circular display</p>
-      <button class="btn" id="connectBtn" type="button">Connect Bluetooth</button>
-      <p class="muted">Legacy BLE control is available. Custom face transfer will be enabled after firmware protocol integration.</p>
-    </div>
   </aside>
   <main class="main">
     <section data-view="editor">
@@ -95,6 +90,42 @@
         <section class="settings-card"><div class="eyebrow">ABOUT</div><h2>Watch Face Studio</h2><p>Target profile: ESP32-C3 · GC9A01 · 240 × 240 circular display.</p><p class="settings-status">Custom face transfer is not available until the matching firmware protocol and receiver are implemented and verified.</p></section>
       </div>
     </section>
+    <section data-view="device" class="hidden">
+      <div class="page-heading"><div><div class="eyebrow">DEVICE MANAGEMENT</div><h1>My device</h1><p>Connect to your ESP32-C3 and manage the existing firmware features.</p></div></div>
+      <div class="device-page-grid">
+        <section class="settings-card device-overview">
+          <div class="eyebrow">CONNECTION</div><h2>ESP32-C3 · GC9A01</h2>
+          <p><span class="status-dot" id="deviceDot"></span><strong id="deviceStatus">Not connected</strong></p>
+          <p>Connect to the watch to use time sync, weather sync, sleep, location and Wi-Fi controls.</p>
+          <button class="btn primary" id="connectBtn" type="button">Connect Bluetooth</button>
+        </section>
+        <section class="settings-card">
+          <div class="eyebrow">LEGACY FIRMWARE</div><h2>Legacy device controls</h2>
+          <p id="legacyStatus">Connect to use the existing firmware commands.</p>
+          <div class="device-control-grid">
+            <button class="btn" id="syncTimeBtn" type="button">Sync time</button>
+            <button class="btn" id="syncWeatherBtn" type="button">Sync weather</button>
+            <button class="btn" id="sleepWatchBtn" type="button">Light Sleep</button>
+            <button class="btn" id="sendLocationBtn" type="button">Send phone location</button>
+            <button class="btn" id="scanWifiBtn" type="button">Scan Wi-Fi</button>
+          </div>
+          <div class="field"><label for="autoSleepSelect">AUTOMATIC LIGHT SLEEP</label><select id="autoSleepSelect"><option value="0">Disabled</option><option value="10">10 seconds</option><option value="12">12 seconds</option><option value="15" selected>15 seconds</option><option value="18">18 seconds</option><option value="20">20 seconds</option></select></div>
+          <button class="btn small" id="saveAutoSleepBtn" type="button">Save auto-sleep setting</button>
+        </section>
+        <section class="settings-card">
+          <div class="eyebrow">NETWORK</div><h2>Wi-Fi configuration</h2>
+          <div class="field"><label for="wifiSelect">AVAILABLE WI-FI NETWORKS</label><select id="wifiSelect"><option value="">Scan for networks first</option></select></div>
+          <div class="field"><label for="wifiSsid">WI-FI NAME (SSID)</label><input id="wifiSsid" autocomplete="off" placeholder="Network name"></div>
+          <div class="field"><label for="wifiPassword">WI-FI PASSWORD</label><input id="wifiPassword" type="password" autocomplete="new-password" placeholder="Password"></div>
+          <button class="btn" id="saveWifiBtn" type="button">Send Wi-Fi configuration</button>
+        </section>
+        <section class="settings-card">
+          <div class="eyebrow">WATCH FACE TRANSFER</div><h2>Apply design to watch</h2>
+          <p>Your design can currently be saved in this browser or exported as JSON. The existing BLE firmware only supports legacy commands; the new face-package transfer protocol is not implemented yet.</p>
+          <button class="btn primary" id="transferBtn" type="button">Prepare for watch</button>
+        </section>
+      </div>
+    </section>
   </main>
   <aside class="rightbar">
     <section class="panel-section">
@@ -114,33 +145,9 @@
       <div id="inspector"><div class="empty-state">Select a layer to edit its properties.</div></div>
       <div id="advancedFields" class="hidden"><div class="side-divider"></div><div class="eyebrow">ADVANCED MODE</div><p class="note">Precise geometry, typography, per-glyph styling and renderer-specific options are being added in the next editor iterations.</p></div>
     </section>
-    <section class="panel-section">
-      <div class="panel-heading"><h3>Legacy device controls</h3><span class="pill">BLE</span></div>
-      <p class="note" id="legacyStatus">Connect to use the existing firmware commands.</p>
-      <div class="field-row">
-        <button class="btn small" id="syncTimeBtn" type="button">Sync time</button>
-        <button class="btn small" id="syncWeatherBtn" type="button">Sync weather</button>
-      </div>
-      <div class="field-row">
-        <button class="btn small" id="sleepWatchBtn" type="button">Light Sleep</button>
-        <button class="btn small" id="sendLocationBtn" type="button">Send phone location</button>
-        <button class="btn small" id="scanWifiBtn" type="button">Scan Wi-Fi</button>
-      </div>
-      <div class="field"><label for="autoSleepSelect">AUTOMATIC LIGHT SLEEP</label><select id="autoSleepSelect"><option value="0">Disabled</option><option value="10">10 seconds</option><option value="12">12 seconds</option><option value="15" selected>15 seconds</option><option value="18">18 seconds</option><option value="20">20 seconds</option></select></div>
-      <button class="btn small" id="saveAutoSleepBtn" type="button">Save auto-sleep setting</button>
-      <div class="field"><label for="wifiSelect">AVAILABLE WI-FI NETWORKS</label><select id="wifiSelect"><option value="">Scan for networks first</option></select></div>
-      <div class="field"><label for="wifiSsid">WI-FI NAME (SSID)</label><input id="wifiSsid" autocomplete="off" placeholder="Network name"></div>
-      <div class="field"><label for="wifiPassword">WI-FI PASSWORD</label><input id="wifiPassword" type="password" autocomplete="new-password" placeholder="Password"></div>
-      <button class="btn small" id="saveWifiBtn" type="button">Send Wi-Fi configuration</button>
-    </section>
-    <section class="panel-section">
-      <div class="panel-heading"><h3>Apply to watch</h3><span class="pill">PREVIEW</span></div>
-      <p class="note">Your current design is saved locally. The existing BLE firmware only supports legacy commands; the new package-transfer protocol is not implemented yet.</p>
-      <button class="btn primary" id="transferBtn" type="button" style="width:100%">Prepare for watch</button>
-    </section>
   </aside>
 </div>
-<nav class="mobile-tabs"><button data-nav="editor" class="active">✳ Editor</button><button data-nav="templates">▦ Templates</button><button data-nav="library">▣ Designs</button><button data-nav="settings">⚙ Settings</button></nav>
+<nav class="mobile-tabs"><button data-nav="editor" class="active">✳ Editor</button><button data-nav="templates">▦ Templates</button><button data-nav="library">▣ Designs</button><button data-nav="device">⌚ Device</button><button data-nav="settings">⚙ Settings</button></nav>
 </div>
 <input id="imageInput" class="hidden" type="file" accept="image/*">
 <input id="jsonInput" class="hidden" type="file" accept="application/json,.json">
