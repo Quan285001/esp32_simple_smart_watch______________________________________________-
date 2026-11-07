@@ -146,7 +146,7 @@ All integers are little-endian. The Web and firmware must use these exact offset
 | 14 | 2 | CRC16-CCITT-FALSE over bytes 0–13 |
 | 16 | N | Payload |
 
-Historical note: the 6afd283 audit found the firmware using offset 10. The current source at 67e99e1 reads/writes payload length at offset 12, matching the Web encoder. `tests/host/protocol_codec_test.cpp` now contains a fixed golden frame with independently specified bytes. The browser encoder has not yet been executed against that fixture, and physical BLE interoperability remains untested.
+Historical note: the 6afd283 audit found the firmware using offset 10. Current C++ and Web codecs both execute against the same byte-exact golden frame in `tests/host/protocol_codec_test.cpp` and `tests/host/web_protocol_codec_test.cjs`; the shared host runner checks both. This establishes codec-level compatibility, not a live BLE exchange. Physical BLE interoperability remains untested.
 
 Control payloads are UTF-8 JSON bounded to 220 bytes. Data frames are bounded to 240 total bytes. The negotiated maximum data chunk is `min(216, ATT_MTU - 27)`, subject to the actual stack-reported MTU and packet buffer limit.
 
@@ -194,7 +194,7 @@ Command responses must include requestId, ok, stable error code and safe message
 - APPLY is allowed only after successful verification. Device switches the active pointer only after the candidate is fully valid and preserves the previous slot for rollback.
 - Web reports success only after a matching successful APPLY_RESULT and a refreshed device status.
 
-Current source status at 67e99e1: firmware accepts an identical retransmission of the immediately previous chunk and rejects conflicting/out-of-order chunks; the Web uploader now retries the same encoded frame up to three attempts, preserving sequence and chunk index. This is source-implemented but still requires host fault-injection and physical BLE verification.
+Current source status: firmware accepts an identical retransmission of the immediately previous chunk and rejects conflicting/out-of-order chunks; the Web uploader retries the same encoded frame up to three attempts, preserving sequence and chunk index. The sequencing policy has been extracted into `src/communication/transfer_sequence.h` and covered by `tests/host/transfer_sequence_test.cpp` for accepted chunks, byte-identical duplicates, conflicting duplicates, skipped indexes, invalid payloads and reset. These host tests do not yet exercise SPIFFS write failures, BLE disconnects or power loss; those still require integration and hardware verification.
 
 ## 5. WFS1 package contract
 
@@ -264,7 +264,7 @@ Completed as GitHub source inspection. No build or hardware claim.
 - [x] WFS UUIDs and exact frame layout documented.
 - [x] Transfer/package/storage contract documented.
 - [x] C++ codec checked against a fixed golden frame matching the documented Web DataView layout.
-- [ ] Browser encoder independently checked against the same golden frame.
+- [x] Browser encoder independently checked against the same golden frame by the Node host test.
 - [ ] Remaining historical audit/protocol notes reconciled against the latest branch.
 
 ### Phase 2 — Core foundation
@@ -277,6 +277,9 @@ Acceptance: fixtures from actual editor exports; parser rejects malformed/unsupp
 Acceptance: cross-language frame fixtures; handshake/capabilities/status; legacy command regression; malformed frames rejected without reboot.
 
 ### Phase 5 — Package transfer
+- [x] Pure stop-and-wait sequencing policy extracted and host-tested (next chunk, identical retry, conflicting retry, out-of-order chunk, invalid payload and reset).
+- [ ] TransferManager + SPIFFS integration tests for write failure, cancellation, disconnect and length/digest mismatch.
+- [ ] Two-slot rollback and reboot recovery tests.
 Acceptance: ACK retry, duplicate handling, cancel, disconnect recovery, digest validation, two-slot rollback and reboot recovery.
 
 ### Phase 6 — Web integration
