@@ -1,108 +1,135 @@
-# Watch Face Package Format — `.wface` v1 Draft
+# Watch Face Package Format — WFS1 / .wface
 
-**Status:** specification draft; parser/exporter not implemented.
+**Status:** selected v1 container design; firmware parser and Web exporter are still under implementation.  
+**Target:** ESP32-C3, GC9A01 240×240, SPIFFS staging storage.
 
-## 1. Container
+## 1. Decision
 
-A `.wface` file is a ZIP-compatible archive with bounded entries:
+Use a small custom streaming container instead of ZIP.
 
-```text
-example.wface
-├── manifest.json
-├── layout.json
-├── preview.png             # optional
-└── assets/
-    ├── bg-main.rgb565
-    ├── glyph-time.atlas
-    └── ...
+Reasons:
+- The firmware must validate and write package bytes incrementally.
+- A ZIP implementation would require central-directory handling and decompression policy on a memory-constrained MCU.
+- The current design only needs two JSON documents plus raw device-ready assets.
+- The browser can assemble a Blob from header, manifest, layout and asset byte arrays without a ZIP dependency.
+
+The .wface extension is a transportable binary container. It is not executable code.
+
+## 2. Container layout
+
+All integers are little-endian. The fixed header is exactly 64 bytes.
+
+| Offset | Size | Field | Rule |
+|---:|---:|---|---|
+| 0 | 4 | Magic | ASCII WFS1 |
+| 4 | 2 | Package format version | 1 |
+| 6 | 2 | Header size | 64 |
+| 8 | 4 | Manifest length | UTF-8 JSON byte length |
+| 12 | 4 | Layout length | UTF-8 JSON byte length |
+| 16 | 2 | Asset count | Must equal manifest assets length |
+| 18 | 2 | Flags | Must be zero in v1 |
+| 20 | 4 | Payload length | Manifest + layout + all asset bytes |
+| 24 | 32 | Payload SHA-256 | Digest of the complete payload bytes |
+| 56 | 4 | Header CRC32 | CRC-32/ISO-HDLC over bytes 0–55 |
+| 60 | 4 | Reserved | Must be zero |
+
+Payload order is deterministic:
+
+1. manifest.json bytes (UTF-8, no BOM);
+2. layout.json bytes (UTF-8, no BOM);
+3. raw asset bytes in the same order as manifest.assets.
+
+Total package length must equal 64 + payloadLength exactly. Trailing bytes are rejected.
+
+## 3. Manifest
+
+Example:
+
+```json
+{
+  "packageFormatVersion": 1,
+  "designId": "design_abc123",
+  "name": "Minimal Digital",
+  "schemaVersion": 1,
+  "deviceProfileId": "esp32-c3-gc9a01-240",
+  "requiredCapabilities": ["clock.digital", "text.basic"],
+  "layoutSha256": "lowercase-hex-sha256",
+  "assets": [
+    {
+      "assetId": "asset_background",
+      "mediaType": "image/rgb565",
+      "encoding": "rgb565le",
+      "width": 240,
+      "height": 240,
+      "byteLength": 115200,
+      "offset": 0,
+      "sha256": "lowercase-hex-sha256"
+    }
+  ]
+}
 ```
 
-The package contains declarative JSON and binary assets only. It must never contain executable JavaScript, C++, bytecode, scripts or dynamically loaded firmware.
+Asset offset is relative to the first byte after manifest and layout. The absolute package offset is:
 
-## 2. manifest.json
+64 + manifestLength + layoutLength + asset.offset
 
-Required fields:
-- `packageFormatVersion`: integer, currently 1;
-- `designId`, `name`;
-- `schemaVersion`;
-- `createdAt`, `updatedAt` in ISO 8601 UTC;
-- `deviceProfileId`;
-- `canvas`: width, height, shape and color format;
-- `requiredCapabilities`;
-- `assets`: array of asset descriptors;
-- `integrity`: digest algorithm and package/layout digest.
+Asset entries must be ordered by ascending offset, non-overlapping, contiguous, and wholly inside payloadLength. Asset IDs must be unique. Layout assetId references must resolve to exactly one manifest entry.
 
-Each asset descriptor contains:
-- stable `assetId`;
-- relative archive path;
-- media/encoding type;
-- width and height where applicable;
-- byte length;
-- SHA-256 digest;
-- optional color palette or tile metadata.
+## 4. Initial asset encoding
 
-Archive paths must be relative, normalized and confined to the archive. Reject absolute paths, parent traversal, duplicate paths, symlinks, unsupported compression methods and duplicate asset IDs.
+Initial device bitmap encoding:
+- mediaType: image/rgb565
+- encoding: rgb565le
+- RGB565 pixels in little-endian byte order
+- no compression in v1
+- dimensions and byteLength must agree exactly (width × height × 2)
 
-## 3. layout.json
+The Web package builder must resize/crop to target bounds, convert colors, and optionally dither before packaging. The firmware must stream rows/tiles from storage; it must not allocate a full-screen decoded bitmap plus a second full-screen buffer.
 
-The layout document must validate against `shared/schemas/watch-face.schema.json`. Coordinates are expressed in the Device Profile pixel coordinate system. Object order and z-index semantics are deterministic.
+PNG/JPEG are browser import formats only. Firmware support for compressed PNG/JPEG is not implied.
 
-Every asset reference must resolve to exactly one manifest asset. Every required capability must be advertised by the target device before installation.
+Glyph atlas assets will use a separate explicit encoding and metadata contract in a later compatible package revision; do not overload the RGB565 asset type.
 
-## 4. Asset formats
+## 5. Integrity and validation
 
-Initial candidate formats:
-- RGB565 raw or tiled RGB565 for photo/background assets;
-- indexed/palette format when measurements show it is beneficial;
-- glyph atlas with metadata for custom/dynamic typography;
-- PNG only for Web preview thumbnails, not as an assumed firmware decoder input.
+- Header CRC32 detects malformed header fields.
+- Payload SHA-256 covers manifest, layout and every asset byte in the exact payload order.
+- layoutSha256 covers the exact layout.json UTF-8 bytes.
+- Each asset SHA-256 covers its exact raw bytes.
+- Firmware must check declared lengths before reading or allocating.
+- The parser must reject unknown major package versions, nonzero v1 flags, invalid offsets, duplicate IDs, missing asset references, malformed JSON, schema errors, unsupported capabilities and checksum mismatches.
 
-The actual supported formats must be advertised by runtime capabilities. Compression must be benchmarked; do not assume it saves memory or CPU.
+The manifest and layout must be parsed with bounded sizes and a bounded nesting depth. Package limits are supplied by runtime capabilities and available staging capacity, not guessed by the Web app.
 
-A full 240 × 240 RGB565 bitmap is 115,200 bytes. Firmware must stream or tile asset reads rather than allocating multiple full-size buffers.
+## 6. Atomic installation
 
-## 5. Validation and resource limits
+The existing huge_app partition table provides a nominal 0xE0000-byte SPIFFS partition. Actual usable space is lower due to filesystem metadata and must be read from SPIFFS at runtime.
 
-The importer and device parser must enforce:
-- maximum archive byte size;
-- maximum entry count;
-- maximum uncompressed size per entry and total;
-- maximum path length;
-- maximum JSON document size and nesting depth;
-- maximum object/group depth and object count;
-- maximum asset dimensions;
-- valid color/coordinate ranges;
-- valid asset references and checksums;
-- no executable content.
+Use two package slots:
+- active slot;
+- inactive slot used for the next transfer.
 
-Limits are negotiated from firmware capabilities. Until measured on-device, no arbitrary maximum is declared safe.
+The inactive slot may be overwritten only after the active slot is identified and protected. If the complete new package cannot fit while preserving the active package, reject the transfer before receiving bytes.
 
-## 6. Install transaction
+Commit sequence:
+1. reserve inactive slot;
+2. stream package into inactive slot;
+3. validate header and exact total length;
+4. validate payload, layout and asset digests;
+5. parse and validate schema/capability requirements;
+6. verify the stored bytes can be read back;
+7. atomically persist the active-slot selector in NVS;
+8. report the active design ID and package digest;
+9. retain the previous slot for rollback until a later confirmed boot policy permits cleanup.
 
-1. Browser creates package and computes digests.
-2. Device reserves staging capacity.
-3. Device receives all bytes into staging.
-4. Device verifies lengths and digests.
-5. Device validates manifest/layout/assets against supported schema/capabilities.
-6. Device verifies staged storage reads.
-7. Device atomically activates the new package.
-8. Device reports active design ID and digest.
-9. Device retains the prior known-good design until a later successful replacement policy permits cleanup.
+Power loss before step 7 leaves the old slot active. Power loss after step 7 is recovered by verifying the selected slot at boot and falling back to the previous valid slot if needed.
 
-A failed or cancelled transfer must never modify the active design. Retrying always starts from byte zero with a new transfer ID.
+The two-slot scheme cannot guarantee that two maximum-sized packages fit in the SPIFFS partition. Runtime capacity checks are mandatory.
 
-## 7. Version migration
+## 7. Open implementation details
 
-- Package format version and layout schema version are separate.
-- Unknown major versions are rejected with a clear compatibility message.
-- Minor compatible additions may be ignored only when explicitly marked optional.
-- Unsupported required capabilities cause rejection before Apply.
-- Web import may offer migration to a newer schema, but must preserve the original file and create a migrated copy.
-- Firmware must not attempt an unsafe in-place migration of the active package.
-
-## 8. Open questions before implementation
-
-- Select ZIP library/strategy compatible with ESP32-C3 memory constraints, or use a streaming custom container if ZIP central-directory handling is too costly.
-- Benchmark SHA-256 and archive validation cost on device.
-- Decide whether package digest covers canonical manifest/layout bytes plus ordered asset digests, avoiding self-referential manifest hashing.
-- Set package and asset limits only after flash partition and filesystem capacity are verified.
+- Implement CRC32 and incremental SHA-256 using APIs available in the pinned ESP32 Arduino/ESP-IDF toolchain.
+- Confirm exact SPIFFS usable capacity and write/rename behavior on the physical board.
+- Decide package metadata limits after measuring worst-case manifest and layout parse heap.
+- Add binary golden fixtures and corruption tests.
+- Implement the Web exporter using IndexedDB asset resolution and streaming Blob assembly.
