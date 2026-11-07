@@ -115,3 +115,9 @@ body[data-view]:not([data-view="editor"]) .sidebar [data-editor-tools]{display:n
 .sidebar [data-editor-tools] .nav-item:hover{transform:translateX(2px)}
 .sidebar [data-editor-tools] .nav-item:focus-visible,
 .sidebar .nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Keep upload action attached to the editor's live preview footer. */
+.canvas-footer{gap:12px;flex-wrap:wrap}
+.canvas-footer-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;flex:1;min-width:150px}
+.upload-watch-btn{white-space:nowrap;flex-shrink:0}
+@media(max-width:520px){.canvas-footer-meta{width:100%}.upload-watch-btn{width:100%}}
