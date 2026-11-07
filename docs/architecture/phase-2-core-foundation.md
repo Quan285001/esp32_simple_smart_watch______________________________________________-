@@ -88,6 +88,7 @@ The current package ceiling is constrained by a 16 KiB layout parser limit, mani
 - The renderer does not support rotation, partial opacity, arbitrary fonts, glyph atlases/overrides, groups, gauges, progress rings or advanced analog hand styling.
 - Weather face objects currently support temperature and condition only; other forecast/lunar values remain in the legacy weather screen, not the custom-face object renderer.
 - The parser rejects unknown keys at supported root/object/nested levels, but dedicated parser fixture/fuzz tests are still outstanding.
+- WFS transfer state now reserves the shared resource window: verified packages remain busy until apply/cancel, and TLS/weather, Wi-Fi scan and credential changes are prevented from overlapping staging writes.
 - Weather TLS currently uses setInsecure(); certificate validation remains a security hardening item.
 - No physical hardware tests have been run for these modules.
 
