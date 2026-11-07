@@ -2,7 +2,7 @@ name: PlatformIO Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, rebuild/watch-face-studio-v2]
   pull_request:
     branches: [main]
   workflow_dispatch:
