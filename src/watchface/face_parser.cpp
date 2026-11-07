@@ -102,12 +102,17 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
     }
 
     JsonArrayConst glyphOverrides = source["glyphOverrides"].as<JsonArrayConst>();
-    if (!glyphOverrides.isNull() && glyphOverrides.size() > 0) return true;
+    if ((source.containsKey("glyphOverrides") && glyphOverrides.isNull()) ||
+        (!glyphOverrides.isNull() && glyphOverrides.size() > 0)) return true;
+    if (source.containsKey("glyphAtlasAssetId") &&
+        !source["glyphAtlasAssetId"].is<const char*>()) return true;
     if (hasNonEmptyString(source["glyphAtlasAssetId"])) return true;
     if (source.containsKey("glyphFallback") &&
-        strcmp(source["glyphFallback"] | "compatibility-error", "compatibility-error") != 0) return true;
+        (!source["glyphFallback"].is<const char*>() ||
+         strcmp(source["glyphFallback"] | "compatibility-error", "compatibility-error") != 0)) return true;
 
     JsonObjectConst handConfig = source["handConfig"].as<JsonObjectConst>();
+    if (source.containsKey("handConfig") && handConfig.isNull()) return true;
     if (!handConfig.isNull()) {
         for (JsonPairConst pair : handConfig) {
             const char* key = pair.key().c_str();
@@ -136,14 +141,22 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
     }
 
     JsonObjectConst renderHints = source["renderHints"].as<JsonObjectConst>();
-    if (!renderHints.isNull() &&
-        ((renderHints["requiresAntialias"] | false) ||
-         (renderHints["requiresBitmap"] | false))) return true;
+    if (source.containsKey("renderHints") && renderHints.isNull()) return true;
+    if (!renderHints.isNull()) {
+        if ((renderHints.containsKey("requiresAntialias") &&
+             !renderHints["requiresAntialias"].is<bool>()) ||
+            (renderHints.containsKey("requiresBitmap") &&
+             !renderHints["requiresBitmap"].is<bool>()) ||
+            (renderHints["requiresAntialias"] | false) ||
+            (renderHints["requiresBitmap"] | false)) return true;
+    }
 
+    if (source.containsKey("shape") && !source["shape"].is<const char*>()) return true;
     const char* shape = source["shape"] | "rect";
     if (strcmp(shape, "arc") == 0) return true;
 
     JsonArrayConst weatherFields = source["weatherFields"].as<JsonArrayConst>();
+    if (source.containsKey("weatherFields") && weatherFields.isNull()) return true;
     if (!weatherFields.isNull()) {
         for (JsonVariantConst field : weatherFields) {
             if (field.is<const char*>() && strcmp(field.as<const char*>(), "icon") == 0) {
@@ -152,6 +165,9 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
         }
     }
 
+    if (source.containsKey("clockMode") && !source["clockMode"].is<const char*>()) return true;
+    if (source.containsKey("showAmPm") && !source["showAmPm"].is<bool>()) return true;
+    if (source.containsKey("showSeconds") && !source["showSeconds"].is<bool>()) return true;
     const char* type = source["type"] | "";
     const char* clockMode = source["clockMode"] | "";
     if (clockMode[0] != '\\0') {
@@ -173,6 +189,8 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     memset(&target, 0, sizeof(target));
     if (!copyString(source["id"], target.id, sizeof(target.id), true) ||
         !copyString(source["name"], target.name, sizeof(target.name), true)) return false;
+    if ((source.containsKey("visible") && !source["visible"].is<bool>()) ||
+        (source.containsKey("locked") && !source["locked"].is<bool>())) return false;
 
     char typeName[24] = {};
     if (!copyString(source["type"], typeName, sizeof(typeName), true) ||
@@ -311,6 +329,12 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
 
     JsonObjectConst canvas = document["canvas"].as<JsonObjectConst>();
     if (canvas.isNull()) return {FaceParseError::MissingField, 0};
+    if (canvas.containsKey("shape") && !canvas["shape"].is<const char*>()) {
+        return {FaceParseError::InvalidField, 0};
+    }
+    if (canvas.containsKey("clipToShape") && !canvas["clipToShape"].is<bool>()) {
+        return {FaceParseError::InvalidField, 0};
+    }
     const char* canvasShape = canvas["shape"] | "circle";
     if (strcmp(canvasShape, "circle") != 0) return {FaceParseError::UnsupportedProperty, 0};
     output.canvasWidth = canvas["width"] | 0;
