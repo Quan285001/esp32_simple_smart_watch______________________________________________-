@@ -1,5 +1,8 @@
 # Phase 0 — Current-Branch Audit Addendum
 
+> **Historical snapshot:** source state reviewed at commit be90892. Later changes added transfer lifecycle hardening, parser strictness, package validation fixes, renderer invalidation/clipping, Web schema enforcement and resource arbitration. See `phase-0-current-state-addendum-2026-11-07.md` for the current state.
+
+
 **Repository:** `Quan285001/esp32_very_simple_smart_watch.`  
 **Branch:** `rebuild/watch-face-studio-v2`  
 **Source baseline reviewed:** `126e4d1` (current branch also includes the subsequent audit-document commits)  
