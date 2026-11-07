@@ -55,7 +55,7 @@ bool digestBytes(const uint8_t* data, size_t length, uint8_t output[32]) {
     return finish == 0;
 }
 
-bool digestFileRange(File& file, size_t offset, size_t length, uint8_t output[32]) {
+bool digestFileRange(fs::File& file, size_t offset, size_t length, uint8_t output[32]) {
     if (!file.seek(offset, SeekSet)) return false;
     mbedtls_sha256_context context;
     mbedtls_sha256_init(&context);
@@ -99,7 +99,7 @@ bool hasAsset(JsonArrayConst assets, const char* assetId) {
 }
 }
 
-bool validateWfsPackage(File& file, size_t expectedFileLength,
+bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
                         const uint8_t* expectedPayloadDigest,
                         const char* expectedDesignId,
                         FaceModel& output,
