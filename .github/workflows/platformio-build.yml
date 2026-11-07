@@ -23,7 +23,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install PlatformIO
-        run: python -m pip install --upgrade platformio
+        run: python -m pip install --upgrade platformio jsonschema
 
       - name: Create temporary build-only Wi-Fi config
         run: |
@@ -32,6 +32,9 @@ jobs:
           #define WIFI_SSID "BUILD_ONLY"
           #define WIFI_PASSWORD "BUILD_ONLY"
           EOF
+
+      - name: Validate shared JSON schemas
+        run: python scripts/validate_schemas.py
 
       - name: Build ESP32-C3 firmware
         run: pio run -e c3_clock
