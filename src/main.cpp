@@ -17,6 +17,7 @@
 #include "services/ble_service.h"
 
 extern void handleBLECommands();
+extern void loadFaceStudioConfig();
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -67,6 +68,19 @@ static volatile bool wifiScanRunning = false;
 static bool wifiScanRestoreOff = false;
 static volatile int8_t weatherNotifyPending = -1;
 static volatile bool locationWeatherRefreshPending = false;
+static bool manualWeatherWakePending = false;
+static bool weatherRequestWokeWifi = false;
+static uint32_t weatherRefreshPendingSinceMs = 0;
+
+static void markWeatherRefreshPending() {
+    locationWeatherRefreshPending = true;
+    if (weatherRefreshPendingSinceMs == 0) weatherRefreshPendingSinceMs = millis();
+}
+
+static void clearWeatherRefreshPending() {
+    locationWeatherRefreshPending = false;
+    weatherRefreshPendingSinceMs = 0;
+}
 static volatile bool bootNetworkRunning = false;
 static volatile bool bootNetworkNeedsBle = false;
 static bool bootUiReady = false;
@@ -104,6 +118,25 @@ static uint8_t autoSleepTimeoutSeconds = 15; // 0 disables automatic sleep.
 static uint32_t lastUserActivityMs = 0;
 static uint32_t lastButtonActivitySeenMs = 0;
 static bool previousBleConnected = false;
+
+/**
+ * @brief Reports heap health at important lifecycle boundaries.
+ * Values are runtime diagnostics, not a compile-time RAM usage percentage.
+ */
+static void logMemorySnapshot(const char* tag) {
+    const uint32_t freeHeap = ESP.getFreeHeap();
+    const uint32_t minFreeHeap = ESP.getMinFreeHeap();
+    const uint32_t largestBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    const uint32_t freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    Serial.printf(
+        "[MEM] %s: free=%u, min_free=%u, largest_block=%u, internal_free=%u bytes\n",
+        tag,
+        static_cast<unsigned int>(freeHeap),
+        static_cast<unsigned int>(minFreeHeap),
+        static_cast<unsigned int>(largestBlock),
+        static_cast<unsigned int>(freeInternal)
+    );
+}
 
 void setAutoSleepTimeoutSeconds(uint8_t seconds) {
     if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
@@ -169,6 +202,7 @@ static void enterLightSleep() {
     beginButtonManager();
     drawCurrentScreen(true);
     Serial.println("[POWER] Wake complete; radios remain OFF.");
+    logMemorySnapshot("AFTER_LIGHT_SLEEP_WAKE");
 }
 
 /**
@@ -199,8 +233,10 @@ static void weatherFetchTask(void *parameter) {
     (void)parameter;
 
     Serial.println("[WEATHER] Background fetch started.");
+    logMemorySnapshot("WEATHER_TASK_START");
 
     const bool success = fetchHourlyWeather();
+    logMemorySnapshot(success ? "WEATHER_FETCH_OK" : "WEATHER_FETCH_FAILED");
     if (success) {
         lastWeatherFetchMs = millis(); // Advance the refresh countdown only after valid data is committed.
         weatherDataValid = true;
@@ -221,6 +257,7 @@ static void weatherFetchTask(void *parameter) {
     }
 
     weatherFetchRunning = false;
+    logMemorySnapshot("WEATHER_TASK_END");
 
     vTaskDelete(nullptr);
 }
@@ -280,9 +317,20 @@ static bool scheduleWeatherFetch() {
 /**
  * @brief Validates a manual weather request and applies the single-flight and cooldown rules.
  */
+// Forward declaration: manual weather actions wake the Wi-Fi radio on demand.
+void toggleWiFi();
+
 uint8_t requestWeatherFetch() {
-    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning || wifiScanRunning) return 1;
+    if (weatherFetchRunning) return 1;
+    if (wifiScanRunning) {
+        markWeatherRefreshPending();
+        lastLocationWeatherRetryMs = 0;
+        manualWeatherWakePending = !wifiEnabled;
+        weatherRequestWokeWifi = !wifiEnabled;
+        lastManualWeatherRequestMs = millis();
+        Serial.println("[WEATHER] Manual refresh queued behind Wi-Fi scan.");
+        return 0;
+    }
 
     const uint32_t now = millis();
     if (lastManualWeatherRequestMs != 0 &&
@@ -290,31 +338,67 @@ uint8_t requestWeatherFetch() {
         return 3;
     }
 
-    if (!scheduleWeatherFetch()) {
-        return weatherFetchRunning ? 1 : 2;
+    // Wi-Fi is intentionally powered down after startup to save battery.
+    // A user-requested refresh must wake the radio and reconnect with the
+    // credentials already stored in Preferences instead of failing with ERR_WIFI.
+    markWeatherRefreshPending();
+    lastLocationWeatherRetryMs = 0;
+    if (!wifiEnabled) {
+        weatherRequestWokeWifi = true;
+        toggleWiFi();
+        Serial.println("[WEATHER] Manual refresh queued; Wi-Fi is reconnecting.");
+        lastManualWeatherRequestMs = now;
+        return 0;
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[WEATHER] Manual refresh queued; waiting for Wi-Fi.");
+        lastManualWeatherRequestMs = now;
+        return 0;
     }
 
+    if (!scheduleWeatherFetch()) {
+        return weatherFetchRunning ? 1 : 0;
+    }
+    clearWeatherRefreshPending();
     lastManualWeatherRequestMs = now;
     return 0;
 }
 
-/** Model changes must immediately download a forecast, bypassing manual retry cooldown. */
+/** Model changes persist immediately and queue a forecast refresh even while Wi-Fi is asleep. */
 uint8_t requestWeatherFetchNow() {
-    // Preserve a model refresh request if Wi-Fi is unavailable or another
-    // network operation is active. The main loop retries it when possible.
-    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) {
-        locationWeatherRefreshPending = true;
-        return 2;
-    }
-    if (weatherFetchRunning || wifiScanRunning) {
-        locationWeatherRefreshPending = true;
+    if (weatherFetchRunning) {
+        markWeatherRefreshPending();
+        lastLocationWeatherRetryMs = 0;
         return 1;
     }
-    if (!scheduleWeatherFetch()) {
-        locationWeatherRefreshPending = true;
-        return weatherFetchRunning ? 1 : 2;
+    if (wifiScanRunning) {
+        markWeatherRefreshPending();
+        lastLocationWeatherRetryMs = 0;
+        manualWeatherWakePending = !wifiEnabled;
+        weatherRequestWokeWifi = !wifiEnabled;
+        lastManualWeatherRequestMs = millis();
+        Serial.println("[WEATHER] Model refresh queued behind Wi-Fi scan.");
+        return 0;
     }
-    locationWeatherRefreshPending = false;
+
+    markWeatherRefreshPending();
+    lastLocationWeatherRetryMs = 0;
+    if (!wifiEnabled) {
+        weatherRequestWokeWifi = true;
+        toggleWiFi();
+        Serial.println("[WEATHER] Model refresh queued; Wi-Fi is reconnecting.");
+        lastManualWeatherRequestMs = millis();
+        return 0;
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[WEATHER] Model refresh queued; waiting for Wi-Fi.");
+        lastManualWeatherRequestMs = millis();
+        return 0;
+    }
+    if (!scheduleWeatherFetch()) {
+        return weatherFetchRunning ? 1 : 0;
+    }
+    clearWeatherRefreshPending();
     lastManualWeatherRequestMs = millis();
     return 0;
 }
@@ -324,14 +408,14 @@ uint8_t requestWeatherFetchNow() {
  * If another fetch is running, defer one follow-up request until it completes.
  */
 uint8_t requestWeatherFetchForLocation() {
-    locationWeatherRefreshPending = true;
+    markWeatherRefreshPending();
     lastLocationWeatherRetryMs = 0;
 
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
     if (weatherFetchRunning || wifiScanRunning) return 1;
 
     if (scheduleWeatherFetch()) {
-        locationWeatherRefreshPending = false;
+        clearWeatherRefreshPending();
         return 0;
     }
     // Keep the request pending so the main loop can retry after resources recover.
@@ -364,6 +448,7 @@ uint8_t requestWifiScan() {
 
     wifiScanRunning = true;
     Serial.println("[WIFI] Asynchronous scan started.");
+    logMemorySnapshot("WIFI_SCAN_START");
     return 0;
 }
 
@@ -371,6 +456,13 @@ static void serviceWeatherNotification() {
     const int8_t result = weatherNotifyPending;
     if (result < 0) return;
     weatherNotifyPending = -1;
+
+    // If this request woke Wi-Fi solely for a one-shot refresh, power the
+    // radio back down after the forecast task has saved its result.
+    if (weatherRequestWokeWifi) {
+        if (wifiEnabled) toggleWiFi();
+        weatherRequestWokeWifi = false;
+    }
     sendBLENotification(result ? "WEATHER_OK" : "WEATHER_FAILED");
 }
 
@@ -407,6 +499,7 @@ static void serviceWifiScan() {
     serializeJson(doc, json);
     Serial.printf("[WIFI] Scan complete: %d found, %d returned, %u JSON bytes.\n",
                   count, returned, static_cast<unsigned int>(json.length()));
+    logMemorySnapshot("WIFI_SCAN_SERIALIZED");
 
     WiFi.scanDelete();
     if (wifiScanRestoreOff) WiFi.mode(WIFI_OFF);
@@ -580,14 +673,12 @@ void setup() {
 
     Serial.println("\n[BOOT] ESP32-C3 Smart Watch");
     Serial.printf("[BOOT] Reset reason: %d\n", static_cast<int>(esp_reset_reason()));
-    Serial.printf("[BOOT] Heap: free=%u, largest_block=%u, min_free=%u bytes\n",
-                  static_cast<unsigned int>(ESP.getFreeHeap()),
-                  static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
-                  static_cast<unsigned int>(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)));
+    logMemorySnapshot("BOOT");
 
     beginButtonManager();
     tft.init();
     tft.setRotation(0);
+    loadFaceStudioConfig();
     tft.fillScreen(TFT_BLACK);
 
     showBootTerminal();
@@ -662,12 +753,7 @@ void loop() {
             if (isBLEEnabled()) {
                 toggleBLE();
             }
-            Serial.printf(
-                "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\n",
-                (unsigned int)ESP.getFreeHeap(),
-                (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-                (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
-            );
+            logMemorySnapshot("AFTER_BLE_INIT");
 
             WiFi.disconnect(false, false);
             WiFi.mode(WIFI_OFF);
@@ -700,9 +786,10 @@ void loop() {
     if (now - lastLoopHeartbeatMs >= 1000UL) {
         lastLoopHeartbeatMs = now;
         Serial.printf(
-            "[LOOP] Alive: uptime=%lu ms, free_heap=%u, largest_block=%u bytes\n",
+            "[LOOP] Alive: uptime=%lu ms, free_heap=%u, min_free_heap=%u, largest_block=%u bytes\n",
             static_cast<unsigned long>(now),
             static_cast<unsigned int>(ESP.getFreeHeap()),
+            static_cast<unsigned int>(ESP.getMinFreeHeap()),
             static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT))
         );
     }
@@ -728,6 +815,7 @@ void loop() {
     if (bleConnectedNow != previousBleConnected) {
         previousBleConnected = bleConnectedNow;
         lastUserActivityMs = now;
+        logMemorySnapshot(bleConnectedNow ? "BLE_CONNECTED" : "BLE_DISCONNECTED");
     }
 
     handleBLECommands();
@@ -735,10 +823,39 @@ void loop() {
     serviceWeatherNotification();
     serviceWifiScan();
 
+    // A manual refresh may arrive while the dashboard's startup Wi-Fi scan
+    // temporarily powers the radio. Wake Wi-Fi only after that scan releases it.
+    if (manualWeatherWakePending &&
+        !wifiScanRunning &&
+        !weatherFetchRunning &&
+        !bootNetworkRunning &&
+        !bootNetworkNeedsBle) {
+        manualWeatherWakePending = false;
+        if (!wifiEnabled) toggleWiFi();
+    }
+
+    // Do not keep Wi-Fi powered or block automatic sleep forever if stored
+    // credentials cannot reconnect. Retain the previous weather cache.
+    if (locationWeatherRefreshPending &&
+        !wifiScanRunning &&
+        !weatherFetchRunning &&
+        weatherRefreshPendingSinceMs != 0 &&
+        now - weatherRefreshPendingSinceMs >= 60000UL) {
+        Serial.println("[WEATHER] Pending refresh expired after 60 seconds; keeping cached forecast.");
+        clearWeatherRefreshPending();
+        manualWeatherWakePending = false;
+        if (weatherRequestWokeWifi) {
+            if (wifiEnabled) toggleWiFi();
+            weatherRequestWokeWifi = false;
+        }
+        if (isBLEConnected()) sendBLENotification("WEATHER_FAILED");
+    }
+
     // Automatic sleep is deliberately disabled during an active BLE session.
     // Manual Sleep from the menu still bypasses this connection guard.
     const bool backgroundWorkActive =
-        bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning || wifiScanRunning;
+        bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning ||
+        wifiScanRunning || locationWeatherRefreshPending || manualWeatherWakePending;
     if (!lightSleepRequested &&
         !isBLEConnected() &&
         !backgroundWorkActive &&
@@ -825,7 +942,7 @@ void loop() {
          now - lastLocationWeatherRetryMs >= WEATHER_RETRY_MS)) {
         lastLocationWeatherRetryMs = now;
         if (scheduleWeatherFetch()) {
-            locationWeatherRefreshPending = false;
+            clearWeatherRefreshPending();
         }
     }
 

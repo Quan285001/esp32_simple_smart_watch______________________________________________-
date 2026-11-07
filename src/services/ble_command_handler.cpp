@@ -19,12 +19,65 @@ extern uint8_t requestWifiScan();
 extern bool isWifiScanBusy();
 extern void setAutoSleepTimeoutSeconds(uint8_t seconds);
 extern uint8_t getAutoSleepTimeoutSeconds();
+extern bool setFaceStudioConfig(uint16_t background, uint16_t dial, uint16_t hand,
+                                uint16_t accent, uint8_t flags);
+extern bool setFaceStyleConfig(uint8_t styleId);
+extern uint8_t getFaceStyleConfig();
 
 /**
  * @brief Parses and executes one BLE command.
  * @param cmd Input or state used by this operation.
  */
 static void handleCommand(const String &cmd) {
+    if (cmd == "GET_FACE_STYLE") {
+        sendBLENotification(String("FACE_STYLE:") + String(getFaceStyleConfig()));
+        return;
+    }
+    if (cmd.startsWith("STYLE:")) {
+        const String value = cmd.substring(6);
+        const int styleId = value.toInt();
+        const bool numeric = value.length() > 0 && value == String(styleId);
+        if (!numeric || styleId < 0 || styleId > 255 ||
+            !setFaceStyleConfig(static_cast<uint8_t>(styleId))) {
+            sendBLENotification("ERR_STYLE");
+            return;
+        }
+        sendBLENotification(String("STYLE_OK:") + String(styleId));
+        return;
+    }
+    if (cmd.startsWith("FS:")) {
+        // FS:<bg RGB565><dial RGB565><hand RGB565><accent RGB565><flags>
+        // 20 ASCII bytes total: safe for the default 23-byte ATT MTU.
+        if (cmd.length() != 20) {
+            sendBLENotification("ERR_FACE");
+            return;
+        }
+        uint16_t colors[4] = {};
+        bool valid = true;
+        for (uint8_t color = 0; color < 4; ++color) {
+            uint16_t value = 0;
+            for (uint8_t digit = 0; digit < 4; ++digit) {
+                const char ch = cmd[3 + color * 4 + digit];
+                uint8_t nibble;
+                if (ch >= '0' && ch <= '9') nibble = ch - '0';
+                else if (ch >= 'A' && ch <= 'F') nibble = ch - 'A' + 10;
+                else if (ch >= 'a' && ch <= 'f') nibble = ch - 'a' + 10;
+                else { valid = false; break; }
+                value = static_cast<uint16_t>((value << 4) | nibble);
+            }
+            colors[color] = value;
+            if (!valid) break;
+        }
+        const char flagChar = cmd[19];
+        if (flagChar < '0' || flagChar > '3') valid = false;
+        if (!valid || !setFaceStudioConfig(colors[0], colors[1], colors[2],
+                                            colors[3], static_cast<uint8_t>(flagChar - '0'))) {
+            sendBLENotification("ERR_FACE");
+            return;
+        }
+        sendBLENotification("FACE_OK");
+        return;
+    }
     if (cmd == "GET_WEATHER_MODEL") {
         sendBLENotification(String("WM:") + String(getWeatherModelIndex()));
         return;

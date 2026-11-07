@@ -31,7 +31,186 @@ input,select{width:100%;border:1px solid var(--line);background:#0b1220;color:va
 input:focus,select:focus{border-color:var(--accent)}
 .note{font-size:12px;line-height:1.5;color:var(--muted);margin:10px 1px 0}
 .value{font-size:13px;color:#d7e6f8;margin-top:10px;overflow-wrap:anywhere}
+.face-preview-wrap{display:grid;place-items:center;padding:12px;background:#080d17;border:1px solid var(--line);border-radius:14px}
+#facePreview{width:min(100%,260px);height:auto;aspect-ratio:1;border-radius:50%;background:#000;touch-action:manipulation}
+.face-color-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.face-color-field{margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;background:#0b1220;border:1px solid var(--line);border-radius:10px}
+.face-color-field span{font-size:12px;color:var(--muted)}
+.face-color-field input{width:42px;height:34px;padding:2px;border:0;background:transparent}
+.face-toggle-row{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0}
+.face-toggle-row label{display:flex;align-items:center;gap:7px;margin:0;font-size:13px;color:var(--text)}
+.face-toggle-row input{width:auto;accent-color:var(--accent)}
+.face-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.face-actions button{min-width:0}
+#faceStudioStatus{min-height:18px}
+
+/* Face Studio v2 workspace */
+body{padding:18px 18px 48px;background:#080d16}
+main{width:min(100%,1480px)}
+main>header{max-width:460px;margin:8px auto 24px}
+main>section:not(#faceStudio){max-width:460px;margin:12px auto}
+#faceStudio{padding:0;margin:26px auto 0;max-width:none;overflow:hidden;background:#0c1422;border:1px solid #25344a;border-radius:18px}
+.fs-topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;border-bottom:1px solid #243249;background:#101a2b}
+.fs-brand{display:flex;align-items:center;gap:12px;min-width:0}
+.fs-brand-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(145deg,#377ed8,#6d5bd0);font-size:17px;font-weight:800;color:white}
+.fs-brand-title{font-size:14px;font-weight:750;letter-spacing:.02em;color:#f2f6ff}
+.fs-brand-sub{font-size:10px;color:#8294ae;margin-top:3px}
+.fs-project-name{width:min(230px,28vw);padding:9px 11px!important;font-size:12px!important}
+.fs-top-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+#faceStudio button{width:auto;padding:9px 12px;border-radius:9px;font-size:11px;white-space:nowrap}
+#faceStudio .fs-primary{background:#3479d3;border-color:#4d91ed;color:#fff}
+#faceStudio .fs-quiet{background:#182438;border-color:#30425d;color:#c6d3e6}
+#faceStudio .fs-workspace{display:grid;grid-template-columns:224px minmax(300px,1fr) 276px;min-height:610px}
+.fs-sidebar{min-width:0;padding:16px 13px;background:#0e1726}
+.fs-left{border-right:1px solid #243249}
+.fs-right{border-left:1px solid #243249}
+.fs-panel-title{display:flex;justify-content:space-between;align-items:center;margin:1px 0 12px;color:#e2eaf7;font-size:10px;font-weight:800;letter-spacing:.12em}
+.fs-panel-title small{color:#71839c;font-size:9px;font-weight:600;letter-spacing:0}
+.fs-tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.fs-tool{display:flex!important;align-items:center;gap:7px;justify-content:flex-start!important;padding:10px 8px!important;background:#152238!important;border:1px solid #293c58!important;color:#c8d6e9!important}
+.fs-tool span{font-size:15px}
+.fs-tool:hover{border-color:#528bd0!important;background:#1a2d48!important}
+.fs-separator{height:1px;background:#243249;margin:17px 0}
+.fs-asset-card{display:flex;align-items:center;gap:9px;padding:9px;border:1px solid #263852;background:#111e31;border-radius:10px;margin:7px 0}
+.fs-asset-thumb{width:40px;height:40px;display:grid;place-items:center;overflow:hidden;border-radius:7px;background:#1b2b43;color:#9cb1cc;font-size:18px;flex:none}
+.fs-asset-thumb img{width:100%;height:100%;object-fit:cover}
+.fs-asset-meta{min-width:0;flex:1}
+.fs-asset-name{font-size:10px;color:#dbe5f4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fs-asset-hint{font-size:9px;color:#788ba5;margin-top:4px}
+.fs-center{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 18px 16px;background:radial-gradient(ellipse at 50% 42%,#18263b 0%,#101a2a 45%,#0c1422 100%)}
+.fs-canvas-toolbar{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:13px}
+.fs-canvas-toolbar .fs-toolbar-group{display:flex;align-items:center;gap:6px}
+.fs-mini-btn{padding:6px 9px!important;background:#18263a!important;border:1px solid #2b3c55!important;color:#aebfd5!important}
+.fs-zoom-label{font-size:10px;color:#8295ae;min-width:35px;text-align:center}
+.fs-canvas-stage{width:min(100%,440px);aspect-ratio:1;display:grid;place-items:center;position:relative}
+#facePreview{width:min(100%,400px);height:auto;aspect-ratio:1;border-radius:50%;background:#000;box-shadow:0 18px 55px #0009,0 0 0 1px #4c6688,0 0 0 9px #152238;touch-action:none;cursor:default}
+.fs-canvas-caption{display:flex;gap:15px;align-items:center;justify-content:center;margin-top:17px;color:#788ba5;font-size:9px}
+.fs-dot{width:6px;height:6px;display:inline-block;border-radius:50%;background:#45c99a;margin-right:5px}
+.fs-inspector-tabs{display:flex;gap:3px;margin-bottom:15px;border-bottom:1px solid #26364e}
+.fs-inspector-tab{flex:1!important;background:transparent!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;padding:9px 4px!important;color:#7f92ad!important}
+.fs-inspector-tab.active{color:#e6f0ff!important;border-bottom-color:#59a2f5!important}
+.fs-field{margin:12px 0}
+.fs-field label{display:flex;justify-content:space-between;gap:8px;margin:0 0 7px;font-size:10px;color:#9aabc2}
+.fs-field label output{color:#dce8f8;font-variant-numeric:tabular-nums}
+.fs-field input[type=text],.fs-field input[type=number],.fs-field select{padding:8px 9px;font-size:11px;border-radius:8px;background:#0a1321;border-color:#2a3b54}
+.fs-field input[type=range]{padding:0;accent-color:#65a8fa}
+.fs-field input[type=color]{width:100%;height:32px;padding:3px;border-radius:8px}
+.fs-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fs-color-current{display:flex;align-items:center;gap:9px;padding:8px;border:1px solid #2a3b54;background:#0a1321;border-radius:9px}
+.fs-color-chip{width:29px;height:29px;border:1px solid #ffffff33;border-radius:7px;flex:none}
+.fs-color-meta{font-size:10px;color:#d7e4f5;flex:1}
+.fs-color-meta small{display:block;font-size:9px;color:#7e91ab;margin-top:3px}
+.fs-color-open{padding:7px 9px!important}
+.fs-color-pop{display:none;margin-top:8px;padding:10px;border:1px solid #314560;background:#0a1321;border-radius:10px}
+.fs-color-pop.open{display:block}
+.fs-sv-plane{height:112px;position:relative;border-radius:7px;overflow:hidden;background:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,var(--hue,#f00));cursor:crosshair}
+.fs-sv-knob{position:absolute;width:12px;height:12px;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px #000;left:100%;top:0;transform:translate(-50%,-50%);pointer-events:none}
+.fs-hue{width:100%;margin:10px 0 4px!important;padding:0!important;accent-color:#fff}
+.fs-hex-row{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center}
+.fs-hex-row input{padding:7px 8px!important;font-size:10px!important;text-transform:uppercase}
+.fs-swatches{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.fs-swatch{width:20px;height:20px!important;padding:0!important;border-radius:6px!important;border:1px solid #ffffff33!important}
+.fs-check{display:flex;align-items:center;gap:7px;margin:10px 0;color:#b6c5d9;font-size:10px}
+.fs-check input{width:auto;accent-color:#65a8fa}
+.fs-crop-box{padding:10px;border:1px solid #2a3b54;background:#0a1321;border-radius:10px}
+.fs-crop-preview{width:100%;aspect-ratio:1;overflow:hidden;border-radius:50%;background:#18263b;position:relative}
+.fs-crop-preview img{width:100%;height:100%;object-fit:cover}
+.fs-layer-dock{border-top:1px solid #243249;background:#0e1726;padding:13px 16px 16px}
+.fs-layer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.fs-layer-list{display:flex;gap:8px;overflow-x:auto;padding-bottom:3px}
+.fs-layer-item{min-width:125px;display:flex!important;align-items:center;gap:8px;justify-content:flex-start!important;padding:9px 10px!important;background:#142238!important;border:1px solid #2a3e5b!important;color:#aebfd5!important}
+.fs-layer-item.active{border-color:#5a9de8!important;background:#1a304d!important;color:#f0f6ff!important}
+.fs-layer-icon{font-size:14px}
+.fs-layer-name{font-size:10px;overflow:hidden;text-overflow:ellipsis}
+.fs-layer-actions{display:flex;gap:4px}
+.fs-layer-actions button{padding:5px 7px!important}
+.fs-empty{padding:12px;border:1px dashed #31435d;border-radius:9px;color:#7589a4;font-size:10px;line-height:1.5;text-align:center}
+.fs-statusbar{display:flex;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid #243249;background:#0a1220;color:#8194ae;font-size:9px}
+.fs-statusbar strong{color:#a9bdd7;font-weight:600}
+.fs-capability{margin-top:10px;padding:9px 10px;border:1px solid #705b32;background:#2a2418;color:#d9bd83;border-radius:9px;font-size:9px;line-height:1.5}
+.fs-hidden{display:none!important}
+.fs-modal-backdrop{position:fixed;inset:0;z-index:99;background:#020611c9;display:none;place-items:center;padding:18px}
+.fs-modal-backdrop.open{display:grid}
+.fs-modal{width:min(100%,390px);padding:18px;border:1px solid #344966;border-radius:14px;background:#111d2e;box-shadow:0 25px 80px #000b}
+.fs-modal h3{margin:0 0 12px;font-size:14px}
+.fs-modal p{font-size:11px;line-height:1.5;color:#91a3bb}
+.fs-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+@media(max-width:1050px){.fs-workspace{grid-template-columns:190px minmax(280px,1fr) 245px!important}.fs-sidebar{padding:13px 10px}}
+@media(max-width:760px){body{padding:10px 8px 32px}.fs-topbar{align-items:flex-start;flex-wrap:wrap}.fs-top-actions{width:100%;justify-content:flex-end}.fs-project-name{width:170px}.fs-workspace{grid-template-columns:1fr!important}.fs-left{border-right:0;border-bottom:1px solid #243249}.fs-right{border-left:0;border-top:1px solid #243249}.fs-left .fs-tool-grid{grid-template-columns:repeat(4,1fr)}.fs-tool{justify-content:center!important;padding:9px 4px!important}.fs-tool .fs-tool-label{display:none}.fs-left .fs-separator,.fs-left .fs-panel-title:nth-of-type(2){display:none}.fs-left .fs-asset-card{display:none}.fs-center{min-height:440px;padding:15px 10px}.fs-canvas-stage{width:min(100%,380px)}.fs-right{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.fs-right .fs-panel-title,.fs-inspector-tabs,.fs-right .fs-capability{grid-column:1/-1}.fs-layer-item{min-width:112px}}
+@media(max-width:420px){.fs-left .fs-tool-grid{grid-template-columns:repeat(4,1fr)}.fs-top-actions button{font-size:10px!important;padding:8px!important}.fs-right{display:block}.fs-statusbar{flex-direction:column}}
 @media(min-width:520px){body{padding-top:42px}}
+
+.app-tabs{display:grid;grid-template-columns:1fr 1fr;gap:9px;max-width:720px;margin:0 auto 20px;padding:5px;border:1px solid #26364b;border-radius:15px;background:#0d1522}
+.app-tab{display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;align-items:center;column-gap:10px;text-align:left;padding:11px 13px!important;border:1px solid transparent!important;background:transparent!important;border-radius:11px!important}
+.app-tab>span{grid-row:1/3;width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#1b2b42;font-size:18px}
+.app-tab strong{font-size:12px;color:#e8f0fc}.app-tab small{font-size:10px;color:#8292a8;font-weight:450}
+.app-tab.active{background:#172a42!important;border-color:#36577f!important}.app-tab.active>span{background:#2d5f99}
+.app-slide{display:none}.app-slide.active{display:block}
+#slideControl{max-width:720px;margin:0 auto}#slideControl>section{max-width:none!important}
+#slideFace{max-width:1200px;margin:0 auto}#faceStudio{margin:0!important}
+
+
+.fs-home{padding:24px;background:#0c1422;border:1px solid #25344a;border-top:0;border-radius:0 0 16px 16px}
+.fs-home-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:19px}
+.fs-home-head h2{font-size:19px;letter-spacing:-.4px;margin:0;color:#f1f5fb}
+.fs-home-head p{font-size:12px;line-height:1.5;color:#8b9bb1;margin:6px 0 0}
+.fs-home-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.fs-home-card{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:9px!important;min-height:112px;padding:15px!important;background:#121f31!important;border:1px solid #293d58!important;border-radius:13px!important;text-align:left;white-space:normal!important}
+.fs-home-card:hover{background:#192b43!important;border-color:#5786bd!important}
+.fs-home-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:#203956;color:#b9d8ff;font-size:18px}
+.fs-home-card strong{font-size:12px;color:#edf4ff}.fs-home-card small{font-size:10px;line-height:1.4;color:#8294ad;font-weight:450}
+.fs-home-card.primary{background:#17365a!important;border-color:#376da5!important}.fs-home-card.primary .fs-home-icon{background:#2d65a1}
+.fs-editor-view{border:1px solid #25344a;border-top:0;border-radius:0 0 16px 16px;overflow:hidden}
+.fs-category-head{display:flex;align-items:center;gap:12px;padding:13px 16px;background:#101a2b;border-bottom:1px solid #243249}
+.fs-back-btn{width:auto!important;flex:none;padding:8px 11px!important;background:#19283d!important;border:1px solid #30445f!important}
+.fs-category-copy{min-width:0;flex:1}.fs-category-copy strong{display:block;font-size:13px;color:#edf4ff}.fs-category-copy small{display:block;margin-top:3px;font-size:10px;color:#8395ae}
+.fs-upload-btn{width:auto!important;background:#2e6bb0!important;border-color:#4a8bd3!important}
+#faceStudio .fs-workspace{grid-template-columns:minmax(0,1fr) 310px;min-height:530px}
+#faceStudio .fs-left{display:none!important}#faceStudio .fs-inspector-tabs{display:none}
+#faceStudio .fs-right{border-left:1px solid #243249;padding:19px}
+#faceStudio .fs-layer-dock{display:none}#faceStudio .fs-layer-dock.show{display:block}
+@media(max-width:760px){.fs-home{padding:15px}.fs-home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fs-home-card{min-height:104px;padding:12px!important}.fs-home-head{align-items:flex-start;flex-direction:column}#faceStudio .fs-workspace{grid-template-columns:1fr!important}#faceStudio .fs-right{border-left:0;border-top:1px solid #243249}.fs-category-head{flex-wrap:wrap}}
+
+
+/* Google Photos-inspired Face Studio: preview first, tools below */
+.fs-home{display:flex;flex-direction:column;gap:0;padding:18px 20px 22px;background:#0c1422}
+.fs-home-head{order:0;margin-bottom:12px}
+.fs-home>.fs-center{order:1;width:100%;min-height:0;padding:10px 12px 22px;background:transparent;border:0}
+.fs-home-grid{order:2}
+.fs-home>.fs-center .fs-canvas-toolbar{max-width:560px;margin:0 auto 12px}
+.fs-home>.fs-center .fs-canvas-stage{width:min(100%,390px)}
+.fs-home>.fs-center #facePreview{width:min(100%,360px);box-shadow:0 16px 45px #0009,0 0 0 1px #526984,0 0 0 8px #17253a}
+.fs-home.category-open .fs-home-grid{display:none}
+.fs-home.category-open .fs-home-head{margin-bottom:2px}
+.fs-home.category-open .fs-canvas-caption span:last-child{display:none}
+.fs-editor-view{background:#0c1422}
+#faceStudio .fs-workspace{display:block;min-height:0}
+#faceStudio .fs-right{max-width:760px;margin:0 auto;border:0;padding:8px 20px 22px}
+#faceStudio .fs-panel-title,#faceStudio .fs-inspector-tabs{display:none}
+.fs-style-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.fs-style-card{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:6px!important;padding:10px!important;background:#121f31!important;border:1px solid #2a3e58!important;border-radius:12px!important;text-align:left;white-space:normal!important}
+.fs-style-card.selected{border-color:#68aafa!important;background:#193452!important;box-shadow:0 0 0 1px #68aafa44}
+.fs-style-thumb{width:100%;height:82px;display:grid;place-items:center;border-radius:8px;background:radial-gradient(circle,#293d58,#0a1321);color:#e9f2ff;text-align:center;font-size:17px;line-height:1.25;font-weight:700}
+.fs-style-thumb.analog,.fs-style-thumb.minimal,.fs-style-thumb.pilot,.fs-style-thumb.diver,.fs-style-thumb.roman{border-radius:50%;width:82px;height:82px;align-self:center;border:2px solid #6c85a5}
+.fs-style-thumb.minimal{font-size:20px;letter-spacing:5px}
+.fs-style-thumb.pilot{font-size:14px}
+.fs-style-thumb.diver{border:5px solid #6c85a5;font-size:11px}
+.fs-style-thumb.roman{font-family:Georgia,serif}
+.fs-style-thumb.digital{font-family:monospace;font-size:25px}
+.fs-style-thumb.digital.stack{font-family:Arial;font-size:22px}
+.fs-style-thumb.digital small{font-size:8px;letter-spacing:1px}
+.fs-style-thumb.words{font-size:13px;letter-spacing:1px}
+.fs-style-card strong{font-size:11px;color:#edf4ff}
+.fs-style-card small{font-size:9px;color:#8294ad;line-height:1.4}
+@media(max-width:760px){
+ .fs-home{padding:12px}
+ .fs-home>.fs-center{padding:7px 4px 18px}
+ .fs-home>.fs-center .fs-canvas-stage{width:min(100%,340px)}
+ .fs-home>.fs-center #facePreview{width:min(100%,310px)}
+ #faceStudio .fs-right{padding:8px 13px 18px}
+ .fs-style-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
 </style>
 </head>
 <body>
@@ -41,6 +220,7 @@ input:focus,select:focus{border-color:var(--accent)}
 <h1>Smartwatch</h1>
 <p>ESP32-C3 · BLE Control</p>
 </header>
+<nav class="app-tabs" aria-label="Dashboard pages"><button class="app-tab active" id="tabControl" onclick="showAppSlide('control')"><span>⌚</span><strong>Watch Control</strong><small>Connection · Weather · Settings</small></button><button class="app-tab" id="tabFace" onclick="showAppSlide('face')"><span>◉</span><strong>Face Studio</strong><small>Design your watch face</small></button></nav><div class="app-slide active" id="slideControl">
 
 <!-- Bluetooth connection -->
 <section>
@@ -99,6 +279,9 @@ input:focus,select:focus{border-color:var(--accent)}
 <p class="note">Models differ in update frequency, resolution and forecast coverage. Best Match automatically selects suitable models for the location.</p>
 </section>
 
+<!-- Face Studio v2: visual editor workspace -->
+
+
 <!-- Device location tracking -->
 <section>
 <h2>LOCATION</h2>
@@ -126,6 +309,148 @@ input:focus,select:focus{border-color:var(--accent)}
 <button onclick="sendWiFiConfig()">Save Wi-Fi Configuration</button>
 </div>
 </section>
+</div>
+<div class="app-slide" id="slideFace">
+<section id="faceStudio">
+  <div class="fs-topbar">
+    <div class="fs-brand">
+      <div class="fs-brand-mark">F</div>
+      <div><div class="fs-brand-title">FACE STUDIO</div><div class="fs-brand-sub">WATCH FACE DESIGNER · GC9A01 / 240 × 240</div></div>
+      <input id="faceName" class="fs-project-name" type="text" maxlength="32" value="My custom face" aria-label="Project name">
+    </div>
+    <div class="fs-top-actions">
+      <button class="fs-quiet" onclick="faceUndo()">↶ Undo</button>
+      <button class="fs-quiet" onclick="faceRedo()">↷ Redo</button>
+      <button class="fs-quiet" onclick="saveFaceDesign()">Save</button>
+      <button class="fs-quiet" onclick="exportFaceDesign()">Export .wface</button>
+      <button class="fs-primary" id="faceApplyBtn" onclick="applyFaceToWatch()">Send to Watch ↗</button>
+    </div>
+  </div>
+  <input id="faceImageInput" type="file" accept="image/*" hidden>
+  <input id="faceImportInput" type="file" accept=".wface,.json,application/json" hidden>
+
+<div class="fs-home" id="faceHome">
+ <div class="fs-home-head"><div><h2>What would you like to change?</h2><p>Choose one section. Its settings open separately, keeping the editor clean.</p></div><button class="fs-primary" onclick="openFaceUpload()">＋ Add photo</button></div>
+ <div class="fs-center">
+      <div class="fs-canvas-toolbar">
+        <div class="fs-toolbar-group">
+          <button class="fs-mini-btn" onclick="faceZoom(-0.1)" aria-label="Zoom out">−</button>
+          <span class="fs-zoom-label" id="faceZoomLabel">100%</span>
+          <button class="fs-mini-btn" onclick="faceZoom(0.1)" aria-label="Zoom in">+</button>
+          <button class="fs-mini-btn" onclick="faceZoom(0,true)">Fit</button>
+        </div>
+        <div class="fs-toolbar-group">
+          <button class="fs-mini-btn" onclick="toggleFaceGrid()">▦ Grid</button>
+          <button class="fs-mini-btn" onclick="renderFacePreview()">↻ Preview</button>
+        </div>
+      </div>
+      <div class="fs-canvas-stage" id="faceCanvasStage">
+        <canvas id="facePreview" width="480" height="480" aria-label="Interactive watch face canvas"></canvas>
+      </div>
+      <div class="fs-canvas-caption"><span><i class="fs-dot"></i>LIVE PREVIEW</span><span>240 × 240 · ROUND DISPLAY</span><span>DRAG ELEMENTS TO POSITION</span></div>
+    </div>
+<div class="fs-home-grid">
+  <button class="fs-home-card primary" onclick="openFaceCategory('style')"><span class="fs-home-icon">◷</span><strong>Face styles</strong><small>Analog hands, digital numbers and typography</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('background')"><span class="fs-home-icon">◩</span><strong>Background</strong><small>Choose a background color or photo</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('colors')"><span class="fs-home-icon">◉</span><strong>Colors</strong><small>Dial, hands, accent and palette</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('clock')"><span class="fs-home-icon">◷</span><strong>Clock & date</strong><small>Seconds hand and date visibility</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('images')"><span class="fs-home-icon">▧</span><strong>Photos</strong><small>Upload, crop, zoom and reposition</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('text')"><span class="fs-home-icon">T</span><strong>Text & fonts</strong><small>Add text and choose typography</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('layout')"><span class="fs-home-icon">⌗</span><strong>Position & layout</strong><small>Move and resize selected elements</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('layers')"><span class="fs-home-icon">▤</span><strong>Layers</strong><small>Reorder, hide and delete elements</small></button>
+  <button class="fs-home-card" onclick="openFaceCategory('library')"><span class="fs-home-icon">▣</span><strong>My designs</strong><small>Open, save, import and export</small></button>
+ </div>
+</div>
+  <div id="faceEditorWorkspace" class="fs-editor-view fs-hidden">
+   <div class="fs-category-head"><button class="fs-back-btn" onclick="closeFaceCategory()">← All options</button><div class="fs-category-copy"><strong id="faceCategoryTitle">Face styles</strong><small id="faceCategoryDescription">Choose a visual style for your watch face.</small></div><button class="fs-upload-btn" onclick="openFaceUpload()">＋ Photo</button></div>
+  <div class="fs-workspace">
+    <aside class="fs-sidebar fs-left">
+      <div class="fs-panel-title">ADD ELEMENT <small>TOOLS</small></div>
+      <div class="fs-tool-grid">
+        <button class="fs-tool" onclick="document.getElementById('faceImageInput').click()"><span>▧</span><span class="fs-tool-label">Image</span></button>
+        <button class="fs-tool" onclick="addFaceText()"><span>T</span><span class="fs-tool-label">Text</span></button>
+        <button class="fs-tool" onclick="addFaceWidget('time')"><span>◷</span><span class="fs-tool-label">Time</span></button>
+        <button class="fs-tool" onclick="addFaceWidget('date')"><span>▦</span><span class="fs-tool-label">Date</span></button>
+      </div>
+      
+      <div class="fs-separator"></div>
+      <div class="fs-panel-title">ASSETS <small id="faceAssetCount">0 ITEMS</small></div>
+      <div id="faceAssetList"><div class="fs-empty">Upload an image to add a background or visual asset to your design.</div></div>
+      
+    </aside>
+
+    
+
+    <aside class="fs-sidebar fs-right">
+      <div class="fs-panel-title">DESIGN INSPECTOR <small id="faceSelectedLabel">FACE</small></div>
+      <div class="fs-inspector-tabs">
+        <button class="fs-inspector-tab active" id="faceTabDesign" onclick="setFaceInspectorTab('design')">Design</button>
+        <button class="fs-inspector-tab" id="faceTabCrop" onclick="setFaceInspectorTab('crop')">Crop</button>
+        <button class="fs-inspector-tab" id="faceTabType" onclick="setFaceInspectorTab('type')">Type</button>
+      </div>
+      <div id="faceDesignPanel">
+        <div id="faceLayoutFields">
+        <div class="fs-field"><label>Selected element <output id="faceSelectedType">Clock face</output></label><input id="faceLayerName" type="text" value="Clock face" placeholder="Layer name"></div>
+        <div class="fs-row">
+          <div class="fs-field"><label>Position X <output id="faceXValue">120</output></label><input id="faceX" type="number" min="0" max="240" value="120"></div>
+          <div class="fs-field"><label>Position Y <output id="faceYValue">120</output></label><input id="faceY" type="number" min="0" max="240" value="120"></div>
+        </div>
+        <div class="fs-field"><label>Size <output id="faceSizeValue">18 px</output></label><input id="faceSize" type="range" min="8" max="72" value="18"></div>
+        <div class="fs-field"><label>Opacity <output id="faceOpacityValue">100%</output></label><input id="faceOpacity" type="range" min="10" max="100" value="100"></div>
+        </div>
+        <div id="faceColorFields"><div class="fs-field">
+          <label>Color target</label><select id="faceColorTarget"><option value="accent">Accent</option><option value="background">Background</option><option value="dial">Dial</option><option value="hand">Clock hands</option></select>
+          <label style="margin-top:10px">Color <output id="faceColorHex">#FFFFFF</output></label>
+          <div class="fs-color-current"><div class="fs-color-chip" id="faceColorChip"></div><div class="fs-color-meta" id="faceColorName">Selected color<small>HEX · RGB565 output</small></div><button class="fs-quiet fs-color-open" onclick="toggleFaceColorPicker()">Edit</button></div>
+          <div class="fs-color-pop" id="faceColorPopover">
+            <div class="fs-sv-plane" id="faceSVPlane"><div class="fs-sv-knob" id="faceSVKnob"></div></div>
+            <input class="fs-hue" id="faceHue" type="range" min="0" max="360" value="210">
+            <div class="fs-hex-row"><input id="faceHex" type="text" value="#FFFFFF" maxlength="7"><button class="fs-quiet" onclick="applyFaceHex()">Apply</button></div>
+            <div class="fs-swatches" id="faceSwatches"></div>
+          </div>
+        </div>
+        </div>
+        <div id="faceVisibilityFields"><div class="fs-field"><label>Visibility</label><label class="fs-check"><input id="faceLayerVisible" type="checkbox" checked> Visible on watch preview</label><label class="fs-check"><input id="faceShowSecondsVisible" type="checkbox" checked> Show seconds hand</label><label class="fs-check"><input id="faceShowDateVisible" type="checkbox" checked> Show date</label></div></div>
+      </div>
+      <div id="faceCropPanel" class="fs-hidden">
+        <div class="fs-field"><label>Image crop preview</label><div class="fs-crop-box"><div class="fs-crop-preview"><img id="faceCropThumb" alt="Crop preview" hidden></div><div class="fs-note" style="font-size:9px;color:#7f92ad;margin-top:8px">Drag the image on canvas or use crop controls below.</div></div></div>
+        <div class="fs-field"><label>Zoom <output id="faceCropZoomValue">100%</output></label><input id="faceCropZoom" type="range" min="100" max="300" value="100"></div>
+        <div class="fs-field"><label>Horizontal <output id="faceCropXValue">0</output></label><input id="faceCropX" type="range" min="-120" max="120" value="0"></div>
+        <div class="fs-field"><label>Vertical <output id="faceCropYValue">0</output></label><input id="faceCropY" type="range" min="-120" max="120" value="0"></div>
+        <button class="fs-quiet" onclick="resetFaceCrop()">Reset crop</button>
+      </div>
+      <div id="faceTypePanel" class="fs-hidden">
+        <button class="fs-primary" onclick="addFaceText()">＋ Add text layer</button>
+        <div class="fs-field"><label>Text content</label><input id="faceTextContent" type="text" value="Hello" maxlength="32"></div>
+        <div class="fs-field"><label>Font family</label><select id="faceFontFamily"><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Trebuchet MS">Trebuchet MS</option><option value="Courier New">Courier New</option><option value="serif">Serif</option><option value="sans-serif">System Sans</option><option value="monospace">Monospace</option></select></div>
+        <div class="fs-row">
+          <div class="fs-field"><label>Weight</label><select id="faceFontWeight"><option value="400">Regular</option><option value="500">Medium</option><option value="600">Semibold</option><option value="700">Bold</option><option value="800">Extra Bold</option></select></div>
+          <div class="fs-field"><label>Align</label><select id="faceTextAlign"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></div>
+        </div>
+        <div class="fs-field"><label>Custom font file · .TTF / .OTF</label><input id="faceFontInput" type="file" accept=".ttf,.otf,font/ttf,font/otf"></div>
+        <div class="fs-field"><label class="fs-check"><input id="faceTextUpper" type="checkbox"> Uppercase text</label></div>
+      </div>
+      <div id="faceStylePanel" class="fs-hidden"><div class="fs-field"><label>Display style</label><select id="faceStyleSelect"><option value="classic">Classic</option><option value="minimal">Minimal</option><option value="roman">Roman Numerals</option><option value="pilot">Pilot</option><option value="diver">Diver</option><option value="modern">Modern</option><option value="skeleton">Skeleton</option><option value="bauhaus">Bauhaus</option><option value="vintage">Vintage</option><option value="field">Field</option><option value="railway">Railway</option><option value="artdeco">Art Deco</option><option value="chrono">Chronograph</option><option value="digital">Digital Classic</option><option value="digitalMinimal">Digital Minimal</option><option value="digitalBold">Digital Bold</option><option value="digitalStack">Digital Stack</option><option value="digitalMono">Digital Mono</option><option value="digitalRetro">Retro Digital</option><option value="digitalLed">LED Matrix</option><option value="digitalFlip">Flip Clock</option><option value="wordClock">Word Clock</option><option value="editorial">Editorial</option><option value="swissType">Swiss Typography</option><option value="largeNumbers">Large Numbers</option><option value="spokenTime">Time in Text</option><option value="hybridClassic">Analog + Digital</option><option value="hybridDual">Dual Time</option><option value="hybridDate">Date Focus</option></select></div>
+<div class="fs-style-gallery" id="faceStyleGallery"><button class="fs-style-card" data-style="classic" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Classic</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="minimal" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Minimal</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="roman" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Roman Numerals</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="pilot" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Pilot</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="diver" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Diver</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="modern" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Modern</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="skeleton" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Skeleton</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="bauhaus" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Bauhaus</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="vintage" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Vintage</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="field" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Field</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="railway" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Railway</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="artdeco" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Art Deco</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="chrono" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb analog">12<br>9　　3<br>6</span><strong>Chronograph</strong><small>Analog clock style</small></button><button class="fs-style-card" data-style="digital" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb digital">12:45</span><strong>Digital Classic</strong><small>Digital clock style</small></button><button class="fs-style-card" data-style="digitalMinimal" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb digital">12:45</span><strong>Digital Minimal</strong><small>Digital clock style</small></button><button class="fs-style-card" data-style="digitalBold" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb digital">12:45</span><strong>Digital Bold</strong><small>Digital clock style</small></button><button class="fs-style-card" data-style="digitalStack" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb digital">12:45</span><strong>Digital Stack</strong><small>Digital clock style</small></button><button class="fs-style-card" data-style="digitalMono" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb digital">12:45</span><strong>Digital Mono</strong><small>Digital clock style</small></button><button class="fs-style-card" data-style="digitalRetro" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb digital">12:45</span><strong>Retro Digital</strong><small>Digital clock style</small></button><button class="fs-style-card" data-style="digitalLed" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb digital">12:45</span><strong>LED Matrix</strong><small>Digital clock style</small></button><button class="fs-style-card" data-style="digitalFlip" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb digital">12:45</span><strong>Flip Clock</strong><small>Digital clock style</small></button><button class="fs-style-card" data-style="wordClock" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb typography">TWELVE<br>FORTY FIVE</span><strong>Word Clock</strong><small>Typography clock style</small></button><button class="fs-style-card" data-style="editorial" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb typography">TWELVE<br>FORTY FIVE</span><strong>Editorial</strong><small>Typography clock style</small></button><button class="fs-style-card" data-style="swissType" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb typography">TWELVE<br>FORTY FIVE</span><strong>Swiss Typography</strong><small>Typography clock style</small></button><button class="fs-style-card" data-style="largeNumbers" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb typography">TWELVE<br>FORTY FIVE</span><strong>Large Numbers</strong><small>Typography clock style</small></button><button class="fs-style-card" data-style="spokenTime" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb typography">TWELVE<br>FORTY FIVE</span><strong>Time in Text</strong><small>Typography clock style</small></button><button class="fs-style-card" data-style="hybridClassic" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb hybrid">10:45</span><strong>Analog + Digital</strong><small>Hybrid clock style</small></button><button class="fs-style-card" data-style="hybridDual" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb hybrid">10:45</span><strong>Dual Time</strong><small>Hybrid clock style</small></button><button class="fs-style-card" data-style="hybridDate" onclick="chooseFaceStyle(this.dataset.style)"><span class="fs-style-thumb hybrid">10:45</span><strong>Date Focus</strong><small>Hybrid clock style</small></button></div><p class="note">Select a style and press Apply to send its renderer ID to the ESP32. Photo and custom text layers remain project-only for now.</p></div>
+      <div id="faceLibraryPanel" class="fs-hidden"><div class="fs-field"><label>Saved designs in this browser</label><select id="faceLibrarySelect" aria-label="Saved face designs"><option value="">No saved designs yet</option></select></div><div class="fs-row"><button class="fs-quiet" onclick="loadSelectedFace()">Open design</button><button class="fs-quiet" onclick="saveFaceDesign()">Save design</button></div><div class="fs-row"><button class="fs-quiet" onclick="document.getElementById('faceImportInput').click()">Import .wface</button><button class="fs-quiet" onclick="exportFaceDesign()">Export .wface</button></div></div>
+      <div class="fs-capability" id="faceCapabilityNote">DEVICE PROFILE · 29 clock renderers and the base color profile can be applied to the ESP32. Photo backgrounds and custom text/font layers are still stored in the browser project and are not transferred to the watch yet.</div>
+      <div class="fs-hidden">
+        <input id="faceBg" type="color" value="#000000"><input id="faceDial" type="color" value="#18c3c3"><input id="faceHand" type="color" value="#ffffff"><input id="faceAccent" type="color" value="#fbe0a0">
+        <input id="faceShowSeconds" type="checkbox" checked><input id="faceShowDate" type="checkbox" checked>
+
+      </div>
+    </aside>
+  </div>
+
+  <div class="fs-layer-dock" id="faceLayerDock">
+    <div class="fs-layer-head"><div class="fs-panel-title" style="margin:0">LAYERS <small id="faceLayerCount">0 ELEMENTS</small></div><div class="fs-layer-actions"><button class="fs-quiet" onclick="moveFaceLayer(-1)">↑</button><button class="fs-quiet" onclick="moveFaceLayer(1)">↓</button><button class="fs-quiet" onclick="toggleSelectedFaceLayer()">◉</button><button class="fs-quiet" onclick="removeFaceLayer()">Delete</button></div></div>
+    <div class="fs-layer-list" id="faceLayerList"></div>
+  </div>
+  </div>
+  <div class="fs-statusbar"><span id="faceStudioStatus">Ready · design is stored locally in this browser.</span><strong id="faceStatusRight">UNSAVED CHANGES</strong></div>
+</section>
+</div>
+
 </main>
 <!-- Web Bluetooth application logic -->
 <script>
@@ -160,6 +485,7 @@ async function connectBLE(){
     if(latestPosition)await sendLatestPosition(true);
     else await syncTime();
     await sendBLECommand("GET_AUTO_SLEEP");
+    await sendBLECommand("GET_FACE_STYLE");
     await sendBLECommand("GET_WEATHER_MODEL");
     await requestWiFiScan();
   }catch(error){console.error(error);setStatus("Connection failed",false)}
@@ -208,6 +534,7 @@ async function sendBLECommand(command){
  * @param message The status message to display.
  * @param connected Whether the BLE connection is active.
  */
+function showAppSlide(which){const face=which==="face";document.getElementById("slideControl").classList.toggle("active",!face);document.getElementById("slideFace").classList.toggle("active",face);document.getElementById("tabControl").classList.toggle("active",!face);document.getElementById("tabFace").classList.toggle("active",face)}
 function setStatus(message,connected){
   const el=document.getElementById("status");
   el.textContent=message;
@@ -243,8 +570,479 @@ async function syncWeather(){
       button.disabled=false;
       status.textContent="No response received · check the connection";
     }
-  },15000);
+  },120000);
 }
+
+const FACE_STYLES=[{"key":"classic","id":0,"name":"Classic","family":"Analog"},{"key":"minimal","id":1,"name":"Minimal","family":"Analog"},{"key":"roman","id":2,"name":"Roman Numerals","family":"Analog"},{"key":"pilot","id":3,"name":"Pilot","family":"Analog"},{"key":"diver","id":4,"name":"Diver","family":"Analog"},{"key":"modern","id":5,"name":"Modern","family":"Analog"},{"key":"skeleton","id":6,"name":"Skeleton","family":"Analog"},{"key":"bauhaus","id":7,"name":"Bauhaus","family":"Analog"},{"key":"vintage","id":8,"name":"Vintage","family":"Analog"},{"key":"field","id":9,"name":"Field","family":"Analog"},{"key":"railway","id":10,"name":"Railway","family":"Analog"},{"key":"artdeco","id":11,"name":"Art Deco","family":"Analog"},{"key":"chrono","id":12,"name":"Chronograph","family":"Analog"},{"key":"digital","id":20,"name":"Digital Classic","family":"Digital"},{"key":"digitalMinimal","id":21,"name":"Digital Minimal","family":"Digital"},{"key":"digitalBold","id":22,"name":"Digital Bold","family":"Digital"},{"key":"digitalStack","id":23,"name":"Digital Stack","family":"Digital"},{"key":"digitalMono","id":24,"name":"Digital Mono","family":"Digital"},{"key":"digitalRetro","id":25,"name":"Retro Digital","family":"Digital"},{"key":"digitalLed","id":26,"name":"LED Matrix","family":"Digital"},{"key":"digitalFlip","id":27,"name":"Flip Clock","family":"Digital"},{"key":"wordClock","id":40,"name":"Word Clock","family":"Typography"},{"key":"editorial","id":41,"name":"Editorial","family":"Typography"},{"key":"swissType","id":42,"name":"Swiss Typography","family":"Typography"},{"key":"largeNumbers","id":43,"name":"Large Numbers","family":"Typography"},{"key":"spokenTime","id":44,"name":"Time in Text","family":"Typography"},{"key":"hybridClassic","id":60,"name":"Analog + Digital","family":"Hybrid"},{"key":"hybridDual","id":61,"name":"Dual Time","family":"Hybrid"},{"key":"hybridDate","id":62,"name":"Date Focus","family":"Hybrid"}];
+const FACE_STYLE_BY_KEY=Object.fromEntries(FACE_STYLES.map(style=>[style.key,style]));
+const FACE_LIBRARY_KEY="esp32-face-studio-library-v2";
+let faceLibrary=[];
+let faceProject={format:"WFACE-PROJECT",version:2,displayProfile:"gc9a01-240-round",rendererApi:1,name:"My custom face",style:"classic",colors:{background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"},showSeconds:true,showDate:true,clockPosition:{x:120,y:120},image:null,layers:[],selectedLayerId:"__clock"};
+let faceUndoStack=[],faceRedoStack=[],faceZoomLevel=1,faceGridVisible=false,faceDragging=null,faceHueValue=210,faceSatValue=1,faceBrightValue=1,faceCurrentColor="#ffffff",faceCustomFont=null,faceCachedImage=null,faceCachedImageSrc="";
+const faceCanvas=document.getElementById("facePreview");
+const faceCtx=faceCanvas.getContext("2d");
+const faceFonts=["Arial","Georgia","Verdana","Trebuchet MS","Courier New","serif","sans-serif","monospace"];
+
+function faceClone(value){return JSON.parse(JSON.stringify(value))}
+function faceSetStatus(message,right){document.getElementById("faceStudioStatus").textContent=message;if(right)document.getElementById("faceStatusRight").textContent=right}
+function faceMarkChanged(){document.getElementById("faceStatusRight").textContent="UNSAVED CHANGES"}
+function faceSelectedLayer(){return faceProject.layers.find(layer=>layer.id===faceProject.selectedLayerId)||null}
+function facePushUndo(){faceUndoStack.push(faceClone(faceProject));if(faceUndoStack.length>40)faceUndoStack.shift();faceRedoStack=[]}
+function faceUndo(){if(!faceUndoStack.length)return;faceRedoStack.push(faceClone(faceProject));faceProject=faceUndoStack.pop();faceSyncUI();faceMarkChanged()}
+function faceRedo(){if(!faceRedoStack.length)return;faceUndoStack.push(faceClone(faceProject));faceProject=faceRedoStack.pop();faceSyncUI();faceMarkChanged()}
+function faceNewId(){return "layer-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7)}
+function faceHexToRgb565(hex){const value=hex.replace("#","");const r=parseInt(value.slice(0,2),16),g=parseInt(value.slice(2,4),16),b=parseInt(value.slice(4,6),16);return ((r&0xF8)<<8)|((g&0xFC)<<3)|(b>>3)}
+function faceDesignFromControls(){return {format:"WFACE-PROFILE",version:1,displayProfile:"gc9a01-240-round",rendererApi:1,name:faceProject.name,background:faceProject.colors.background,dial:faceProject.colors.dial,hand:faceProject.colors.hand,accent:faceProject.colors.accent,showSeconds:faceProject.showSeconds,showDate:faceProject.showDate}}
+function faceApplyProject(project){
+  faceProject=faceClone(project);
+  faceProject.name=String(faceProject.name||"Untitled face").slice(0,32);
+  faceProject.style=FACE_STYLE_BY_KEY[faceProject.style]?faceProject.style:(faceProject.style==="words"?"wordClock":"classic");
+  faceProject.colors=faceProject.colors||{};
+  const defaults={background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"};
+  Object.keys(defaults).forEach(key=>{if(!/^#[0-9a-fA-F]{6}$/.test(faceProject.colors[key]||""))faceProject.colors[key]=defaults[key]});
+  faceProject.layers=Array.isArray(faceProject.layers)?faceProject.layers:[];
+  faceProject.clockPosition=faceProject.clockPosition||{x:120,y:120};
+  const clockX=Number(faceProject.clockPosition.x),clockY=Number(faceProject.clockPosition.y);
+  faceProject.clockPosition.x=Math.max(0,Math.min(240,Number.isFinite(clockX)?clockX:120));
+  faceProject.clockPosition.y=Math.max(0,Math.min(240,Number.isFinite(clockY)?clockY:120));
+  faceProject.image=faceProject.image||null;
+  faceProject.selectedLayerId=faceProject.selectedLayerId||null;
+  if(faceProject.customFont?.dataUrl){try{const font=new FontFace(faceProject.customFont.family||"CustomFaceFont","url("+faceProject.customFont.dataUrl+")");font.load().then(loaded=>document.fonts.add(loaded)).then(()=>renderFacePreview())}catch(error){console.warn("Custom font could not be restored",error)}}
+  document.getElementById("faceName").value=faceProject.name;
+  faceSyncUI();
+  faceUndoStack=[];faceRedoStack=[];
+  faceMarkChanged();
+}
+function faceSyncUI(){
+  document.getElementById("faceStyleSelect").value=faceProject.style||"classic";
+  document.getElementById("faceBg").value=faceProject.colors.background;
+  document.getElementById("faceDial").value=faceProject.colors.dial;
+  document.getElementById("faceHand").value=faceProject.colors.hand;
+  document.getElementById("faceAccent").value=faceProject.colors.accent;
+  document.getElementById("faceShowSeconds").checked=faceProject.showSeconds!==false;
+  document.getElementById("faceShowDate").checked=faceProject.showDate!==false;
+  document.getElementById("faceShowSecondsVisible").checked=faceProject.showSeconds!==false;
+  document.getElementById("faceShowDateVisible").checked=faceProject.showDate!==false;
+  document.getElementById("faceName").value=faceProject.name;
+  renderFacePreview();renderFaceLayers();renderFaceAssets();syncFaceInspector();
+}
+function faceImageObject(){
+  if(!faceProject.image||!faceProject.image.dataUrl)return null;
+  if(!faceCachedImage||faceCachedImageSrc!==faceProject.image.dataUrl){
+    faceCachedImage=new Image();faceCachedImageSrc=faceProject.image.dataUrl;
+    faceCachedImage.onload=()=>renderFacePreview();
+    faceCachedImage.src=faceProject.image.dataUrl;
+  }
+  return faceCachedImage.complete&&faceCachedImage.naturalWidth?faceCachedImage:null;
+}
+function renderFacePreview(){
+  if(!faceCtx)return;
+  faceCtx.setTransform(2,0,0,2,0,0);
+  faceCtx.clearRect(0,0,240,240);
+  const colors=faceProject.colors;
+  faceCtx.fillStyle=colors.background;faceCtx.fillRect(0,0,240,240);
+  faceCtx.save();faceCtx.beginPath();faceCtx.arc(120,120,116,0,Math.PI*2);faceCtx.clip();
+  faceCtx.fillStyle=colors.dial;faceCtx.fillRect(4,4,232,232);
+  if(faceProject.image){
+    const img=faceImageObject();
+    if(img){
+      const base=Math.max(232/img.naturalWidth,232/img.naturalHeight);
+      const scale=base*(Number(faceProject.image.zoom)||1);
+      const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+      faceCtx.globalAlpha=Number(faceProject.image.opacity??1);
+      faceCtx.drawImage(img,120-w/2+(Number(faceProject.image.x)||0),120-h/2+(Number(faceProject.image.y)||0),w,h);
+      faceCtx.globalAlpha=1;
+    }
+  }
+  faceCtx.save();faceCtx.translate(faceProject.clockPosition.x-120,faceProject.clockPosition.y-120);
+  const style=faceProject.style||"classic";
+  const styleMeta=FACE_STYLE_BY_KEY[style]||FACE_STYLE_BY_KEY.classic;
+  const now=new Date();
+  const liveTime=now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  faceCtx.strokeStyle=colors.accent;faceCtx.fillStyle=colors.accent;faceCtx.textAlign="center";faceCtx.textBaseline="middle";
+  if(styleMeta.family==="Digital"){
+    const time=faceProject.showSeconds?liveTime:liveTime.slice(0,5);
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 11px Arial";faceCtx.fillText(style==="digitalLed"?"MATRIX CLOCK":"LOCAL TIME",120,78);
+    faceCtx.fillStyle=colors.hand;faceCtx.font=style==="digitalBold"?"bold 42px Arial":style==="digitalMono"||style==="digitalLed"?"bold 25px monospace":style==="digitalFlip"?"bold 36px Georgia":"bold 32px monospace";
+    if(style==="digitalStack"||style==="digitalRetro"||style==="digitalFlip"){faceCtx.fillText(time.slice(0,5),120,116);if(faceProject.showSeconds){faceCtx.font="bold 16px monospace";faceCtx.fillStyle=colors.accent;faceCtx.fillText(time.slice(6,8),120,148)}}else faceCtx.fillText(time,120,122);
+    if(faceProject.showDate){faceCtx.font="10px Arial";faceCtx.fillStyle=colors.accent;faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,166)}
+  }else if(styleMeta.family==="Typography"){
+    const words=["TWELVE","ONE","TWO","THREE","FOUR","FIVE","SIX","SEVEN","EIGHT","NINE","TEN","ELEVEN"];
+    const hour=words[now.getHours()%12],minute=Math.round(now.getMinutes()/5)*5;
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 11px Arial";faceCtx.fillText(style==="editorial"?"LOCAL TIME":"THE TIME IS",120,76);
+    faceCtx.fillStyle=colors.hand;faceCtx.font=style==="largeNumbers"?"bold 31px Georgia":"bold 25px Georgia";faceCtx.fillText(hour,120,112);
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 16px Arial";faceCtx.fillText(minute===0?"O'CLOCK":String(minute).padStart(2,"0")+" MINUTES",120,145);
+    if(faceProject.showDate){faceCtx.font="10px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,174)}
+  }else if(style==="minimal"){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<12;i++){const a=i*Math.PI/6-Math.PI/2;faceCtx.beginPath();faceCtx.arc(120+Math.cos(a)*103,120+Math.sin(a)*103, i%3===0?2.4:1.3,0,Math.PI*2);faceCtx.fill()}
+  }else if(style==="roman"){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<12;i++){const a=i*Math.PI/6-Math.PI/2;const nums=["XII","I","II","III","IV","V","VI","VII","VIII","IX","X","XI"];faceCtx.fillStyle=colors.hand;faceCtx.font="bold 13px Georgia";faceCtx.fillText(nums[i],120+Math.cos(a)*88,120+Math.sin(a)*88)}
+  }else if(style==="pilot"){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?94:105),120+Math.sin(a)*(major?94:105));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
+    faceCtx.fillStyle=colors.hand;faceCtx.font="bold 15px Arial";
+    [12,3,6,9].forEach((n)=>{const a=n*Math.PI/6-Math.PI/2;faceCtx.fillText(String(n),120+Math.cos(a)*78,120+Math.sin(a)*78)});
+  }else if(style==="diver"){
+    faceCtx.lineWidth=4;faceCtx.beginPath();faceCtx.arc(120,120,108,0,Math.PI*2);faceCtx.stroke();
+    for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.lineWidth=major?3:1;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?91:104),120+Math.sin(a)*(major?91:104));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 10px Arial";faceCtx.fillText("DIVER",120,66);
+  }else if(["modern","artdeco","bauhaus"].includes(style)){
+    faceCtx.lineWidth=style==="artdeco"?4:2;faceCtx.beginPath();faceCtx.arc(120,120,108,0,Math.PI*2);faceCtx.stroke();
+    faceCtx.lineWidth=1;faceCtx.beginPath();faceCtx.arc(120,120,98,0,Math.PI*2);faceCtx.stroke();
+    for(let i=0;i<12;i++){const a=i*Math.PI/6-Math.PI/2;faceCtx.fillRect(117+Math.cos(a)*102,117+Math.sin(a)*102,6,6)}
+  }else if(["field","railway","chrono","skeleton","vintage"].includes(style)){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;const outer=style==="railway"?110:114;const inner=outer-(major?12:5);faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*inner,120+Math.sin(a)*inner);faceCtx.lineTo(120+Math.cos(a)*outer,120+Math.sin(a)*outer);faceCtx.stroke()}
+    if(style==="field"||style==="vintage"){faceCtx.fillStyle=colors.hand;faceCtx.font="bold 13px Georgia";[12,3,6,9].forEach(n=>{const a=n*Math.PI/6-Math.PI/2;faceCtx.fillText(String(n),120+Math.cos(a)*78,120+Math.sin(a)*78)})}
+  }else if(!["digital","digitalStack","digitalMono","words"].includes(style)){
+    faceCtx.lineWidth=2;
+    for(let i=0;i<60;i++){const a=i*Math.PI/30-Math.PI/2;const major=i%5===0;faceCtx.beginPath();faceCtx.moveTo(120+Math.cos(a)*(major?101:107),120+Math.sin(a)*(major?101:107));faceCtx.lineTo(120+Math.cos(a)*114,120+Math.sin(a)*114);faceCtx.stroke()}
+  }
+  if(style==="words"){
+    const hourWords=["TWELVE","ONE","TWO","THREE","FOUR","FIVE","SIX","SEVEN","EIGHT","NINE","TEN","ELEVEN"];
+    const minuteWords=["O'CLOCK","FIVE","TEN","FIFTEEN","TWENTY","TWENTY FIVE","THIRTY","THIRTY FIVE","FORTY","FORTY FIVE","FIFTY","FIFTY FIVE"];
+    const hour=now.getHours()%12,minute=now.getMinutes(),rounded=Math.round(minute/5)%12;
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 12px Arial";faceCtx.fillText("THE TIME IS",120,83);
+    faceCtx.fillStyle=colors.hand;faceCtx.font="bold 27px Arial";faceCtx.fillText(hourWords[hour],120,111);
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 19px Arial";faceCtx.fillText(minuteWords[rounded],120,140);
+    if(faceProject.showDate){faceCtx.font="10px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,170)}
+  }else if(style==="digitalStack"||style==="digitalMono"){
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 10px Arial";faceCtx.fillText("LOCAL TIME",120,83);
+    faceCtx.fillStyle=colors.hand;faceCtx.font=style==="digitalMono"?"bold 28px monospace":"bold 36px Arial";faceCtx.fillText(style==="digitalMono"?liveTime:liveTime.slice(0,5),120,119);
+    if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="11px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,153)}
+  }else if(style==="digital"){
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 11px Arial";faceCtx.fillText("LOCAL TIME",120,82);
+    faceCtx.fillStyle=colors.hand;faceCtx.font="bold 34px monospace";faceCtx.fillText(faceProject.showSeconds?liveTime:liveTime.slice(0,5),120,119);
+    if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="12px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,151)}
+  }else{
+    if(style==="classic"||style==="pilot"){faceCtx.fillStyle=colors.accent;faceCtx.font="11px Arial";faceCtx.fillText("UTC+7",80,102);faceCtx.fillStyle=colors.hand;faceCtx.font="12px monospace";faceCtx.fillText(faceProject.showSeconds?liveTime:liveTime.slice(0,5),80,122)}
+    if(faceProject.showDate){faceCtx.fillStyle=colors.accent;faceCtx.font="10px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short"}).toUpperCase(),160,102);faceCtx.fillStyle=colors.hand;faceCtx.font="17px Arial";faceCtx.fillText(String(now.getDate()).padStart(2,"0"),160,122)}
+    const hand=(angle,length,width,color)=>{faceCtx.strokeStyle=color;faceCtx.lineWidth=width;faceCtx.lineCap="round";faceCtx.beginPath();faceCtx.moveTo(120,120);faceCtx.lineTo(120+Math.cos(angle)*length,120+Math.sin(angle)*length);faceCtx.stroke()};
+    hand((10+10/60)*Math.PI/6-Math.PI/2,47,5,colors.hand);hand((10+35/60)*Math.PI/30-Math.PI/2,76,3,colors.hand);
+    if(faceProject.showSeconds)hand(35*Math.PI/30-Math.PI/2,94,1.5,colors.accent);
+    if(styleMeta.family==="Hybrid"){
+      faceCtx.fillStyle=colors.accent;faceCtx.font="bold 12px monospace";
+      faceCtx.fillText(now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false}),120,174);
+    }
+    faceCtx.fillStyle=colors.accent;faceCtx.beginPath();faceCtx.arc(120,120,5,0,Math.PI*2);faceCtx.fill();faceCtx.fillStyle=colors.hand;faceCtx.beginPath();faceCtx.arc(120,120,2,0,Math.PI*2);faceCtx.fill();
+  }
+  faceCtx.restore(); // End the movable built-in clock renderer layer.
+  faceProject.layers.forEach(layer=>{
+    if(layer.visible===false)return;
+    faceCtx.save();faceCtx.globalAlpha=Number(layer.opacity??100)/100;
+    if(layer.type==="text"){
+      let rawText=layer.binding==="time"?new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:faceProject.showSeconds?"2-digit":undefined,hour12:false}):layer.binding==="date"?new Date().toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}):String(layer.text||"Text");
+      const content=layer.uppercase?String(rawText).toUpperCase():String(rawText);
+      const family=layer.fontFamily||"Arial",weight=layer.fontWeight||"400";
+      faceCtx.font=weight+" "+(Number(layer.fontSize)||18)+"px '"+family+"'";
+      faceCtx.fillStyle=layer.color||"#ffffff";faceCtx.textAlign=layer.align||"center";faceCtx.textBaseline="middle";
+      faceCtx.fillText(content,Number(layer.x)||120,Number(layer.y)||120,220);
+      if(faceProject.selectedLayerId===layer.id){const width=Math.min(220,faceCtx.measureText(content).width);faceCtx.strokeStyle="#69b4ff";faceCtx.lineWidth=.8;faceCtx.setLineDash([3,2]);faceCtx.strokeRect((Number(layer.x)||120)-(layer.align==="center"?width/2:layer.align==="right"?width:0)-4,(Number(layer.y)||120)-(Number(layer.fontSize)||18)/2-5,width+8,(Number(layer.fontSize)||18)+10)}
+    }
+    faceCtx.restore();
+  });
+  faceCtx.restore();
+  if(faceGridVisible){faceCtx.save();faceCtx.strokeStyle="#ffffff35";faceCtx.lineWidth=.5;faceCtx.setLineDash([2,3]);for(let p=40;p<240;p+=40){faceCtx.beginPath();faceCtx.moveTo(p,0);faceCtx.lineTo(p,240);faceCtx.stroke();faceCtx.beginPath();faceCtx.moveTo(0,p);faceCtx.lineTo(240,p);faceCtx.stroke()}faceCtx.restore()}
+}
+function faceAddLayer(type,text){
+  facePushUndo();
+  const layer={id:faceNewId(),type,name:type==="text"?(text||"Text layer"):"Image layer",visible:true,opacity:100,x:120,y:170,text:text||"New text",fontFamily:"Arial",fontWeight:"600",fontSize:18,color:"#ffffff",align:"center",uppercase:false};
+  faceProject.layers.push(layer);faceProject.selectedLayerId=layer.id;faceSyncUI();setFaceInspectorTab(type==="text"?"type":"design");faceMarkChanged();
+}
+function addFaceText(text){faceAddLayer("text",text||"New text")}
+function addFaceWidget(binding){facePushUndo();const layer={id:faceNewId(),type:"text",name:binding==="time"?"Time widget":"Date widget",binding,visible:true,opacity:100,x:120,y:170,text:"",fontFamily:"Arial",fontWeight:"700",fontSize:binding==="time"?23:14,color:"#ffffff",align:"center",uppercase:true};faceProject.layers.push(layer);faceProject.selectedLayerId=layer.id;faceSyncUI();setFaceInspectorTab("type");faceMarkChanged()}
+function removeFaceLayer(){if(faceProject.selectedLayerId==="__image"&&faceProject.image){facePushUndo();faceProject.image=null;faceCachedImage=null;faceCachedImageSrc="";faceProject.selectedLayerId=null;faceSyncUI();faceMarkChanged();return}const index=faceProject.layers.findIndex(layer=>layer.id===faceProject.selectedLayerId);if(index<0)return;facePushUndo();faceProject.layers.splice(index,1);faceProject.selectedLayerId=faceProject.layers[Math.min(index,faceProject.layers.length-1)]?.id||null;faceSyncUI();faceMarkChanged()}
+function moveFaceLayer(direction){const index=faceProject.layers.findIndex(layer=>layer.id===faceProject.selectedLayerId);const next=index+direction;if(index<0||next<0||next>=faceProject.layers.length)return;facePushUndo();[faceProject.layers[index],faceProject.layers[next]]=[faceProject.layers[next],faceProject.layers[index]];faceSyncUI();faceMarkChanged()}
+function toggleSelectedFaceLayer(){const layer=faceSelectedLayer();if(!layer)return;facePushUndo();layer.visible=layer.visible===false;faceSyncUI();faceMarkChanged()}
+function renderFaceLayers(){
+  const list=document.getElementById("faceLayerList");list.innerHTML="";
+  const clockItem=document.createElement("button");clockItem.className="fs-layer-item"+(faceProject.selectedLayerId==="__clock"?" active":"");clockItem.innerHTML='<span class="fs-layer-icon">◷</span><span class="fs-layer-name">Clock renderer · '+(FACE_STYLE_BY_KEY[faceProject.style]?.name||"Analog")+"</span>";clockItem.onclick=()=>{faceProject.selectedLayerId="__clock";syncFaceInspector();renderFaceLayers()};list.appendChild(clockItem);
+  if(faceProject.image){const item=document.createElement("button");item.className="fs-layer-item"+(faceProject.selectedLayerId==="__image"?" active":"");item.innerHTML='<span class="fs-layer-icon">▧</span><span class="fs-layer-name">Background image</span>';item.onclick=()=>{faceProject.selectedLayerId="__image";syncFaceInspector();renderFaceLayers()};list.appendChild(item)}
+  faceProject.layers.slice().reverse().forEach(layer=>{const item=document.createElement("button");item.className="fs-layer-item"+(faceProject.selectedLayerId===layer.id?" active":"");const icon=layer.type==="text"?"T":"◇";const name=document.createElement("span");name.className="fs-layer-name";name.textContent=(layer.visible===false?"◌ ":"")+layer.name;item.append(document.createTextNode(icon+" "),name);item.onclick=()=>{faceProject.selectedLayerId=layer.id;syncFaceInspector();renderFaceLayers()};list.appendChild(item)});
+  if(!faceProject.image&&!faceProject.layers.length){const empty=document.createElement("div");empty.className="fs-empty";empty.textContent="No custom layers yet. Add an image or text element.";list.appendChild(empty)}
+  document.getElementById("faceLayerCount").textContent=(1+faceProject.layers.length+(faceProject.image?1:0))+" ELEMENTS";
+}
+function renderFaceAssets(){
+  const list=document.getElementById("faceAssetList");list.innerHTML="";
+  document.getElementById("faceAssetCount").textContent=(faceProject.image?1:0)+" ITEMS";
+  if(!faceProject.image){const empty=document.createElement("div");empty.className="fs-empty";empty.textContent="No uploaded assets";list.appendChild(empty);return}
+  const card=document.createElement("div");card.className="fs-asset-card";
+  const thumb=document.createElement("div");thumb.className="fs-asset-thumb";const img=document.createElement("img");img.src=faceProject.image.dataUrl;thumb.appendChild(img);
+  const meta=document.createElement("div");meta.className="fs-asset-meta";const name=document.createElement("div");name.className="fs-asset-name";name.textContent=faceProject.image.name||"Uploaded image";const hint=document.createElement("div");hint.className="fs-asset-hint";hint.textContent=(faceProject.image.width||"")+" × "+(faceProject.image.height||"")+" px";meta.append(name,hint);
+  card.append(thumb,meta);list.appendChild(card);
+}
+function syncFaceInspector(){
+  const layer=faceSelectedLayer(),isImage=faceProject.selectedLayerId==="__image"&&!!faceProject.image,isClock=faceProject.selectedLayerId==="__clock";
+  document.getElementById("faceSelectedLabel").textContent=isImage?"IMAGE":isClock?"CLOCK":layer?layer.type.toUpperCase():"FACE";
+  document.getElementById("faceSelectedType").textContent=isImage?"Background image":isClock?"Built-in clock renderer":layer?layer.type==="text"?"Text layer":"Layer":"Clock face";
+  const source=layer||null;
+  document.getElementById("faceLayerName").value=isImage?faceProject.image.name:isClock?"Clock renderer":source?source.name:"Clock face";
+  document.getElementById("faceX").value=isClock?faceProject.clockPosition.x:source?source.x:120;document.getElementById("faceY").value=isClock?faceProject.clockPosition.y:source?source.y:120;
+  document.getElementById("faceSize").value=source?source.fontSize||18:18;document.getElementById("faceSizeValue").textContent=(source?source.fontSize||18:18)+" px";document.getElementById("faceOpacity").value=source?source.opacity??100:100;document.getElementById("faceOpacityValue").textContent=(source?source.opacity??100:100)+"%";
+  document.getElementById("faceXValue").textContent=isClock?Math.round(faceProject.clockPosition.x):source?Math.round(source.x):"—";document.getElementById("faceYValue").textContent=isClock?Math.round(faceProject.clockPosition.y):source?Math.round(source.y):"—";
+  document.getElementById("faceLayerVisible").checked=source?source.visible!==false:true;
+  document.getElementById("faceTextContent").value=source?.text||"";
+  const fontSelect=document.getElementById("faceFontFamily");const selectedFont=source?.fontFamily||"Arial";if(![...fontSelect.options].some(option=>option.value===selectedFont)){const option=document.createElement("option");option.value=selectedFont;option.textContent=selectedFont==="CustomFaceFont"?"Custom uploaded font":selectedFont;fontSelect.appendChild(option)}fontSelect.value=selectedFont;
+  document.getElementById("faceFontWeight").value=source?.fontWeight||"600";
+  document.getElementById("faceTextAlign").value=source?.align||"center";
+  document.getElementById("faceTextUpper").checked=!!source?.uppercase;
+  document.getElementById("faceX").disabled=!(source||isClock);document.getElementById("faceY").disabled=!(source||isClock);
+  document.getElementById("faceSize").disabled=!source;document.getElementById("faceOpacity").disabled=!source;
+  document.getElementById("faceLayerVisible").disabled=!source;
+  const target=document.getElementById("faceColorTarget");target.value=source?"accent":target.value||"accent";
+  const color=source?.color||faceProject.colors[target.value]||faceProject.colors.accent;faceSetColorDisplay(color);
+  const crop=faceProject.image||{zoom:1,x:0,y:0};
+  document.getElementById("faceCropZoom").value=Math.round((crop.zoom||1)*100);document.getElementById("faceCropX").value=crop.x||0;document.getElementById("faceCropY").value=crop.y||0;
+  document.getElementById("faceCropThumb").hidden=!faceProject.image;
+  if(faceProject.image)document.getElementById("faceCropThumb").src=faceProject.image.dataUrl;
+}
+function setFaceInspectorTab(tab){
+  ["design","crop","type","style","library"].forEach(key=>{
+    const panel=document.getElementById("face"+key.charAt(0).toUpperCase()+key.slice(1)+"Panel");
+    if(panel)panel.classList.toggle("fs-hidden",key!==tab);
+    const tabButton=document.getElementById("faceTab"+key.charAt(0).toUpperCase()+key.slice(1));
+    if(tabButton)tabButton.classList.toggle("active",key===tab);
+  });
+}
+function faceSetColorDisplay(color){
+  faceCurrentColor=color||"#ffffff";document.getElementById("faceColorChip").style.background=faceCurrentColor;document.getElementById("faceColorHex").textContent=faceCurrentColor.toUpperCase();document.getElementById("faceHex").value=faceCurrentColor.toUpperCase();document.getElementById("faceColorName").firstChild.textContent="Selected color";
+}
+function toggleFaceColorPicker(){document.getElementById("faceColorPopover").classList.toggle("open")}
+function faceRgbToHsv(hex){
+  const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255,max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
+  let h=0;if(d){if(max===r)h=((g-b)/d)%6;else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360}
+  return {h,s:max===0?0:d/max,v:max};
+}
+function faceHsvToHex(h,s,v){
+  const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;let r=0,g=0,b=0;
+  if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}
+  return "#"+[r,g,b].map(n=>Math.round((n+m)*255).toString(16).padStart(2,"0")).join("");
+}
+function faceSetHsvUI(hex){
+  const hsv=faceRgbToHsv(hex);faceHueValue=hsv.h;faceSatValue=hsv.s;faceBrightValue=hsv.v;
+  document.getElementById("faceHue").value=faceHueValue;document.getElementById("faceSVPlane").style.setProperty("--hue","hsl("+faceHueValue+",100%,50%)");
+  document.getElementById("faceSVKnob").style.left=(faceSatValue*100)+"%";document.getElementById("faceSVKnob").style.top=((1-faceBrightValue)*100)+"%";
+}
+function faceApplySelectedColor(hex){
+  if(!/^#[0-9a-fA-F]{6}$/.test(hex))return;
+  const layer=faceSelectedLayer();
+  facePushUndo();
+  if(layer)layer.color=hex;else{const target=document.getElementById("faceColorTarget").value;faceProject.colors[target]=hex;const inputId={background:"faceBg",dial:"faceDial",hand:"faceHand",accent:"faceAccent"}[target];if(inputId)document.getElementById(inputId).value=hex;}
+  faceSetColorDisplay(hex);faceSetHsvUI(hex);renderFacePreview();faceMarkChanged();
+}
+function applyFaceHex(){faceApplySelectedColor(document.getElementById("faceHex").value.trim())}
+function facePickSV(event){
+  const rect=document.getElementById("faceSVPlane").getBoundingClientRect();faceSatValue=Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width));faceBrightValue=1-Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height));
+  document.getElementById("faceSVKnob").style.left=(faceSatValue*100)+"%";document.getElementById("faceSVKnob").style.top=((1-faceBrightValue)*100)+"%";
+  faceApplySelectedColor(faceHsvToHex(faceHueValue,faceSatValue,faceBrightValue));
+}
+function faceZoom(delta,reset){faceZoomLevel=reset?1:Math.max(.7,Math.min(1.4,faceZoomLevel+delta));document.getElementById("faceZoomLabel").textContent=Math.round(faceZoomLevel*100)+"%";faceCanvas.style.transform="scale("+faceZoomLevel+")"}
+function toggleFaceGrid(){faceGridVisible=!faceGridVisible;renderFacePreview()}
+function resetFaceCrop(){if(!faceProject.image)return;facePushUndo();faceProject.image.zoom=1;faceProject.image.x=0;faceProject.image.y=0;syncFaceInspector();renderFacePreview();faceMarkChanged()}
+function faceUpdateCrop(){
+  if(!faceProject.image)return;
+  facePushUndo();faceProject.image.zoom=Number(document.getElementById("faceCropZoom").value)/100;faceProject.image.x=Number(document.getElementById("faceCropX").value);faceProject.image.y=Number(document.getElementById("faceCropY").value);
+  document.getElementById("faceCropZoomValue").textContent=Math.round(faceProject.image.zoom*100)+"%";document.getElementById("faceCropXValue").textContent=faceProject.image.x;document.getElementById("faceCropYValue").textContent=faceProject.image.y;renderFacePreview();faceMarkChanged();
+}
+function openFaceUpload(){document.getElementById("faceImageInput").click()}
+function faceLoadImage(file){
+  if(!file)return;
+  if(file.type&&!file.type.startsWith("image/")){faceSetStatus("Please choose an image file.");return}
+  if(file.size>20*1024*1024){faceSetStatus("This photo is over 20 MB. Choose a smaller image.");return}
+  faceSetStatus("Loading photo…","IMPORTING PHOTO");
+  const objectUrl=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    try{
+      const maxSide=512,scale=Math.min(1,maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+      const temp=document.createElement("canvas");temp.width=Math.max(1,Math.round(img.naturalWidth*scale));temp.height=Math.max(1,Math.round(img.naturalHeight*scale));
+      const tempCtx=temp.getContext("2d");tempCtx.drawImage(img,0,0,temp.width,temp.height);
+      let optimized=temp.toDataURL("image/webp",0.84);
+      if(!optimized.startsWith("data:image/webp"))optimized=temp.toDataURL("image/png");
+      facePushUndo();faceProject.image={name:file.name||"Photo",dataUrl:optimized,width:temp.width,height:temp.height,zoom:1,x:0,y:0,opacity:1};
+      faceCachedImage=null;faceCachedImageSrc="";faceProject.selectedLayerId="__image";
+      faceSyncUI();openFaceCategory("images");faceSetStatus("Photo added. Adjust the crop or position.","PHOTO ADDED");faceMarkChanged();
+    }catch(error){console.error(error);faceSetStatus("Could not process this photo. Try a JPG or PNG image.");}
+    URL.revokeObjectURL(objectUrl);
+  };
+  img.onerror=()=>{URL.revokeObjectURL(objectUrl);faceSetStatus("This image format is not supported by the browser. Try JPG or PNG.")};
+  img.src=objectUrl;
+}
+function faceCanvasPoint(event){
+  const rect=faceCanvas.getBoundingClientRect();return {x:(event.clientX-rect.left)/rect.width*240,y:(event.clientY-rect.top)/rect.height*240};
+}
+function faceHitTest(point){
+  for(let i=faceProject.layers.length-1;i>=0;i--){const layer=faceProject.layers[i];if(layer.type!=="text"||layer.visible===false)continue;const width=Math.max(28,String(layer.text||"Text").length*(Number(layer.fontSize)||18)*.58);if(Math.abs(point.x-layer.x)<width/2+8&&Math.abs(point.y-layer.y)<(Number(layer.fontSize)||18)+8)return layer}
+  if(faceProject.selectedLayerId==="__image"&&faceProject.image&&Math.hypot(point.x-120-faceProject.image.x,point.y-120-faceProject.image.y)<116)return {id:"__image",type:"image"};
+  if(Math.hypot(point.x-faceProject.clockPosition.x,point.y-faceProject.clockPosition.y)<116)return {id:"__clock",type:"clock"};
+  if(faceProject.image&&Math.hypot(point.x-120-faceProject.image.x,point.y-120-faceProject.image.y)<116)return {id:"__image",type:"image"};
+  return null;}
+faceCanvas.addEventListener("pointerdown",event=>{
+  const point=faceCanvasPoint(event),hit=faceHitTest(point);
+  if(!hit)return;
+  facePushUndo();faceProject.selectedLayerId=hit.id;faceDragging={id:hit.id,start:point,original:hit.id==="__image"?{x:faceProject.image.x,y:faceProject.image.y}:hit.id==="__clock"?{x:faceProject.clockPosition.x,y:faceProject.clockPosition.y}:{x:hit.x,y:hit.y}};
+  faceCanvas.setPointerCapture(event.pointerId);syncFaceInspector();renderFaceLayers();
+});
+faceCanvas.addEventListener("pointermove",event=>{
+  if(!faceDragging)return;const point=faceCanvasPoint(event),dx=point.x-faceDragging.start.x,dy=point.y-faceDragging.start.y;
+  if(faceDragging.id==="__image"){faceProject.image.x=Math.max(-120,Math.min(120,faceDragging.original.x+dx));faceProject.image.y=Math.max(-120,Math.min(120,faceDragging.original.y+dy))}
+  else if(faceDragging.id==="__clock"){faceProject.clockPosition.x=Math.max(0,Math.min(240,faceDragging.original.x+dx));faceProject.clockPosition.y=Math.max(0,Math.min(240,faceDragging.original.y+dy))}
+  else{const layer=faceProject.layers.find(item=>item.id===faceDragging.id);if(layer){layer.x=Math.max(0,Math.min(240,faceDragging.original.x+dx));layer.y=Math.max(0,Math.min(240,faceDragging.original.y+dy))}}
+  renderFacePreview();document.getElementById("faceX").value=faceDragging.id==="__image"?faceProject.image.x:faceDragging.id==="__clock"?Math.round(faceProject.clockPosition.x):Math.round(faceSelectedLayer()?.x||0);document.getElementById("faceY").value=faceDragging.id==="__image"?faceProject.image.y:faceDragging.id==="__clock"?Math.round(faceProject.clockPosition.y):Math.round(faceSelectedLayer()?.y||0);
+});
+faceCanvas.addEventListener("pointerup",()=>{if(faceDragging){faceDragging=null;faceMarkChanged();syncFaceInspector()}});
+faceCanvas.addEventListener("pointercancel",()=>{faceDragging=null});
+
+function faceBindInspector(){
+  const updateLayer=(key,value)=>{if(faceProject.selectedLayerId==="__clock"&&(key==="x"||key==="y")){facePushUndo();faceProject.clockPosition[key]=value;renderFacePreview();renderFaceLayers();syncFaceInspector();faceMarkChanged();return}const layer=faceSelectedLayer();if(!layer)return;facePushUndo();layer[key]=value;renderFacePreview();renderFaceLayers();faceMarkChanged()};
+  document.getElementById("faceImageInput").addEventListener("change",event=>{faceLoadImage(event.target.files?.[0]);event.target.value=""});
+  document.getElementById("faceImportInput").addEventListener("change",importFaceDesign);
+  document.getElementById("faceStyleSelect").addEventListener("change",e=>{facePushUndo();faceProject.style=e.target.value;renderFacePreview();faceMarkChanged()});
+  document.getElementById("faceX").addEventListener("change",e=>updateLayer("x",Math.max(0,Math.min(240,Number(e.target.value)||0))));
+  document.getElementById("faceY").addEventListener("change",e=>updateLayer("y",Math.max(0,Math.min(240,Number(e.target.value)||0))));
+  document.getElementById("faceSize").addEventListener("input",e=>{document.getElementById("faceSizeValue").textContent=e.target.value+" px";updateLayer("fontSize",Number(e.target.value))});
+  document.getElementById("faceOpacity").addEventListener("input",e=>{document.getElementById("faceOpacityValue").textContent=e.target.value+"%";updateLayer("opacity",Number(e.target.value))});
+  document.getElementById("faceLayerName").addEventListener("change",e=>{const layer=faceSelectedLayer();if(layer){updateLayer("name",e.target.value)}});
+  document.getElementById("faceLayerVisible").addEventListener("change",e=>updateLayer("visible",e.target.checked));
+  document.getElementById("faceTextContent").addEventListener("input",e=>updateLayer("text",e.target.value));
+  document.getElementById("faceFontFamily").addEventListener("change",e=>updateLayer("fontFamily",e.target.value));
+  document.getElementById("faceFontWeight").addEventListener("change",e=>updateLayer("fontWeight",e.target.value));
+  document.getElementById("faceTextAlign").addEventListener("change",e=>updateLayer("align",e.target.value));
+  document.getElementById("faceTextUpper").addEventListener("change",e=>updateLayer("uppercase",e.target.checked));
+  ["faceCropZoom","faceCropX","faceCropY"].forEach(id=>document.getElementById(id).addEventListener("input",faceUpdateCrop));
+  document.getElementById("faceHue").addEventListener("input",e=>{faceHueValue=Number(e.target.value);document.getElementById("faceSVPlane").style.setProperty("--hue","hsl("+faceHueValue+",100%,50%)");faceApplySelectedColor(faceHsvToHex(faceHueValue,faceSatValue,faceBrightValue))});
+  document.getElementById("faceSVPlane").addEventListener("pointerdown",facePickSV);
+  document.getElementById("faceName").addEventListener("input",e=>{faceProject.name=e.target.value.slice(0,32);faceMarkChanged()});
+  document.getElementById("faceFontInput").addEventListener("change",event=>{
+    const file=event.target.files?.[0];if(!file)return;
+    if(file.size>3*1024*1024){faceSetStatus("Font file exceeds 3 MB");event.target.value="";return}
+    const reader=new FileReader();reader.onload=async()=>{try{const family="CustomFaceFont";const fontData=String(reader.result);const font=new FontFace(family,"url("+fontData+")");await font.load();document.fonts.add(font);faceCustomFont={name:file.name,dataUrl:fontData,family};faceProject.customFont=faceCustomFont;const layer=faceSelectedLayer();if(layer){facePushUndo();layer.fontFamily=family;faceSyncUI();faceSetStatus("Custom font loaded · included in exported project")}else faceSetStatus("Font loaded · add or select a text layer to use it")}catch(error){faceSetStatus("Could not load this font file")}event.target.value=""};reader.readAsDataURL(file);
+  });
+  const swatches=["#FFFFFF","#D9E7F7","#FBE0A0","#18C3C3","#5AA9FF","#7C6CFF","#F36F91","#FF8A4C","#151B2B","#000000"];
+  const swatchRoot=document.getElementById("faceSwatches");swatches.forEach(color=>{const button=document.createElement("button");button.className="fs-swatch";button.style.background=color;button.title=color;button.onclick=()=>faceApplySelectedColor(color);swatchRoot.appendChild(button)});
+  document.getElementById("faceColorTarget").addEventListener("change",()=>{const layer=faceSelectedLayer();faceSetColorDisplay(layer?.color||faceProject.colors[document.getElementById("faceColorTarget").value]);faceSetHsvUI(layer?.color||faceProject.colors[document.getElementById("faceColorTarget").value])});
+  document.getElementById("faceShowSecondsVisible").addEventListener("change",e=>{facePushUndo();faceProject.showSeconds=e.target.checked;faceSyncUI();faceMarkChanged()});
+  document.getElementById("faceShowDateVisible").addEventListener("change",e=>{facePushUndo();faceProject.showDate=e.target.checked;faceSyncUI();faceMarkChanged()});
+  document.getElementById("faceSVPlane").style.setProperty("--hue","hsl(210,100%,50%)");
+  faceSetHsvUI("#FFFFFF");
+}
+function faceApplyGlobalColor(key,color){
+  facePushUndo();faceProject.colors[key]=color;document.getElementById("face"+key.charAt(0).toUpperCase()+key.slice(1)).value=color;
+  renderFacePreview();faceMarkChanged();
+}
+function facePersistLibrary(){
+  try{localStorage.setItem(FACE_LIBRARY_KEY,JSON.stringify(faceLibrary));return true}
+  catch(error){faceSetStatus("Browser storage is full. Export this project to keep its assets.");return false}
+}
+function refreshFaceLibrary(){
+  const select=document.getElementById("faceLibrarySelect");select.innerHTML="";
+  if(!faceLibrary.length){const option=document.createElement("option");option.value="";option.textContent="No saved designs";select.appendChild(option);return}
+  faceLibrary.forEach((project,index)=>{const option=document.createElement("option");option.value=String(index);option.textContent=project.name||("Face "+(index+1));select.appendChild(option)});
+}
+function saveFaceDesign(){
+  const project=faceClone(faceProject);project._savedAt=new Date().toISOString();
+  const index=faceLibrary.findIndex(item=>item.name===project.name);
+  if(index>=0)faceLibrary[index]=project;else faceLibrary.push(project);
+  if(facePersistLibrary()){refreshFaceLibrary();document.getElementById("faceLibrarySelect").value=String(Math.max(0,faceLibrary.findIndex(item=>item.name===project.name)));faceSetStatus("Saved in this browser · "+project.name,"ALL CHANGES SAVED")}
+}
+function loadSelectedFace(){
+  const index=Number(document.getElementById("faceLibrarySelect").value);if(!Number.isInteger(index)||!faceLibrary[index])return;
+  faceApplyProject(faceLibrary[index]);faceSetStatus("Opened · "+faceProject.name,"PROJECT LOADED");
+}
+function exportFaceDesign(){
+  const project=faceClone(faceProject);project.exportedAt=new Date().toISOString();
+  const blob=new Blob([JSON.stringify(project,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const link=document.createElement("a");
+  link.href=url;link.download=(faceProject.name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"watch-face")+".wface";
+  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);faceSetStatus("Exported project · includes image and layer data","PROJECT EXPORTED");
+}
+function importFaceDesign(event){
+  const file=event.target.files?.[0];if(!file)return;
+  if(file.size>12*1024*1024){faceSetStatus("Project exceeds 12 MB");event.target.value="";return}
+  const reader=new FileReader();reader.onload=()=>{
+    try{const project=JSON.parse(String(reader.result));if(!project||!["WFACE-PROJECT","WFACE-PROFILE"].includes(project.format)||![1,2].includes(project.version)||project.displayProfile!=="gc9a01-240-round")throw new Error("incompatible");
+      if(project.format==="WFACE-PROFILE"){faceApplyProject({format:"WFACE-PROJECT",version:2,displayProfile:project.displayProfile,rendererApi:1,name:project.name||"Imported face",colors:{background:project.background,dial:project.dial,hand:project.hand,accent:project.accent},showSeconds:project.showSeconds,showDate:project.showDate,layers:[],image:null})}
+      else faceApplyProject(project);
+      faceSetStatus("Imported · review the design and save it","PROJECT IMPORTED");
+    }catch(error){faceSetStatus("Invalid or incompatible .wface project")}
+    event.target.value="";
+  };reader.readAsText(file);
+}
+async function applyFaceToWatch(){
+  const button=document.getElementById("faceApplyBtn");const status=document.getElementById("faceStudioStatus");
+  if(!bleCharacteristic){status.textContent="Connect Bluetooth to the watch first";return}
+  const colors=faceProject.colors,flags=(faceProject.showSeconds?1:0)|(faceProject.showDate?2:0);
+  const hex4=value=>value.toString(16).toUpperCase().padStart(4,"0");
+  const command="FS:"+[colors.background,colors.dial,colors.hand,colors.accent].map(hex=>hex4(faceHexToRgb565(hex))).join("")+flags.toString();
+  button.disabled=true;status.textContent="Sending supported face settings...";
+  const ok=await sendBLECommand(command);
+  if(!ok){status.textContent="Color profile transfer failed";button.disabled=false;return}
+  const selected=FACE_STYLE_BY_KEY[faceProject.style]||FACE_STYLE_BY_KEY.classic;
+  const styleSent=await sendBLECommand("STYLE:"+selected.id);
+  if(!styleSent){status.textContent="Colors sent, but style command failed";button.disabled=false;return}
+  if(faceProject.image){
+    status.textContent=selected.name+" and colors applied. Photo is saved in this browser project only; image transfer to the watch is not implemented yet.";
+  }else{
+    status.textContent=selected.name+" and colors applied to ESP32-C3.";
+  }
+  window.setTimeout(()=>{button.disabled=false},2500);
+}
+function chooseFaceStyle(style){
+  if(!FACE_STYLE_BY_KEY[style])return;
+  facePushUndo();faceProject.style=style;
+  const select=document.getElementById("faceStyleSelect");if(select)select.value=style;
+  renderFacePreview();renderFaceStyleSelection();faceMarkChanged();
+}
+function renderFaceStyleSelection(){
+  document.querySelectorAll(".fs-style-card").forEach(card=>card.classList.toggle("selected",card.dataset.style===(faceProject.style||"classic")));
+}
+
+function closeFaceCategory(){
+  document.getElementById("faceHome").classList.remove("category-open");
+  document.getElementById("faceEditorWorkspace").classList.add("fs-hidden");
+  document.getElementById("faceLayerDock").classList.remove("show");
+}
+function openFaceCategory(category){
+  const meta={
+    style:["Face styles","Browse 29 native renderer styles across analog, digital, typography and hybrid families."],
+    background:["Background","Choose the main background color or add a photo."],
+    colors:["Colors","Adjust dial, hands and accent colors."],
+    clock:["Clock & date","Choose which clock details are visible."],
+    images:["Photos","Upload a photo, then crop and position it."],
+    text:["Text & fonts","Add text, choose a typeface and adjust typography."],
+    layout:["Position & layout","Select an element on the preview and adjust its position."],
+    layers:["Layers","Choose, reorder, hide or delete design elements."],
+    library:["My designs","Open saved designs or import and export a project."]
+  };
+  const item=meta[category]||meta.style;
+  document.getElementById("faceHome").classList.add("category-open");
+  document.getElementById("faceEditorWorkspace").classList.remove("fs-hidden");
+  document.getElementById("faceCategoryTitle").textContent=item[0];
+  document.getElementById("faceCategoryDescription").textContent=item[1];
+  document.getElementById("faceLayoutFields").classList.toggle("fs-hidden",!["layout","layers"].includes(category));
+  document.getElementById("faceColorFields").classList.toggle("fs-hidden",!["background","colors"].includes(category));
+  document.getElementById("faceVisibilityFields").classList.toggle("fs-hidden",category!=="clock");
+  document.getElementById("faceLayerDock").classList.toggle("show",["layout","layers"].includes(category));
+  document.getElementById("faceCapabilityNote").classList.toggle("fs-hidden",!["style","background","colors","clock","images","text"].includes(category));
+  if(category==="style"){renderFaceStyleSelection();document.getElementById("faceStyleSelect").value=faceProject.style||"classic"}
+  if(category==="background"){document.getElementById("faceColorTarget").value="background";faceSetColorDisplay(faceProject.colors.background);faceSetHsvUI(faceProject.colors.background);setFaceInspectorTab("design")}
+  else if(category==="colors"){document.getElementById("faceColorTarget").value="accent";faceSetColorDisplay(faceProject.colors.accent);faceSetHsvUI(faceProject.colors.accent);setFaceInspectorTab("design")}
+  else if(category==="clock"||category==="layout"||category==="layers")setFaceInspectorTab("design");
+  else if(category==="images")setFaceInspectorTab("crop");
+  else if(category==="text")setFaceInspectorTab("type");
+  else if(category==="style")setFaceInspectorTab("style");
+  else if(category==="library")setFaceInspectorTab("library");
+  document.getElementById("faceStudioStatus").textContent="Editing · "+item[0];
+}
+function initializeFaceStudio(){
+  try{const stored=JSON.parse(localStorage.getItem(FACE_LIBRARY_KEY)||"[]");if(Array.isArray(stored))faceLibrary=stored.filter(project=>project&&["WFACE-PROJECT","WFACE-PROFILE"].includes(project.format)&&project.displayProfile==="gc9a01-240-round")}
+  catch(error){faceLibrary=[]}
+  refreshFaceLibrary();faceBindInspector();faceSyncUI();renderFaceStyleSelection();setFaceInspectorTab("design");
+  window.setInterval(renderFacePreview,1000);
+}
+initializeFaceStudio();
+
 
 /**
  * @brief Starts or stops browser geolocation tracking and forwards position updates to the watch.
@@ -360,6 +1158,19 @@ async function requestWiFiScan(){
  */
 function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
+  if(chunk==="FACE_OK"){
+    document.getElementById("faceStudioStatus").textContent="Base settings applied · saved on ESP32-C3";
+    document.getElementById("faceApplyBtn").disabled=false;
+    return;
+  }
+  if(chunk.startsWith("FACE_STYLE:")){const id=Number(chunk.substring(11)),style=FACE_STYLES.find(item=>item.id===id);if(style){faceProject.style=style.key;const select=document.getElementById("faceStyleSelect");if(select)select.value=style.key;renderFacePreview();renderFaceStyleSelection();document.getElementById("faceStudioStatus").textContent="Watch style: "+style.name}return}
+  if(chunk.startsWith("STYLE_OK:")){const id=Number(chunk.substring(9)),style=FACE_STYLES.find(item=>item.id===id);document.getElementById("faceStudioStatus").textContent=(style?style.name:"Clock style")+" renderer applied and saved on ESP32-C3";document.getElementById("faceApplyBtn").disabled=false;return}
+  if(chunk==="ERR_STYLE"){document.getElementById("faceStudioStatus").textContent="ESP32 rejected this clock style";document.getElementById("faceApplyBtn").disabled=false;return}
+  if(chunk==="ERR_FACE"){
+    document.getElementById("faceStudioStatus").textContent="Firmware rejected the base profile · check compatibility";
+    document.getElementById("faceApplyBtn").disabled=false;
+    return;
+  }
   if(chunk.startsWith("WM:")){
     const model=chunk.substring(3);
     const select=document.getElementById("weatherModelSelect");
@@ -373,7 +1184,7 @@ function handleNotifications(event){
     const model=chunk.substring(6);
     const select=document.getElementById("weatherModelSelect");
     if([...select.options].some(option=>option.value===model))select.value=model;
-    document.getElementById("weatherModelStatus").textContent="Saved · downloading forecast with "+select.options[select.selectedIndex].text;
+    document.getElementById("weatherModelStatus").textContent="Saved · refresh queued with "+select.options[select.selectedIndex].text;
     return;
   }
   if(chunk==="ERR_WM"){
@@ -420,7 +1231,7 @@ function handleNotifications(event){
     return;
   }
   const weatherMessages={
-    WEATHER_STARTED:["Loading weather forecast...",true,false],
+    WEATHER_STARTED:["Wi-Fi ready · downloading weather forecast...",true,false],
     WEATHER_BUSY:["An update is already in progress · please wait",false,true],
     WEATHER_COOLDOWN:["Recently updated · try again in a few seconds",false,true],
     WEATHER_OK:["Weather updated successfully",true,true],
@@ -431,11 +1242,14 @@ function handleNotifications(event){
     const [message,ok,finished]=weatherMessages[chunk];
     clearTimeout(weatherResponseTimer);
     document.getElementById("weatherStatus").textContent=message;
-    if(chunk==="WEATHER_OK"){
+    if(chunk==="WEATHER_STARTED"){
+      const modelSelect=document.getElementById("weatherModelSelect");
+      document.getElementById("weatherModelStatus").textContent="Forecast download started · "+modelSelect.options[modelSelect.selectedIndex].text;
+    }else if(chunk==="WEATHER_OK"){
       const modelSelect=document.getElementById("weatherModelSelect");
       document.getElementById("weatherModelStatus").textContent="Forecast updated · "+modelSelect.options[modelSelect.selectedIndex].text;
     }else if(chunk==="WEATHER_FAILED"){
-      document.getElementById("weatherModelStatus").textContent="Model saved · update failed, previous forecast cache retained";
+      document.getElementById("weatherModelStatus").textContent="Forecast failed or Wi-Fi did not reconnect · previous cached data retained";
     }
     if(finished)document.getElementById("weatherBtn").disabled=false;
     if(chunk==="WEATHER_STARTED")weatherResponseTimer=window.setTimeout(()=>{
