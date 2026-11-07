@@ -70,6 +70,7 @@ struct FaceObject {
 struct FaceModel {
     uint16_t schemaVersion;
     char designId[FACE_ID_CAPACITY];
+    char deviceProfileId[FACE_ID_CAPACITY];
     char name[FACE_NAME_CAPACITY];
     uint16_t canvasWidth;
     uint16_t canvasHeight;
