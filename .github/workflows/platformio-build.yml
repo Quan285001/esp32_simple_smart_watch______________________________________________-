@@ -2,9 +2,9 @@ name: PlatformIO Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/face-image-background]
   pull_request:
-    branches: [main]
+    branches: [main, feature/face-vm-memory-diagnostics]
   workflow_dispatch:
 
 permissions:
@@ -36,10 +36,37 @@ jobs:
       - name: Build ESP32-C3 firmware
         run: pio run -e c3_clock
 
-      - name: Upload firmware artifact
+      - name: Assemble complete USB flash package
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_DIR=".pio/build/c3_clock"
+          PACKAGE_DIR="flash-package"
+          mkdir -p "$PACKAGE_DIR"
+          cp "$BUILD_DIR/bootloader.bin" "$PACKAGE_DIR/bootloader.bin"
+          cp "$BUILD_DIR/partitions.bin" "$PACKAGE_DIR/partitions.bin"
+          cp "$BUILD_DIR/firmware.bin" "$PACKAGE_DIR/firmware.bin"
+          FIRMWARE_SIZE=$(stat -c%s "$BUILD_DIR/firmware.bin")
+          APP_PARTITION_SIZE=$((0x2F0000))
+          if [ "$FIRMWARE_SIZE" -gt "$APP_PARTITION_SIZE" ]; then
+            echo "Firmware ($FIRMWARE_SIZE bytes) exceeds factory app partition ($APP_PARTITION_SIZE bytes)." >&2
+            exit 1
+          fi
+          cat > "$PACKAGE_DIR/flash-manifest.txt" <<'EOF'
+          ESP32-C3 Face Studio image build
+          Flash with the three files from THIS artifact:
+          0x0000  bootloader.bin
+          0x8000  partitions.bin
+          0x10000 firmware.bin
+
+          The custom partition table uses one factory app partition and two
+          64 KiB face-image slots. OTA is not enabled in this layout.
+          EOF
+          echo "Firmware size: $FIRMWARE_SIZE bytes"
+      - name: Upload complete flash package
         uses: actions/upload-artifact@v4
         with:
-          name: esp32-c3-firmware
-          path: .pio/build/c3_clock/firmware.bin
+          name: esp32-c3-full-flash-package
+          path: flash-package/*
           if-no-files-found: error
           retention-days: 14
