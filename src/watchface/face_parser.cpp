@@ -127,6 +127,9 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     const float strokeWidth = style["strokeWidth"] | 0.0f;
     if (!isfinite(strokeWidth) || strokeWidth < 0.0f || strokeWidth > 64.0f) return false;
     target.strokeWidth = static_cast<uint8_t>(strokeWidth);
+    const float cornerRadius = style["cornerRadius"] | 0.0f;
+    if (!isfinite(cornerRadius) || cornerRadius < 0.0f || cornerRadius > 255.0f) return false;
+    target.cornerRadius = static_cast<uint8_t>(cornerRadius);
 
     const char* shape = source["shape"] | "rect";
     if (strcmp(shape, "circle") == 0) target.shapeKind = 1;
@@ -135,6 +138,9 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     else if (strcmp(shape, "arc") == 0) target.shapeKind = 4;
     else if (strcmp(shape, "rect") == 0) target.shapeKind = 0;
     else if (target.type == FaceElementType::Shape) return false;
+
+    if (!copyString(source["timeFormat"], target.timeFormat, sizeof(target.timeFormat), false)) return false;
+    target.showSeconds = source["showSeconds"] | false;
 
     if (target.type == FaceElementType::Image) {
         if (!copyString(source["assetId"], target.assetId, sizeof(target.assetId), true)) return false;
