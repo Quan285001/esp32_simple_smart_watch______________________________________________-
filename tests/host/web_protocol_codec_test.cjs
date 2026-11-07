@@ -29,6 +29,7 @@ vm.runInNewContext(
 
 const { state, encode, decode, waitFor, buildPackage, crc32, hex } = sandbox.__wfsCodecTest;
 state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map() };
+state.schema = JSON.parse(fs.readFileSync(path.join(root, 'shared/schemas/watch-face.schema.json'), 'utf8'));
 
 const payload = Uint8Array.from([0x10, 0x20, 0x30, 0x40]);
 const frame = encode(0x30, payload);
