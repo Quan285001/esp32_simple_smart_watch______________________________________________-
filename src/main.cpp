@@ -64,12 +64,13 @@ static bool wifiScanRestoreOff = false;
 static volatile int8_t weatherNotifyPending = -1;
 static volatile bool locationWeatherRefreshPending = false;
 
+static volatile bool bootNetworkRunning = false;
+static volatile bool bootNetworkNeedsBle = false;
+
 // Prevent a new bulk face transfer from overlapping TLS/weather/Wi-Fi scan work.
 bool canStartWfsTransfer() {
     return !weatherFetchRunning && !wifiScanRunning && !bootNetworkRunning && !bootNetworkNeedsBle;
 }
-static volatile bool bootNetworkRunning = false;
-static volatile bool bootNetworkNeedsBle = false;
 static bool bootUiReady = false;
 static uint32_t lastLocationWeatherRetryMs = 0;
 
