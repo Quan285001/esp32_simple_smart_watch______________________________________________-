@@ -46,7 +46,52 @@ int main() {
     assert(WfsProtocol::decodeFrame(webGolden, sizeof(webGolden) - 1, 0, decoded) ==
            WfsProtocol::FrameError::InvalidLength);
 
+    const auto refreshHeaderCrc = [](uint8_t* bytes) {
+        const uint16_t crc = WfsProtocol::crc16CcittFalse(bytes, 14);
+        bytes[14] = static_cast<uint8_t>(crc & 0xFF);
+        bytes[15] = static_cast<uint8_t>((crc >> 8) & 0xFF);
+    };
+
+    uint8_t malformed[sizeof(webGolden)] = {};
+    memcpy(malformed, webGolden, sizeof(webGolden));
+    malformed[0] = 0x00;
+    assert(WfsProtocol::decodeFrame(malformed, sizeof(malformed), 0, decoded) ==
+           WfsProtocol::FrameError::InvalidMagic);
+
+    memcpy(malformed, webGolden, sizeof(webGolden));
+    malformed[2] = 2;
+    refreshHeaderCrc(malformed);
+    assert(WfsProtocol::decodeFrame(malformed, sizeof(malformed), 0, decoded) ==
+           WfsProtocol::FrameError::UnsupportedVersion);
+
+    memcpy(malformed, webGolden, sizeof(webGolden));
+    malformed[4] = 0xFE;
+    refreshHeaderCrc(malformed);
+    assert(WfsProtocol::decodeFrame(malformed, sizeof(malformed), 0, decoded) ==
+           WfsProtocol::FrameError::UnknownMessage);
+
+    memcpy(malformed, webGolden, sizeof(webGolden));
+    malformed[5] = 1;
+    refreshHeaderCrc(malformed);
+    assert(WfsProtocol::decodeFrame(malformed, sizeof(malformed), 0, decoded) ==
+           WfsProtocol::FrameError::InvalidFlags);
+
+    memcpy(malformed, webGolden, sizeof(webGolden));
+    malformed[12] = 5;
+    refreshHeaderCrc(malformed);
+    assert(WfsProtocol::decodeFrame(malformed, sizeof(malformed), 0, decoded) ==
+           WfsProtocol::FrameError::InvalidLength);
+
+    assert(WfsProtocol::decodeFrame(nullptr, 0, 0, decoded) ==
+           WfsProtocol::FrameError::TooShort);
+
     assert(!WfsProtocol::encodeFrame(WfsProtocol::MessageType::Ping, 0, 0,
                                      payload, sizeof(payload), frame, 8, frameLength));
+    assert(!WfsProtocol::encodeFrame(static_cast<WfsProtocol::MessageType>(0xFE),
+                                     0, 0, payload, sizeof(payload),
+                                     frame, sizeof(frame), frameLength));
+    assert(!WfsProtocol::encodeFrame(WfsProtocol::MessageType::Ping, 0, 0,
+                                     nullptr, sizeof(payload), frame,
+                                     sizeof(frame), frameLength));
     return 0;
 }
