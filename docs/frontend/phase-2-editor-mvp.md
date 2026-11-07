@@ -13,7 +13,7 @@ This branch now contains the first usable Web editor slice. It replaces the old 
 - Uploaded image assets are stored in IndexedDB so the browser can reload them offline.
 - Import/export of the JSON design document.
 - Shared schema fetch attempt and baseline design validation.
-- Existing legacy BLE connection and commands are retained: time sync, weather refresh, Light Sleep, Wi-Fi scan/configuration, and auto-sleep setting.
+- Existing legacy BLE connection and commands are retained: time sync, weather refresh, Light Sleep, one-shot phone location sync, Wi-Fi scan/configuration, and auto-sleep setting.
 
 ## Explicitly not implemented yet
 
