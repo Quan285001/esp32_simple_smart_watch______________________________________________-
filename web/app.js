@@ -96,6 +96,7 @@ function advancedFeatureErrors(design){
   if(style.backgroundColor||(Number(style.strokeWidth)!==0&&Number(style.strokeWidth)!==1&&style.strokeWidth!==undefined))errors.push(o.name+': this device supports only a one-pixel shape outline and no separate background fill');
   if(Object.values(h).some(v=>v&&typeof v==='object'&&Object.keys(v).length>0))errors.push(o.name+': custom analog hand configuration is not supported yet');
   if(b.timezone||b.fallbackText||b.visibleWhenMissing===true)errors.push(o.name+': this data-binding option is not supported by the device');
+  if(b.source&& !((o.type==='digital-clock'&&b.source==='time')||(o.type==='date'&&b.source==='date')||(o.type==='weather'&&b.source==='temperature')))errors.push(o.name+': this data binding is not supported by the device');
   if(rh.requiresAntialias===true||rh.requiresBitmap===true)errors.push(o.name+': requested render hint is not supported by the device');
   if(o.clockMode&&((o.type==='analog-clock'&&o.clockMode!=='analog')||(o.type==='digital-clock'&&o.clockMode!=='digital')||!['analog-clock','digital-clock'].includes(o.type)))errors.push(o.name+': clock mode does not match the selected clock element');
   if(o.showAmPm===false&&o.timeFormat==='12h')errors.push(o.name+': hiding AM/PM in 12-hour mode is not supported yet');
