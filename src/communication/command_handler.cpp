@@ -2,7 +2,6 @@
 
 #include <ArduinoJson.h>
 #include <Preferences.h>
-#include <WiFi.h>
 #include <sys/time.h>
 #include <string.h>
 #include <math.h>
@@ -12,7 +11,6 @@
 #include "../services/time_service.h"
 #include "../services/wifi_service.h"
 
-extern bool wifiEnabled;
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
 extern uint8_t requestWeatherFetchForLocation();
@@ -52,17 +50,7 @@ bool validText(const char* value, size_t maxLength, bool allowEmpty = false) {
     return true;
 }
 
-bool persistWifi(const char* ssid, const char* password) {
-    Preferences prefs;
-    if (!prefs.begin("watch", false)) return false;
-    const size_t ssidWritten = prefs.putString("ssid", ssid);
-    const size_t passWritten = prefs.putString("pass", password);
-    const String savedSsid = prefs.getString("ssid", "");
-    const String savedPass = prefs.getString("pass", "");
-    prefs.end();
-    return ssidWritten > 0 && passWritten > 0 &&
-           savedSsid == ssid && savedPass == password;
-}
+
 }
 
 bool dispatch(const uint8_t* payload, size_t length, Result& result) {
