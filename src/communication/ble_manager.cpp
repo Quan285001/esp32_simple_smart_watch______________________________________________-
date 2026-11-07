@@ -1,6 +1,7 @@
 #include "ble_manager.h"
 
 #include <Arduino.h>
+#include <BLEDevice.h>
 #include <ArduinoJson.h>
 #include <BLE2902.h>
 #include <BLECharacteristic.h>
@@ -15,9 +16,10 @@
 #include "protocol.h"
 #include "../storage/storage_manager.h"
 #include "../storage/face_storage.h"
+#include "../watchface/face_model.h"
 
 namespace {
-constexpr size_t PACKET_CAPACITY = WfsProtocol::FRAME_HEADER_SIZE + WfsProtocol::MAX_CONTROL_PAYLOAD;
+constexpr size_t PACKET_CAPACITY = WfsProtocol::MAX_DATA_FRAME_BYTES;
 constexpr UBaseType_t QUEUE_DEPTH = 4;
 
 struct WfsPacket {
