@@ -171,25 +171,20 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     }
 
     char* manifestText = static_cast<char*>(malloc(manifestLength + 1));
-    char* layoutText = static_cast<char*>(malloc(layoutLength + 1));
-    if (manifestText == nullptr || layoutText == nullptr) {
-        free(manifestText);
-        free(layoutText);
+    char* layoutText = nullptr;
+    if (manifestText == nullptr) {
         error = PackageValidationError::Io;
         return false;
     }
 
-    bool readOk = file.seek(WFS_HEADER_SIZE, SeekSet) &&
-                  file.read(reinterpret_cast<uint8_t*>(manifestText), manifestLength) == manifestLength &&
-                  file.read(reinterpret_cast<uint8_t*>(layoutText), layoutLength) == layoutLength;
+    const bool readOk = file.seek(WFS_HEADER_SIZE, SeekSet) &&
+                        file.read(reinterpret_cast<uint8_t*>(manifestText), manifestLength) == manifestLength;
     if (!readOk) {
         free(manifestText);
-        free(layoutText);
         error = PackageValidationError::Io;
         return false;
     }
     manifestText[manifestLength] = '\0';
-    layoutText[layoutLength] = '\0';
 
     JsonDocument manifest;
     const DeserializationError manifestError =
@@ -229,7 +224,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     uint8_t expectedLayoutDigest[32] = {};
     uint8_t actualLayoutDigest[32] = {};
     if (!hexToBytes(manifest["layoutSha256"] | "", expectedLayoutDigest, 32) ||
-        !digestBytes(reinterpret_cast<const uint8_t*>(layoutText), layoutLength, actualLayoutDigest) ||
+        !digestFileRange(file, WFS_HEADER_SIZE + manifestLength, layoutLength, actualLayoutDigest) ||
         memcmp(expectedLayoutDigest, actualLayoutDigest, 32) != 0) {
         free(manifestText);
         free(layoutText);
@@ -338,7 +333,24 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     // Release manifest parsing memory before allocating the layout parser
     // document; both JSON trees are never kept alive at the same time.
     free(manifestText);
+    manifestText = nullptr;
     manifest.clear();
+
+    // Allocate and read the layout only after the manifest JSON tree and text
+    // buffer are released, reducing peak heap use during package validation.
+    layoutText = static_cast<char*>(malloc(layoutLength + 1));
+    if (layoutText == nullptr) {
+        error = PackageValidationError::Io;
+        return false;
+    }
+    if (!file.seek(WFS_HEADER_SIZE + manifestLength, SeekSet) ||
+        file.read(reinterpret_cast<uint8_t*>(layoutText), layoutLength) != layoutLength) {
+        free(layoutText);
+        error = PackageValidationError::Io;
+        return false;
+    }
+    layoutText[layoutLength] = '\0';
+
     const FaceParseResult parseResult =
         parseWatchFaceJson(layoutText, layoutLength, output);
     free(layoutText);
