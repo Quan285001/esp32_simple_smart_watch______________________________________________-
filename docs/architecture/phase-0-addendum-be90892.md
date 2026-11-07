@@ -2,7 +2,7 @@
 
 **Repository:** `Quan285001/esp32_very_simple_smart_watch.`  
 **Branch:** `rebuild/watch-face-studio-v2`  
-**Source baseline reviewed:** `be908924fde256cf46f66d186d96b2dd4fa97b35`  
+**Source baseline reviewed:** `126e4d1` (current branch also includes the subsequent audit-document commits)  
 **Scope:** GitHub source inspection and review of existing Phase 0/1 documents. No local build, browser interaction, BLE session, firmware flash, or physical-device test was performed as part of this source audit.
 
 This addendum supersedes the source-state claims in the older Phase 0 reports. The 6afd283 audit is retained as historical context. Twenty-eight commits were added after that audit before this addendum; protocol, parser, renderer, and transfer behavior have materially changed.
@@ -66,7 +66,7 @@ Legacy service:
 
 WFS v1 uses a separate service with Control RX/TX and Data RX/TX characteristics. Its 16-byte frame layout is little-endian: magic/version/type/flags, sequence at bytes 6–7, session ID at 8–11, payload length at 12–13, CRC16 at 14–15, payload from byte 16.
 
-The earlier 6afd283 audit identified a C++ offset defect. Current `protocol.cpp` uses offset 12, and the host codec test contains a fixed golden frame. BLE callbacks queue bounded packets; application-loop code handles parsing and filesystem work. Firmware accepts identical retries of the last chunk. The Web uploader now retries the same encoded frame up to three attempts.
+The earlier 6afd283 audit identified a C++ offset defect. Current `protocol.cpp` uses offset 12, and the host codec test contains a fixed golden frame. BLE callbacks queue bounded packets; application-loop code handles parsing and filesystem work. Firmware accepts identical retries of the last chunk. The Web uploader now retries the same encoded frame up to three attempts, checks the acknowledged cumulative byte count, and marks the transfer for cancellation as soon as reservation is attempted so a stalled reservation can be cleaned up.
 
 Still unverified: browser encoder against the golden fixture, actual negotiated MTU on target phones, lost/delayed notification behavior, reconnect/cancel races, and physical BLE operation after wake.
 
@@ -94,7 +94,7 @@ The source path now exists, and earlier blocking defects have been addressed in 
 - C++ frame payload length now agrees with the Web offset 12.
 - A fixed C++ golden frame test now covers the wire layout.
 - Firmware has idempotent duplicate-chunk handling.
-- Web uploader now retries the same encoded chunk frame up to three attempts.
+- Web uploader now retries the same encoded chunk frame up to three attempts, verifies cumulative acknowledged bytes, and attempts cancellation if transfer reservation stalls.
 - Upload flow includes handshake, capabilities, status, begin, chunk ACK, verify, apply, and status refresh.
 
 Remaining blockers/risks:
