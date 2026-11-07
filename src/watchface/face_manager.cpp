@@ -23,12 +23,12 @@ bool begin() {
         File packageFile = FaceStorage::openSlot(slot, "r");
         PackageValidationError packageError = PackageValidationError::None;
         if (packageFile) {
-            FaceModel candidate{};
+            memset(&candidateFace, 0, sizeof(candidateFace));
             const bool valid = validateWfsPackage(packageFile, packageFile.size(),
-                                                   nullptr, nullptr, candidate, packageError);
+                                                   nullptr, nullptr, candidateFace, packageError);
             packageFile.close();
             if (valid) {
-                activeFace = candidate;
+                activeFace = candidateFace;
                 activeFaceValid = true;
                 Serial.printf("[FACE] Restored package '%s' (%u objects).\\n",
                               activeFace.name, activeFace.objectCount);
@@ -40,14 +40,14 @@ bool begin() {
         const uint8_t fallbackSlot = slot == 0 ? 1 : 0;
         File fallbackFile = FaceStorage::openSlot(fallbackSlot, "r");
         if (fallbackFile) {
-            FaceModel fallbackModel{};
+            memset(&candidateFace, 0, sizeof(candidateFace));
             PackageValidationError fallbackError = PackageValidationError::None;
             const bool fallbackValid = validateWfsPackage(
                 fallbackFile, fallbackFile.size(), nullptr, nullptr,
-                fallbackModel, fallbackError);
+                candidateFace, fallbackError);
             fallbackFile.close();
             if (fallbackValid && FaceStorage::activateSlot(fallbackSlot)) {
-                activeFace = fallbackModel;
+                activeFace = candidateFace;
                 activeFaceValid = true;
                 Serial.printf("[FACE] Recovered previous package from slot %u.\\n", fallbackSlot);
                 return true;
