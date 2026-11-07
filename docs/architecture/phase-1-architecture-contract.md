@@ -265,6 +265,8 @@ Completed as GitHub source inspection. No build or hardware claim.
 - [x] Transfer/package/storage contract documented.
 - [x] C++ codec checked against a fixed golden frame matching the documented Web DataView layout.
 - [x] Browser encoder independently checked against the same golden frame by the Node host test.
+- [x] Web BLE acknowledgement waiters now have explicit cancellation/timeout cleanup, covered by the Node host test.
+- [x] Firmware parser rejects unknown keys at the root, canvas, object and supported nested-object levels instead of silently discarding unrecognized properties.
 - [ ] Remaining historical audit/protocol notes reconciled against the latest branch.
 
 ### Phase 2 — Core foundation
