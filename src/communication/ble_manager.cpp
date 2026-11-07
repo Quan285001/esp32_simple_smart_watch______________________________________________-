@@ -39,6 +39,7 @@ constexpr uint8_t MAX_PACKETS_PER_LOOP = 2;
 struct WfsPacket {
     uint16_t length;
     uint8_t channel;
+    uint32_t generation;
     uint8_t bytes[PACKET_CAPACITY];
 };
 
@@ -50,7 +51,8 @@ uint32_t sessionId = 0;
 uint16_t txSequence = 0;
 uint16_t lastControlSequence = 0;
 uint32_t queueDrops = 0;
-volatile bool transferAbortPending = false;
+volatile bool sessionResetPending = false;
+volatile uint32_t rxGeneration = 0;
 
 class WfsWriteCallbacks final : public BLECharacteristicCallbacks {
 public:
@@ -66,6 +68,7 @@ public:
         WfsPacket packet{};
         packet.length = static_cast<uint16_t>(value.size());
         packet.channel = channel_;
+        packet.generation = __atomic_load_n(&rxGeneration, __ATOMIC_ACQUIRE);
         memcpy(packet.bytes, value.data(), value.size());
         if (xQueueSend(queue, &packet, 0) != pdTRUE) {
             __atomic_fetch_add(&queueDrops, 1, __ATOMIC_RELAXED);
@@ -487,7 +490,10 @@ bool beginWfsGatt(BLEServer* server) {
 }
 
 void serviceWfsBle() {
-    if (__atomic_exchange_n(&transferAbortPending, false, __ATOMIC_RELAXED)) {
+    if (__atomic_exchange_n(&sessionResetPending, false, __ATOMIC_ACQ_REL)) {
+        sessionId = 0;
+        txSequence = 0;
+        lastControlSequence = 0;
         TransferManager::abortSession();
     }
     const uint32_t dropped = __atomic_exchange_n(&queueDrops, 0, __ATOMIC_RELAXED);
@@ -497,24 +503,30 @@ void serviceWfsBle() {
         for (uint8_t processed = 0; processed < MAX_PACKETS_PER_LOOP; ++processed) {
             WfsPacket packet{};
             if (xQueueReceive(rxQueue, &packet, 0) != pdTRUE) break;
+            if (packet.generation != __atomic_load_n(&rxGeneration, __ATOMIC_ACQUIRE)) continue;
             if (packet.channel == 1) handleDataPacket(packet);
             else handleControlPacket(packet);
         }
     }
 }
 
+void requestWfsSessionReset() {
+    __atomic_add_fetch(&rxGeneration, 1, __ATOMIC_ACQ_REL);
+    __atomic_store_n(&sessionResetPending, true, __ATOMIC_RELEASE);
+}
+
 void resetWfsSession() {
-    transferAbortPending = true;
+    __atomic_add_fetch(&rxGeneration, 1, __ATOMIC_ACQ_REL);
+    __atomic_store_n(&sessionResetPending, false, __ATOMIC_RELEASE);
     sessionId = 0;
     txSequence = 0;
     lastControlSequence = 0;
     if (rxQueue != nullptr) xQueueReset(rxQueue);
+    TransferManager::abortSession();
 }
 
 void shutdownWfsGatt() {
     resetWfsSession();
-    // This function runs from the application loop, not a BLE callback.
-    TransferManager::abortSession();
     wfsService = nullptr;
     controlTx = nullptr;
     dataTx = nullptr;
