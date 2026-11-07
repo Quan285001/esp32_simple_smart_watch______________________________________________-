@@ -22,16 +22,6 @@
 extern void handleBLECommands();
 
 
-ScreenState currentScreen = SCREEN_CLOCK;
-ScreenState screenBeforeMenu = SCREEN_CLOCK;
-
-uint8_t menuIndex = 0;
-MenuLevel currentMenuLevel = MENU_MAIN;
-uint8_t forecastIndex = 0;
-
-volatile bool weatherDataValid = false;
-bool wifiEnabled = true;
-
 extern void drawAnalogClockFace(
     struct tm timeinfo,
     int millisValue,
