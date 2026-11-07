@@ -18,6 +18,10 @@ uint32_t currentTransferId = 0;
 uint32_t totalLength = 0;
 uint32_t receivedLength = 0;
 uint32_t nextChunk = 0;
+uint8_t lastChunkData[216] = {};
+uint16_t lastChunkLength = 0;
+uint32_t lastChunkIndex = 0;
+bool hasLastChunk = false;
 uint8_t stagingSlot = FaceStorage::INVALID_SLOT;
 uint8_t previousActiveSlot = FaceStorage::INVALID_SLOT;
 uint8_t expectedDigest[32] = {};
@@ -38,6 +42,9 @@ void clearTransferFields() {
     totalLength = 0;
     receivedLength = 0;
     nextChunk = 0;
+    lastChunkLength = 0;
+    lastChunkIndex = 0;
+    hasLastChunk = false;
     stagingSlot = FaceStorage::INVALID_SLOT;
     previousActiveSlot = FaceStorage::INVALID_SLOT;
     memset(expectedDigest, 0, sizeof(expectedDigest));
@@ -106,12 +113,22 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
         currentError = Error::WrongTransfer;
         return false;
     }
+    if (bytes == nullptr || length == 0 || length > sizeof(lastChunkData)) {
+        currentError = Error::ChunkInvalid;
+        return false;
+    }
     if (chunkIndex != nextChunk) {
+        // Stop-and-wait retry: ACK a byte-identical retransmission of the
+        // immediately previous chunk without writing it twice.
+        if (hasLastChunk && chunkIndex == lastChunkIndex &&
+            length == lastChunkLength && memcmp(bytes, lastChunkData, length) == 0) {
+            currentError = Error::None;
+            return true;
+        }
         currentError = Error::WrongSequence;
         return false;
     }
-    if (bytes == nullptr || length == 0 || length > 216 ||
-        static_cast<uint64_t>(receivedLength) + length > totalLength) {
+    if (static_cast<uint64_t>(receivedLength) + length > totalLength) {
         currentError = Error::ChunkInvalid;
         return false;
     }
@@ -121,6 +138,10 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
         return false;
     }
     stagingFile.flush();
+    memcpy(lastChunkData, bytes, length);
+    lastChunkLength = static_cast<uint16_t>(length);
+    lastChunkIndex = chunkIndex;
+    hasLastChunk = true;
     receivedLength += static_cast<uint32_t>(written);
     ++nextChunk;
     currentError = Error::None;
@@ -184,13 +205,22 @@ bool apply(uint32_t transferId) {
 
 void cancel(uint32_t transferId) {
     if (transferId != currentTransferId ||
-        (currentState != State::Receiving && currentState != State::Verified)) return;
+        (currentState != State::Receiving && currentState != State::Verifying && currentState != State::Verified)) return;
     if (stagingFile) {
         stagingFile.close();
     }
     if (stagingSlot <= 1) FaceStorage::removeSlot(stagingSlot);
     currentState = State::Cancelled;
     currentError = Error::None;
+}
+
+void abortSession() {
+    if (currentState != State::Receiving && currentState != State::Verifying &&
+        currentState != State::Verified) return;
+    const uint32_t transferId = currentTransferId;
+    cancel(transferId);
+    currentState = State::Cancelled;
+    currentError = Error::SessionLost;
 }
 
 Snapshot snapshot() {
@@ -227,6 +257,7 @@ const char* errorName(Error error) {
         case Error::LengthMismatch: return "LENGTH_MISMATCH";
         case Error::PackageInvalid: return "PACKAGE_INVALID";
         case Error::ApplyFailed: return "APPLY_FAILED";
+        case Error::SessionLost: return "SESSION_LOST";
         default: return "UNKNOWN";
     }
 }
