@@ -12,6 +12,7 @@ enum class FaceParseError : uint8_t {
     InvalidField,
     TooManyObjects,
     UnsupportedElement,
+    UnsupportedProperty,
     BufferOverflow
 };
 
