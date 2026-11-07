@@ -18,6 +18,7 @@
 #include "system/diagnostics.h"
 #include "display/display_manager.h"
 #include "storage/storage_manager.h"
+#include "storage/face_storage.h"
 #include "watchface/face_manager.h"
 
 extern void handleBLECommands();
@@ -558,6 +559,7 @@ void setup() {
 
     showBootTerminal();
     StorageManager::begin();
+    FaceStorage::begin();
     FaceManager::begin();
     bootTerminalLog("[BOOT] Restoring saved state", TFT_YELLOW);
 
