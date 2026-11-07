@@ -1,5 +1,8 @@
 # Web ↔ Firmware Design Contract Audit
 
+> **Historical snapshot:** this audit predates the current firmware parser/renderer, WFS1 package validator, BLE transfer manager and Web package uploader. Its implementation-status statements are superseded by `phase-0-current-state-addendum-2026-11-07.md` and `phase-1-architecture-contract.md`.
+
+
 **Contract target:** Watch Face schema v1 and ESP32-C3 GC9A01 240×240  
 **Audited Web source:** web/app.js at 50130f7  
 **Schema revision:** schema typography alignment patch f5e625f  
