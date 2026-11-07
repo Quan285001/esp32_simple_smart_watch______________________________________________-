@@ -11,6 +11,7 @@
 #include "../services/time_service.h"
 #include "../services/weather_service.h"
 #include "../services/ble_service.h"
+#include "../watchface/face_manager.h"
 
 extern TFT_eSPI tft;
 
@@ -109,14 +110,18 @@ void drawCurrentScreen(bool force) {
                 timeinfo.tm_mday = 1;
             }
 
-            tft.fillScreen(TFT_BLACK);
-
-            drawAnalogClockFace(
-                timeinfo,
-                0,
-                0,
-                0
-            );
+            if (FaceManager::hasActiveFace()) {
+                const FaceRenderStatus status = FaceManager::renderActive(timeinfo, getWeatherSnapshot());
+                if (status != FaceRenderStatus::Ok) {
+                    Serial.printf("[FACE] Render rejected (%u); using built-in clock.\\n",
+                                  static_cast<unsigned int>(status));
+                    tft.fillScreen(TFT_BLACK);
+                    drawAnalogClockFace(timeinfo, 0, 0, 0);
+                }
+            } else {
+                tft.fillScreen(TFT_BLACK);
+                drawAnalogClockFace(timeinfo, 0, 0, 0);
+            }
 
             break;
         }
