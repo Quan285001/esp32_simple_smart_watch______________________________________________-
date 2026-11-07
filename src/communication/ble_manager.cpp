@@ -277,7 +277,12 @@ void handleControlPacket(const WfsPacket& packet) {
             }
             const uint32_t transferId = request["transferId"] | 0;
             TransferManager::cancel(transferId);
-            sendError(0x0000, "transfer_cancelled");
+            char response[96] = {};
+            const int responseLength = snprintf(response, sizeof(response),
+                "{\\"event\\":\\"TRANSFER_CANCELLED\\",\\"transferId\\":%lu}",
+                static_cast<unsigned long>(transferId));
+            if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::Event,
+                reinterpret_cast<const uint8_t*>(response), static_cast<uint16_t>(responseLength));
             break;
         }
         default:
