@@ -602,8 +602,9 @@ function faceApplyProject(project){
   Object.keys(defaults).forEach(key=>{if(!/^#[0-9a-fA-F]{6}$/.test(faceProject.colors[key]||""))faceProject.colors[key]=defaults[key]});
   faceProject.layers=Array.isArray(faceProject.layers)?faceProject.layers:[];
   faceProject.clockPosition=faceProject.clockPosition||{x:120,y:120};
-  faceProject.clockPosition.x=Math.max(0,Math.min(240,Number(faceProject.clockPosition.x)||120));
-  faceProject.clockPosition.y=Math.max(0,Math.min(240,Number(faceProject.clockPosition.y)||120));
+  const clockX=Number(faceProject.clockPosition.x),clockY=Number(faceProject.clockPosition.y);
+  faceProject.clockPosition.x=Math.max(0,Math.min(240,Number.isFinite(clockX)?clockX:120));
+  faceProject.clockPosition.y=Math.max(0,Math.min(240,Number.isFinite(clockY)?clockY:120));
   faceProject.image=faceProject.image||null;
   faceProject.selectedLayerId=faceProject.selectedLayerId||null;
   if(faceProject.customFont?.dataUrl){try{const font=new FontFace(faceProject.customFont.family||"CustomFaceFont","url("+faceProject.customFont.dataUrl+")");font.load().then(loaded=>document.fonts.add(loaded)).then(()=>renderFacePreview())}catch(error){console.warn("Custom font could not be restored",error)}}
