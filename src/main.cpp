@@ -698,7 +698,7 @@ void loop() {
     // Manual Sleep from the menu still bypasses this connection guard.
     const bool backgroundWorkActive =
         bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning || wifiScanRunning;
-    if (!lightSleepRequested &&
+    if (!SystemManager::sleepRequested() &&
         !isBLEConnected() &&
         !backgroundWorkActive &&
         lastUserActivityMs != 0 &&
@@ -707,7 +707,7 @@ void loop() {
         (now - lastUserActivityMs) >= static_cast<uint32_t>(autoSleepTimeoutSeconds) * 1000UL) {
         Serial.printf("[POWER] Auto Light Sleep: %u seconds without user activity.\n",
                       autoSleepTimeoutSeconds);
-        lightSleepRequested = true;
+        SystemManager::requestSleep();
     }
 
     if (SystemManager::sleepRequested()) {
