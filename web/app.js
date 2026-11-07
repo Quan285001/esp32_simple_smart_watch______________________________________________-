@@ -42,6 +42,7 @@ const pos=document.createElement('div');pos.className='field-row';pos.append(fie
 if(o.type==='digital-clock'){host.append(field('TIME FORMAT','timeFormat',o.timeFormat||'24h','select',{target:o,prop:'timeFormat',options:[['24h','24-hour'],['12h','12-hour']]}))}
 if(['text','moon','sunrise-sunset'].includes(o.type)){host.append(field('TEXT CONTENT','text',o.text||'','text',{target:o,prop:'text'}))}
 host.append(field('FONT SIZE','fontSize',s.fontSize||18,'number',{target:s,prop:'fontSize',min:1,max:120}),field('TEXT COLOR','fill',s.fill||'#ffffff','color',{target:s,prop:'fill'}));
+ host.append(field('GLYPH WIDTH SCALE','scaleX',s.scaleX??1,'number',{target:s,prop:'scaleX',min:0.1,max:8,step:0.1}),field('GLYPH HEIGHT SCALE','scaleY',s.scaleY??1,'number',{target:s,prop:'scaleY',min:0.1,max:8,step:0.1}));
 host.append(field('FONT FAMILY','fontFamily',s.fontFamily||'system-ui','select',{target:s,prop:'fontFamily',options:[['system-ui','System'],['Inter','Inter'],['Roboto','Roboto'],['DM Sans','DM Sans'],['Space Grotesk','Space Grotesk'],['monospace','Monospace']]}));
 host.append(field('FONT WEIGHT','fontWeight',s.fontWeight||500,'select',{target:s,prop:'fontWeight',options:[[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold']]}));
 host.append(field('TEXT ALIGNMENT','textAlign',s.textAlign||'center','select',{target:s,prop:'textAlign',options:[['left','Left'],['center','Center'],['right','Right']]}));
