@@ -194,6 +194,7 @@ Command responses must include requestId, ok, stable error code and safe message
 - APPLY is allowed only after successful verification. Device switches the active pointer only after the candidate is fully valid and preserves the previous slot for rollback.
 - Web reports success only after a matching successful APPLY_RESULT and a refreshed device status.
 - Firmware marks a newly loaded or activated face dirty and performs one complete render before returning to dynamic-only redraws, so static layers are not left blank after APPLY.
+- Dynamic redraws use a bounded TFT viewport so intersecting lower layers cannot overwrite unrelated pixels outside the dirty rectangle.
 
 Current source status: firmware accepts an identical retransmission of the immediately previous chunk and rejects conflicting/out-of-order chunks; the Web uploader retries the same encoded frame up to three attempts, preserving sequence and chunk index. The sequencing policy has been extracted into `src/communication/transfer_sequence.h` and covered by `tests/host/transfer_sequence_test.cpp` for accepted chunks, byte-identical duplicates, conflicting duplicates, skipped indexes, invalid payloads and reset. These host tests do not yet exercise SPIFFS write failures, BLE disconnects or power loss; those still require integration and hardware verification.
 
