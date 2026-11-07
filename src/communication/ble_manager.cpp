@@ -147,9 +147,9 @@ void sendDeviceStatus() {
     const WeatherData weather = getWeatherSnapshot();
     char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
     const int length = snprintf(payload, sizeof(payload),
-        "{\\"wifiEnabled\\":%s,\\"wifiConnected\\":%s,\\"bleConnected\\":%s,"
-        "\\"weatherValid\\":%s,\\"temperature\\":%d,\\"screen\\":%u,"
-        "\\"autoSleepSeconds\\":%u,\\"powerState\\":\\"%s\\",\\"heapFree\\":%lu}",
+        "{\"wifiEnabled\":%s,\"wifiConnected\":%s,\"bleConnected\":%s,"
+        "\"weatherValid\":%s,\"temperature\":%d,\"screen\":%u,"
+        "\"autoSleepSeconds\":%u,\"powerState\":\"%s\",\"heapFree\":%lu}",
         wifiEnabled ? "true" : "false",
         WiFi.status() == WL_CONNECTED ? "true" : "false",
         isBLEConnected() ? "true" : "false",
