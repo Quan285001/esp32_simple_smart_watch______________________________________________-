@@ -20,6 +20,7 @@
 #include "storage/storage_manager.h"
 #include "storage/face_storage.h"
 #include "watchface/face_manager.h"
+#include "communication/transfer_manager.h"
 #include "system/system_manager.h"
 
 extern void handleBLECommands();
@@ -62,6 +63,11 @@ static volatile bool wifiScanRunning = false;
 static bool wifiScanRestoreOff = false;
 static volatile int8_t weatherNotifyPending = -1;
 static volatile bool locationWeatherRefreshPending = false;
+
+// Prevent a new bulk face transfer from overlapping TLS/weather/Wi-Fi scan work.
+bool canStartWfsTransfer() {
+    return !weatherFetchRunning && !wifiScanRunning && !bootNetworkRunning && !bootNetworkNeedsBle;
+}
 static volatile bool bootNetworkRunning = false;
 static volatile bool bootNetworkNeedsBle = false;
 static bool bootUiReady = false;
@@ -240,7 +246,8 @@ static bool scheduleWeatherFetch() {
         return false;
     }
 
-    if (weatherFetchRunning || wifiScanRunning || bootNetworkRunning || bootNetworkNeedsBle) {
+    if (weatherFetchRunning || wifiScanRunning || bootNetworkRunning || bootNetworkNeedsBle ||
+        TransferManager::isBusy()) {
         return false;
     }
 
@@ -279,7 +286,7 @@ static bool scheduleWeatherFetch() {
  */
 uint8_t requestWeatherFetch() {
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning || wifiScanRunning) return 1;
+    if (weatherFetchRunning || wifiScanRunning || TransferManager::isBusy()) return 1;
 
     const uint32_t now = millis();
     if (lastManualWeatherRequestMs != 0 &&
@@ -304,7 +311,7 @@ uint8_t requestWeatherFetchForLocation() {
     lastLocationWeatherRetryMs = 0;
 
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning || wifiScanRunning) return 1;
+    if (weatherFetchRunning || wifiScanRunning || TransferManager::isBusy()) return 1;
 
     if (scheduleWeatherFetch()) {
         locationWeatherRefreshPending = false;
@@ -321,7 +328,7 @@ uint8_t requestWeatherFetchForLocation() {
 // Return: 0=started, 1=already busy, 2=network work has priority, 3=start failed.
 uint8_t requestWifiScan() {
     if (wifiScanRunning) return 1;
-    if (weatherFetchRunning || bootNetworkRunning || bootNetworkNeedsBle) return 2;
+    if (weatherFetchRunning || bootNetworkRunning || bootNetworkNeedsBle || TransferManager::isBusy()) return 2;
 
     wifiScanRestoreOff = !wifiEnabled;
     if (wifiScanRestoreOff) {
@@ -400,6 +407,10 @@ static void serviceWifiScan() {
  * @brief Enables or disables the Wi-Fi station interface and updates the application state.
  */
 void toggleWiFi() {
+    if (TransferManager::isBusy()) {
+        Serial.println("[WIFI] Toggle ignored while a face transfer is active.");
+        return;
+    }
     if (wifiScanRunning) {
         Serial.println("[WIFI] Toggle ignored while scan is active.");
         return;
@@ -781,6 +792,7 @@ void loop() {
     // A GPS update received during an active request is refreshed as soon as
     // that request releases its TLS/JSON resources. Keep it pending while offline.
     if (locationWeatherRefreshPending && wifiConnected && !weatherFetchRunning && !wifiScanRunning &&
+        !TransferManager::isBusy() &&
         (lastLocationWeatherRetryMs == 0 ||
          now - lastLocationWeatherRetryMs >= WEATHER_RETRY_MS)) {
         lastLocationWeatherRetryMs = now;
@@ -806,6 +818,7 @@ void loop() {
         !hasWeatherData &&
         !weatherFetchRunning &&
         !wifiScanRunning &&
+        !TransferManager::isBusy() &&
         (
             lastWeatherRetryMs == 0 ||
             now - lastWeatherRetryMs >= WEATHER_RETRY_MS
@@ -831,6 +844,7 @@ void loop() {
         hasWeatherData &&
         !weatherFetchRunning &&
         !wifiScanRunning &&
+        !TransferManager::isBusy() &&
         now - lastWeatherFetchMs >= WEATHER_REFRESH_MS &&
         (lastWeatherAttemptMs == 0 || now - lastWeatherAttemptMs >= WEATHER_RETRY_MS)
     ) {
