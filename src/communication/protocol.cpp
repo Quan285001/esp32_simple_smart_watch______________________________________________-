@@ -36,6 +36,7 @@ bool isKnownMessage(uint8_t value) {
         case MessageType::Hello: case MessageType::HelloAck:
         case MessageType::GetCapabilities: case MessageType::Capabilities:
         case MessageType::GetStatus: case MessageType::Status:
+        case MessageType::GetFaceStatus: case MessageType::FaceStatus:
         case MessageType::Command: case MessageType::Response:
         case MessageType::Event: case MessageType::TransferBegin:
         case MessageType::TransferReady: case MessageType::Data:
