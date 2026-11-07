@@ -35,7 +35,7 @@ Transitional direct use of the shared `tft` symbol may remain until each legacy 
 
 ### 1.3 Runtime ownership and loop model
 
-Keep a single application-loop coordinator. WFS callbacks copy bounded packets into one ordered RX queue shared by the control and data characteristics. The application loop drains a bounded number of packets per iteration in arrival order, preserving the inbound sequence space across channels; it then updates state machines, services background completion flags, handles button events, and renders only when invalidated or due.
+Keep a single application-loop coordinator. WFS characteristic callbacks copy bounded packets into one ordered RX queue shared by control and data. BLE connection callbacks only enqueue an atomic session-reset request; they never mutate transfer/session state. The application loop applies pending resets before dispatch, drops stale-generation packets, drains a bounded number of frames in arrival order and owns all transfer aborts.
 
 No HTTP/TLS, filesystem package validation, large JSON parse, or blocking waits may execute inside BLE callbacks or the clock rendering path. Background weather/network work may use a dedicated task only where already required; do not add tasks for every module.
 
