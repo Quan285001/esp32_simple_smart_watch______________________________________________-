@@ -276,10 +276,11 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
         }
         if (faceStudioFlags & 0x02) {
             char dateText[20];
-            snprintf(dateText, sizeof(dateText), "%02d %s", timeinfo.tm_mday,
-                (timeinfo.tm_mon >= 0 && timeinfo.tm_mon < 12)
-                    ? (const char*[]){"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"}[timeinfo.tm_mon]
-                    : "MON");
+            static const char* months[] = {"JAN","FEB","MAR","APR","MAY","JUN",
+                "JUL","AUG","SEP","OCT","NOV","DEC"};
+            const int month = (timeinfo.tm_mon >= 0 && timeinfo.tm_mon < 12)
+                ? timeinfo.tm_mon : 0;
+            snprintf(dateText, sizeof(dateText), "%02d %s", timeinfo.tm_mday, months[month]);
             sprFace.setTextColor(faceAccentColor, faceDialColor);
             sprFace.drawString(dateText, cx, cy + 57, 1);
         }
@@ -316,6 +317,18 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
         int sy_back = cy - (int)(18 * sin(angleSec));
         sprFace.drawLine(sx_back, sy_back, sx, sy, faceAccentColor);
         sprFace.drawLine(sx_back + 1, sy_back, sx + 1, sy, faceAccentColor);
+    }
+
+    if (faceStyleId >= 60 && faceStyleId <= 62) {
+        char hybridTime[6];
+        snprintf(hybridTime, sizeof(hybridTime), "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
+        sprFace.setTextDatum(MC_DATUM);
+        sprFace.setTextColor(faceAccentColor, faceDialColor);
+        sprFace.drawString(hybridTime, cx, cy + 43, faceStyleId == 61 ? 2 : 1);
+        if (faceStyleId == 61) {
+            sprFace.setTextColor(faceHandColor, faceDialColor);
+            sprFace.drawString("UTC+7", cx, cy + 56, 1);
+        }
     }
 
     sprFace.fillCircle(cx, cy, 5, faceAccentColor);
