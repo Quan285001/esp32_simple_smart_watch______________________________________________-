@@ -1,177 +1,168 @@
-# Watch Face Studio Communication Protocol — v1 Draft
+# Watch Face Studio Communication Protocol — WFS BLE v1
 
-**Status:** design draft; not implemented  
-**Primary transport:** BLE  
-**Bulk transport:** Wi-Fi only after explicit reachability and authentication checks  
-**Legacy protocol:** current single-characteristic text commands remain a temporary compatibility path until the new implementation passes regression tests.
+**Status:** selected protocol contract; firmware GATT implementation and Web transport are still pending.  
+**Legacy compatibility:** the existing text service remains available during migration.
 
-## 1. Requirements
+## 1. BLE services
 
-The protocol must provide:
-- version negotiation and device identity;
-- capability and runtime-resource reporting;
-- typed commands, responses and asynchronous events;
-- bounded payloads and explicit packet limits;
-- request correlation and sequence checking;
-- transfer negotiation, progress, cancellation and final acknowledgement;
-- integrity validation before installation;
-- retry from the beginning after a failed transfer;
-- atomic activation while preserving the previously active face.
+### Legacy service (preserved)
 
-A successful GATT write is not proof that the command was processed. The device must return a correlated response.
+- Device name: ESP32_Watch_C3 (the Web filter prefix remains ESP32_Watch).
+- Service: 4fafc201-1fb5-459e-8fcc-c5c9c331914b
+- Characteristic: beb5483e-36e1-4688-b7f5-ea07361b26a8
+- Properties: READ, WRITE, WRITE_NR, NOTIFY
+- Descriptor: BLE2902
 
-## 2. BLE service model
+This characteristic remains for the existing text commands until regression tests confirm the new control service can replace each operation. Do not change its current meaning silently.
 
-The first implementation should use one control service with separate characteristics:
-- **Control RX:** Web client writes framed commands.
-- **Control TX:** device notifications for responses and events.
-- **Data RX:** optional bulk data characteristic for BLE package transfer.
-- **Data TX:** optional data acknowledgements / transfer status.
+### New v1 service
 
-Exact UUIDs, properties and negotiated ATT payload sizes are implementation constants to be added after the protocol implementation is selected. The existing service/characteristic UUID pair is reserved for the legacy service during migration; do not silently change its meaning.
+| Characteristic | UUID | Properties | Direction |
+|---|---|---|---|
+| WFS Service | f2c6b100-2f3a-4c1b-9d70-8e4a5c6b7100 | Primary service | — |
+| Control RX | f2c6b101-2f3a-4c1b-9d70-8e4a5c6b7100 | WRITE, WRITE_NR | Web → Device |
+| Control TX | f2c6b102-2f3a-4c1b-9d70-8e4a5c6b7100 | READ, NOTIFY | Device → Web |
+| Data RX | f2c6b103-2f3a-4c1b-9d70-8e4a5c6b7100 | WRITE, WRITE_NR | Web → Device |
+| Data TX | f2c6b104-2f3a-4c1b-9d70-8e4a5c6b7100 | READ, NOTIFY | Device → Web |
 
-BLE callbacks must only validate the outer length and enqueue bounded bytes. Parsing, storage writes, Wi-Fi operations and rendering must happen outside BLE host callbacks.
+The Web client must request both the legacy service UUID and the new WFS service UUID in optionalServices during migration.
 
-## 3. Frame envelope
+## 2. Frame envelope
 
-All multi-byte integers are little-endian. A frame is:
+All multi-byte integers are little-endian. Header size is 16 bytes.
 
 | Field | Bytes | Meaning |
 |---|---:|---|
-| Magic | 2 | Fixed bytes `0x57 0x46` ("WF") |
-| Protocol major | 1 | Major version |
-| Protocol minor | 1 | Minor version |
-| Message type | 1 | Enum below |
-| Flags | 1 | Reserved bits must be zero in v1 |
-| Sequence | 2 | Per-direction sequence number |
-| Session ID | 4 | Random/nonzero session identifier |
-| Payload length | 2 | Exact payload byte count |
-| Header CRC16 | 2 | CRC-16/CCITT-FALSE over preceding header bytes |
-| Payload | N | Message-specific payload |
+| Magic | 2 | 0x57 0x46 ("WF") |
+| Protocol major | 1 | 1 |
+| Protocol minor | 1 | 0 for initial implementation |
+| Message type | 1 | Enumerated below |
+| Flags | 1 | Must be zero in v1 |
+| Sequence | 2 | Per-direction monotonically increasing sequence |
+| Session ID | 4 | Nonzero session identifier |
+| Payload length | 2 | Exact payload length |
+| Header CRC16 | 2 | CRC-16/CCITT-FALSE over preceding 14 header bytes |
+| Payload | N | Message-specific bytes |
 
-The receiver must reject invalid magic, unsupported major version, unknown mandatory message types, nonzero reserved flags, oversized payloads, bad header CRC and truncated frames. A negotiated maximum payload is reported in the handshake. The implementation must account for ATT MTU and fragmentation rather than assuming a fixed 20-byte packet.
+Reject invalid magic/version, unknown mandatory message types, nonzero reserved flags, oversized payloads, bad header CRC, truncated frames, wrong session IDs and invalid sequence transitions.
 
-Control payloads may use compact JSON during early development; binary assets must use raw bytes under the same envelope. Define a strict maximum for control JSON and reject excess input before allocating.
+Control payloads are compact UTF-8 JSON with a negotiated maximum. Data payloads are binary. BLE callbacks only copy bounded bytes into queues; parsing, flash writes and command execution happen in the application loop.
 
-## 4. Message types
+## 3. Message types
 
-| Type | Direction | Purpose |
+| Value | Name | Direction | Purpose |
+|---:|---|---|---|
+| 0x01 | HELLO | Web → Device | Offer protocol range and client nonce |
+| 0x02 | HELLO_ACK | Device → Web | Selected protocol, session and device identity |
+| 0x03 | GET_CAPABILITIES | Web → Device | Request static and runtime capabilities |
+| 0x04 | CAPABILITIES | Device → Web | Schema, elements, formats, memory/storage and transfer limits |
+| 0x10 | COMMAND | Web → Device | Typed device command with requestId |
+| 0x11 | RESPONSE | Device → Web | Correlated command result |
+| 0x12 | EVENT | Device → Web | State change or asynchronous result |
+| 0x20 | TRANSFER_BEGIN | Web → Device | Package length, digest, design ID and transfer ID |
+| 0x21 | TRANSFER_READY | Device → Web | Reservation result, accepted chunk size and transfer ID |
+| 0x22 | DATA | Web → Device | Chunk index and binary bytes |
+| 0x23 | DATA_ACK | Device → Web | Highest contiguous accepted chunk and byte count |
+| 0x24 | TRANSFER_END | Web → Device | Declare all bytes sent |
+| 0x25 | VERIFY_RESULT | Device → Web | Package integrity/schema/capability result |
+| 0x26 | APPLY | Web → Device | Request activation of validated inactive slot |
+| 0x27 | APPLY_RESULT | Device → Web | Activation result and active design identity |
+| 0x28 | CANCEL | Web → Device | Cancel a cancellable operation |
+| 0x29 | TRANSFER_PROGRESS | Device → Web | Stage and verified byte progress |
+| 0x30 | PING | Either | Liveness request |
+| 0x31 | PONG | Either | Liveness response |
+| 0x7F | ERROR | Device → Web | Stable error code and safe diagnostic context |
+
+Every COMMAND/RESPONSE pair includes a requestId. Events include eventId. Transfer messages include transferId and sequence/chunk indexes. A successful GATT write is not proof of command processing.
+
+## 4. Negotiated chunk size and reliability
+
+- Request an ATT MTU suitable for bulk transfer where the stack/platform allows it.
+- Device capabilities report the maximum complete framed write accepted by the active connection.
+- Maximum DATA payload = negotiated framed-write limit minus the 16-byte WFS frame header and the DATA message's fixed payload fields.
+- The Web client must use the reported chunk size; it must not assume a 20-byte or 244-byte payload.
+- If the browser/OS cannot use the reported size, it must reconnect or renegotiate a smaller size before starting the transfer.
+- Start with one unacknowledged DATA chunk at a time. This bounded stop-and-wait behavior is slower but simple to verify on the first ESP32-C3 implementation.
+- A chunk is accepted only after sequence, transfer ID, expected length and flash write have succeeded.
+- Duplicate last-accepted chunks are acknowledged without writing them twice.
+- Out-of-order chunks are rejected with the expected next index.
+- Timeout, disconnect, flash error or digest mismatch invalidates the inactive staging session. Retry starts from byte zero with a new transfer ID.
+- The active slot is never modified during reception.
+
+## 5. Handshake and capability exchange
+
+1. Web connects and subscribes to Control TX and Data TX notifications.
+2. Web sends HELLO with client protocol range and nonce.
+3. Device returns HELLO_ACK with selected protocol, device ID, firmware build ID and session ID.
+4. Web requests GET_CAPABILITIES.
+5. Device returns:
+   - supported schema and package versions;
+   - supported element types and rendering features;
+   - display profile;
+   - supported asset encodings;
+   - maximum object count and JSON size;
+   - current free heap and largest contiguous block;
+   - SPIFFS total/used/free bytes;
+   - maximum package size that can currently be staged while preserving the active package;
+   - accepted framed-write and data chunk sizes;
+   - legacy feature availability.
+6. Web runs compatibility validation before enabling Upload.
+
+Runtime heap/storage values are snapshots. TRANSFER_BEGIN must reserve storage again and can still reject if resources changed.
+
+## 6. Transfer lifecycle
+
+IDLE → PREPARING → NEGOTIATING → RECEIVING → VERIFYING → VALIDATING → READY_TO_APPLY → APPLYING → COMPLETE
+
+Terminal states: FAILED, CANCELLED.
+
+TRANSFER_BEGIN declares exact package length and expected package payload digest. TRANSFER_READY confirms that the inactive slot has been reserved and reports the accepted chunk size. DATA frames are written sequentially. TRANSFER_END triggers full validation and read-back verification. APPLY is a separate explicit action. APPLY_RESULT is the only success confirmation.
+
+Progress must distinguish received bytes, written bytes, verified bytes and applied state. Do not show 100% success when only the final GATT write has completed.
+
+## 7. Typed command mapping
+
+| Command | New v1 command name | Legacy path during migration |
 |---|---|---|
-| HELLO | Web → Device | Begin session and offer supported protocol range |
-| HELLO_ACK | Device → Web | Selected version, device ID, session ID and basic status |
-| GET_CAPABILITIES | Web → Device | Request renderer and runtime capabilities |
-| CAPABILITIES | Device → Web | Supported object types, formats and resource limits |
-| COMMAND | Web → Device | Time/weather/settings/device operation |
-| RESPONSE | Device → Web | Correlated command result |
-| EVENT | Device → Web | Unsolicited connection, weather, sleep or transfer state |
-| TRANSFER_BEGIN | Web → Device | Declare package ID, total bytes and expected digest |
-| TRANSFER_READY | Device → Web | Staging allocation result and negotiated chunk size |
-| DATA | Web → Device | Numbered payload chunk |
-| DATA_ACK | Device → Web | Highest accepted sequence / chunk result |
-| TRANSFER_END | Web → Device | Declare that all bytes have been sent |
-| VERIFY_RESULT | Device → Web | Device-side integrity and package validation result |
-| APPLY | Web → Device | Request atomic activation of validated staging package |
-| APPLY_RESULT | Device → Web | Explicit activation result and active design ID |
-| CANCEL | Web → Device | Cancel a cancellable operation |
-| ERROR | Device → Web | Structured error code and safe diagnostic context |
-| PING / PONG | Both | Liveness check |
+| Time sync | TIME_SET {unixEpoch, timezone/offset} | SYNC_TIME:<epoch> |
+| Weather refresh | WEATHER_REFRESH | SYNC_WEATHER |
+| Location | LOCATION_SET {latitude, longitude} | GPS:<lat>,<lon> |
+| Wi-Fi scan | WIFI_SCAN | SCAN_WIFI |
+| Wi-Fi credentials | WIFI_CONFIG {ssid, password} | WIFI:<ssid>,<pass> |
+| Sleep request | POWER_SLEEP | SLEEP_ON |
+| Wake acknowledgement/status | POWER_STATUS | SLEEP_OFF remains status-only |
+| Auto-sleep read/write | AUTO_SLEEP_GET / AUTO_SLEEP_SET | GET_AUTO_SLEEP / AUTO_SLEEP:<seconds> |
 
-Each COMMAND includes a request ID. Each RESPONSE echoes it and contains a stable result code. Events include a monotonic event ID so the Web client can ignore duplicates.
+Credentials must be JSON-escaped and must never appear in serial logs or error events. The new protocol must require an explicit paired/authorized session before changing credentials or applying a face package. The exact security policy and pairing UX must be implemented and tested before production use.
 
-## 5. Handshake
+## 8. Stable error codes
 
-1. Web opens GATT and subscribes to Control TX.
-2. Web sends HELLO with supported major/minor range and a client nonce.
-3. Device validates the request and returns HELLO_ACK with selected protocol, device identifier, session ID, firmware build identifier, and required security mode.
-4. Web requests CAPABILITIES.
-5. Device returns supported schema versions, object types, color formats, bitmap dimensions, package limits, maximum BLE chunk size, available storage, free heap and largest contiguous heap block.
-6. Web compares the active design against those capabilities before enabling Apply.
+Initial codes:
+- 0x0001 PROTOCOL_VERSION_UNSUPPORTED
+- 0x0002 FRAME_INVALID
+- 0x0003 SESSION_INVALID
+- 0x0004 SEQUENCE_INVALID
+- 0x0010 COMMAND_INVALID
+- 0x0020 TRANSFER_BUSY
+- 0x0021 TRANSFER_ID_INVALID
+- 0x0022 TRANSFER_SIZE_INVALID
+- 0x0023 STORAGE_RESERVATION_FAILED
+- 0x0024 CHUNK_SEQUENCE_INVALID
+- 0x0025 CHUNK_WRITE_FAILED
+- 0x0026 TRANSFER_DIGEST_MISMATCH
+- 0x0030 PACKAGE_HEADER_INVALID
+- 0x0031 PACKAGE_VERSION_UNSUPPORTED
+- 0x0032 PACKAGE_LAYOUT_INVALID
+- 0x0033 PACKAGE_ASSET_INVALID
+- 0x0034 SCHEMA_INVALID
+- 0x0035 CAPABILITY_UNSUPPORTED
+- 0x0040 APPLY_FAILED
+- 0x0041 ROLLBACK_ACTIVE
+- 0x0050 DEVICE_BUSY
+- 0x0051 MEMORY_RESERVATION_FAILED
 
-Runtime heap/storage values are snapshots, not guarantees. Reserve resources before accepting a transfer and return a clear error if reservation fails.
+Error context must be bounded and must not contain credentials or full package contents.
 
-## 6. Transfer state machine
+## 9. Legacy compatibility and migration exit
 
-`IDLE → PREPARING → NEGOTIATING → CONNECTING_TRANSPORT → TRANSFERRING → VERIFYING → VALIDATING → APPLYING → COMPLETED`
-
-Terminal failure states: `FAILED`, `CANCELLED`.
-
-The Web and device each maintain an explicit state machine. Invalid transitions are rejected. Progress events identify stage, transport, bytes sent, bytes received, bytes validated and bytes applied. These values must not be conflated.
-
-### Retry semantics
-
-The user selected restart-from-beginning semantics:
-- A failed transfer invalidates its staging session.
-- The next attempt uses a new transfer ID/session and begins at byte zero.
-- Old staging bytes must not be reused.
-- The active package remains untouched.
-- The device acknowledges the final package digest before Apply is enabled.
-
-### Atomic activation
-
-The device must:
-1. receive into staging storage;
-2. validate declared and actual lengths;
-3. verify the package digest and every asset digest;
-4. validate schema and renderer compatibility;
-5. persist the staging metadata;
-6. atomically switch the active-design pointer;
-7. retain a recoverable previous pointer/package.
-
-If power fails before the pointer switch, the old design remains active. If power fails during/after the switch, boot recovery chooses the last fully validated active record.
-
-## 7. Wi-Fi bulk transport
-
-Wi-Fi is not automatically reachable just because BLE is connected. The protocol must negotiate a supported method and the UI must confirm actual reachability.
-
-Candidate methods:
-- device SoftAP + local endpoint;
-- shared LAN / station mode + local endpoint;
-- BLE-only fallback.
-
-Before bulk transfer:
-- confirm the selected network method and IP/endpoint;
-- authenticate the transfer session with a short-lived token negotiated over BLE;
-- verify a challenge/response and endpoint reachability;
-- enforce CORS/origin policy and request-size limits;
-- reject unauthenticated or replayed transfer IDs;
-- never log Wi-Fi passwords or session tokens.
-
-Browser HTTPS-to-local-HTTP mixed-content and private-network access policies are a major compatibility risk. A device-hosted HTTPS server with a self-signed certificate is not automatically a solution because browsers may reject the certificate. Do not implement Wi-Fi bulk transfer until target Android/browser combinations are tested. If it is unavailable, explain why and offer BLE only when the negotiated package size is within the BLE limit.
-
-## 8. Error model
-
-Use stable machine-readable codes, including:
-- `ERR_PROTOCOL_VERSION`
-- `ERR_BAD_FRAME`
-- `ERR_BAD_SEQUENCE`
-- `ERR_SESSION_EXPIRED`
-- `ERR_UNAUTHORIZED`
-- `ERR_UNSUPPORTED_FEATURE`
-- `ERR_PACKAGE_TOO_LARGE`
-- `ERR_STORAGE_FULL`
-- `ERR_LOW_MEMORY`
-- `ERR_TRANSFER_BUSY`
-- `ERR_TRANSFER_TIMEOUT`
-- `ERR_CHECKSUM_MISMATCH`
-- `ERR_SCHEMA_INVALID`
-- `ERR_ASSET_MISSING`
-- `ERR_RENDERER_INCOMPATIBLE`
-- `ERR_APPLY_FAILED`
-- `ERR_CANCELLED`
-
-Error responses must include a safe human-readable message and retryability flag. Do not expose credentials, raw memory contents or secrets.
-
-## 9. Implementation gates
-
-Before protocol code is considered complete:
-- write frame parser/serializer unit tests;
-- fuzz invalid lengths, sequences, flags and malformed control payloads;
-- test queue saturation and disconnect during transfer;
-- test duplicate/out-of-order chunks;
-- test full restart-from-zero retry;
-- test checksum failure and corrupted package;
-- test power loss before and after atomic pointer switch;
-- measure BLE throughput, heap and stack on the real ESP32-C3;
-- verify no display-loop starvation and no regression to clock/weather/sleep.
-
-This document is a protocol proposal only. No protocol behavior is claimed as implemented.
+Keep the existing service/characteristic and command semantics while the new service is introduced. Migrate one operation at a time and run regression tests for each. Remove legacy support only in a separately reviewed change after the Web client no longer depends on it and physical hardware tests pass.
