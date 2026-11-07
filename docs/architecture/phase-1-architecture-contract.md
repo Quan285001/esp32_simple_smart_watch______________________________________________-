@@ -182,6 +182,8 @@ Command responses must include requestId, ok, stable error code and safe message
 ### 4.5 Chunk transfer semantics
 
 - One active transfer per device.
+- A verified package remains reserved until APPLY or CANCEL; a new TRANSFER_BEGIN is rejected while another transfer is receiving, verifying, verified or applying.
+- TLS/weather fetches, Wi-Fi scans and credential reconfiguration must not overlap a WFS staging transfer. An active network-heavy operation blocks TRANSFER_BEGIN; once transfer starts, new weather/scan/config work is deferred or rejected until the transfer reaches a terminal state.
 - Transfer ID is nonzero and bound to the current BLE session.
 - TRANSFER_BEGIN reserves the inactive slot only after checking storage and package-size limits.
 - DATA payload: transferId uint32, chunkIndex uint32, then 1–216 package bytes.
