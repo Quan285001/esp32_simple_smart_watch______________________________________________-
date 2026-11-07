@@ -10,8 +10,10 @@ namespace FaceManager {
 
 bool begin();
 bool hasActiveFace();
+void disableActive();
 const FaceModel* getActiveFace();
 FaceParseResult loadJsonFile(const char* path);
 FaceRenderStatus renderActive(const struct tm& timeInfo, const WeatherData& weather);
+FaceRenderStatus renderActiveDynamic(const struct tm& timeInfo, const WeatherData& weather);
 
 } // namespace FaceManager
