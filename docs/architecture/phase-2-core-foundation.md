@@ -2,7 +2,7 @@
 
 > **Historical snapshot:** this document predates the current WFS v1 GATT, transfer manager, package validator and Web uploader source. Its older statements that these modules do not exist are superseded by `phase-0-audit-6afd283.md` and `phase-1-architecture-contract.md`. Do not use this snapshot as the current source inventory.
 
-**Status:** substantial implementation in progress; the latest code is awaiting CI build and physical-board verification.  
+**Status:** firmware/Web integration is implemented to a substantial source level; CI is passing, while hardware and end-to-end verification remain open.  
 **Branch:** rebuild/watch-face-studio-v2  
 **Hardware profile:** ESP32-C3 + GC9A01 240×240  
 **Important:** this document records implemented source changes and outstanding verification separately.
@@ -43,11 +43,11 @@
 - src/watchface/face_parser.* parses schema v1 JSON with a nesting limit, bounded strings, numeric/color checks and explicit parser errors.
 - The parser recognizes text, digital-clock, analog-clock, date, weather, shape and image object kinds. Recognition does not mean every kind is currently renderable.
 - src/watchface/face_renderer.* renders basic text, digital clock, date, weather temperature, analog clock and simple shapes.
-- The first renderer uses the TFT_eSPI built-in bitmap font. Font size is quantized to integer scale steps; arbitrary Web fonts and exact per-glyph deformation require the planned glyph-atlas pipeline.
-- Rotation, partial opacity, non-system font families and image assets are rejected before the display is touched.
-- Dynamic elements use dirty-region redraw: clear the dynamic element bounds, then redraw all intersecting visible layers in z-order. This avoids full-screen redraw every second for ordinary clock updates.
-- src/watchface/face_manager.* can load a validated raw JSON layout from /face.json and retains the built-in clock as fallback.
-- This raw JSON loading path is a temporary bring-up/test path, not the final .wface package installer.
+- The first renderer uses the TFT_eSPI built-in bitmap font. Nominal font size is quantized to integer bitmap-font scale steps; independent glyph scaleX/scaleY is serialized, parsed and applied to glyph pixels. Arbitrary Web fonts and glyph atlases remain unsupported.
+- Rotation, partial opacity, letter spacing, non-system font families, advanced glyph effects and custom analog hand styles are rejected before activation.
+- Images are streamed as RGB565 rows from the active package. Compressed PNG/JPEG decoding and transparent overlay composition are not supported on-device.
+- Dynamic elements use dirty-region redraw with a bounded TFT viewport; intersecting layers are clipped to the dirty rectangle. A newly activated face is fully rendered once before dynamic-only redraws.
+- FaceManager loads and validates the committed WFS1 package first, falls back to the other valid slot, then retains /face.json as a raw integration/test fallback before using the built-in clock.
 
 ## 2. Conservative limits and why they exist
 
@@ -67,29 +67,30 @@ The schema may allow more objects, but the runtime capability response must adve
 
 The existing huge_app.csv layout already provides SPIFFS. Keep this partition initially; do not change the app/FS allocation until measured package needs justify it.
 
-Proposed safe replacement strategy:
-1. Keep active face in one of two package slots.
-2. Receive and validate into the inactive slot.
-3. Confirm package and asset digests and schema/capability compatibility.
-4. Persist a small active-slot pointer in NVS.
-5. Retain the previous slot as rollback until a later successful boot/validation policy allows cleanup.
+Implemented safe replacement strategy:
+1. Keep active face in one of two SPIFFS package slots.
+2. Receive only into the inactive slot after checking available capacity while preserving the active package.
+3. Verify WFS1 header, manifest, layout, asset ranges/digests, object references and renderer compatibility from the staged file.
+4. Persist and read back the active-slot pointer in NVS only after verification.
+5. Retain the previous slot as rollback; FaceStorage::removeSlot refuses to remove the active slot.
+6. Failed transfers can be explicitly cancelled or cleaned after BLE session loss, including the Failed state.
 
-If the inactive slot cannot fit the complete new package while preserving the active package, reject the transfer before accepting data. Never delete the current active face to make room for an unvalidated replacement.
+The current package ceiling is constrained by a 16 KiB layout parser limit, manifest limit, 16 objects, 16 assets, negotiated chunk size and actual SPIFFS free capacity. Host tests cover sequencing and cancellation policy; SPIFFS write-fault, power-loss and reboot-recovery integration tests remain open.
 
 The final slot layout, package size ceiling and cleanup policy remain unimplemented.
 
 ## 4. Current implementation limitations
 
-- No BLE v1 control/data GATT service is implemented.
-- No versioned frame parser, handshake, capability response or request correlation is implemented.
-- No chunk transfer, ACK/retry, digest verification or cancellation is implemented.
-- No .wface archive/container parser or Web package exporter is implemented.
-- Image support is limited to opaque RGB565 assets, streamed row-by-row. Transparent overlays, image alpha masks, image scaling on-device and compressed PNG/JPEG decoding are not supported.
-- The renderer does not yet support opacity, rotation, arbitrary fonts, glyph overrides, groups, gauges or progress rings.
-- Analog hand style configuration is not yet mapped from the full schema.
-- Weather renderer currently displays a basic temperature value; field-specific layout and freshness are incomplete.
-- FaceManager's raw JSON boot path is for integration bring-up only and must be replaced by the package installer.
-- No physical hardware tests have been run for these new modules.
+- The WFS v1 control/data GATT service, framed protocol, handshake, capability/status responses, ordered inbound queue and stop-and-wait transfer are implemented in source.
+- The Web package builder emits WFS1 packages and the uploader waits for application-level transfer/verify/apply responses. Host tests cover frame bytes, package digests/CRC, ACK waiter cleanup and glyph scale preservation.
+- Web Bluetooth ↔ physical-device interoperability and a complete successful upload have not yet been demonstrated on hardware.
+- Firmware supports only 16 objects and 16 assets, with a 16 KiB layout limit; schema vocabulary is intentionally broader than device capabilities.
+- Images are RGB565 and streamed row-by-row. Transparent overlay composition, alpha masks and compressed PNG/JPEG decoding are not supported.
+- The renderer does not support rotation, partial opacity, arbitrary fonts, glyph atlases/overrides, groups, gauges, progress rings or advanced analog hand styling.
+- Weather face objects currently support temperature and condition only; other forecast/lunar values remain in the legacy weather screen, not the custom-face object renderer.
+- The parser rejects unknown keys at supported root/object/nested levels, but dedicated parser fixture/fuzz tests are still outstanding.
+- Weather TLS currently uses setInsecure(); certificate validation remains a security hardening item.
+- No physical hardware tests have been run for these modules.
 
 ## 6. Phase 2 acceptance checklist
 
@@ -99,12 +100,19 @@ The final slot layout, package size ceiling and cleanup policy remain unimplemen
 - [x] Shared application state moved out of main.cpp.
 - [x] Fixed-capacity face model and bounded JSON parser added.
 - [x] Basic schema-driven renderer and dirty-region dynamic update path added.
-- [ ] Current PlatformIO CI build passes on latest branch HEAD.
-- [ ] Schema/Web CI checks pass on latest branch HEAD.
-- [ ] Flash and RAM size report recorded from CI.
+- [x] PlatformIO CI build passes on branch HEAD 31b6773.
+- [x] Schema/Web CI checks pass on branch HEAD 31b6773.
+- [x] Flash and RAM linker usage recorded from CI: 103,468 / 327,680 bytes RAM (31.6%) and 1,797,688 / 3,145,728 bytes application flash (57.1%). These are static linker figures, not runtime heap measurements.
 - [ ] Physical board boot regression completed.
 - [ ] Physical board display/clock/weather/button/sleep regression completed.
 
+## 7. Next mandatory phases
+
+1. Add dedicated parser fixtures and malformed-input/fuzz tests for the ArduinoJson-backed firmware parser.
+2. Add TransferManager + SPIFFS integration tests for short writes, length/digest mismatch, cancel, disconnect and reboot recovery.
+3. Exercise the BLE handshake, reconnect and upload workflow against the physical ESP32-C3 from supported desktop/mobile browsers.
+4. Measure runtime heap minimum/largest block, task stack high-water marks, SPIFFS usable capacity and TLS peak on the target board.
+5. Complete repeated boot, clock, weather-cache, image, face-activation, idle, BLE connect/disconnect and Light Sleep wake regressions.
 ## 7. Next mandatory phases
 
 1. Stabilize Phase 2 build and fix any compile/link regressions.
