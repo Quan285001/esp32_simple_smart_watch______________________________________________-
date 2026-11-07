@@ -16,10 +16,10 @@
 #include "services/weather_service.h"
 #include "services/ble_service.h"
 #include "system/diagnostics.h"
+#include "display/display_manager.h"
 
 extern void handleBLECommands();
 
-TFT_eSPI tft = TFT_eSPI();
 
 ScreenState currentScreen = SCREEN_CLOCK;
 ScreenState screenBeforeMenu = SCREEN_CLOCK;
@@ -562,9 +562,7 @@ void setup() {
     SystemDiagnostics::begin();
 
     beginButtonManager();
-    tft.init();
-    tft.setRotation(0);
-    tft.fillScreen(TFT_BLACK);
+    beginDisplay(0);
 
     showBootTerminal();
     bootTerminalLog("[BOOT] Restoring saved state", TFT_YELLOW);
