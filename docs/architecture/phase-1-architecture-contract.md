@@ -278,6 +278,7 @@ Acceptance: cross-language frame fixtures; handshake/capabilities/status; legacy
 
 ### Phase 5 — Package transfer
 - [x] Pure stop-and-wait sequencing policy extracted and host-tested (next chunk, identical retry, conflicting retry, out-of-order chunk, invalid payload and reset).
+- [x] Staging cancellation policy is host-tested, including cleanup eligibility after a failed transfer.
 - [ ] TransferManager + SPIFFS integration tests for write failure, cancellation, disconnect and length/digest mismatch.
 - [ ] Two-slot rollback and reboot recovery tests.
 Acceptance: ACK retry, duplicate handling, cancel, disconnect recovery, digest validation, two-slot rollback and reboot recovery.
