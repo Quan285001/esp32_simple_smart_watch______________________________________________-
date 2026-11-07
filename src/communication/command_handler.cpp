@@ -10,6 +10,7 @@
 #include "../services/weather_service.h"
 #include "../services/time_service.h"
 #include "../services/wifi_service.h"
+#include "transfer_manager.h"
 
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
@@ -158,6 +159,10 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
         }
         if (isWifiScanBusy()) {
             setResult(result, false, 0x0050, "wifi_scan_busy");
+            return false;
+        }
+        if (TransferManager::isBusy()) {
+            setResult(result, false, 0x0050, "face_transfer_busy");
             return false;
         }
         if (!WifiService::configureCredentials(ssid, password)) {
