@@ -6,6 +6,7 @@
 #include "ble_service.h"
 #include "weather_service.h"
 #include "wifi_service.h"
+#include "../communication/transfer_manager.h"
 
 extern bool wifiEnabled;
 /**
@@ -115,6 +116,10 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd.startsWith("WIFI:")) {
+        if (TransferManager::isBusy()) {
+            sendBLENotification("ERR_FACE_TRANSFER_BUSY");
+            return;
+        }
         if (isWifiScanBusy()) {
             sendBLENotification("ERR_WIFI_SCAN_BUSY");
             return;
