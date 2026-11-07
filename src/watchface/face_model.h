@@ -63,6 +63,8 @@ struct FaceObject {
     uint8_t cornerRadius;
     char timeFormat[8];
     bool showSeconds;
+    bool showWeatherTemperature;
+    bool showWeatherCondition;
 };
 
 struct FaceModel {
