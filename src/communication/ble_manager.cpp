@@ -489,13 +489,16 @@ bool beginWfsGatt(BLEServer* server) {
     return true;
 }
 
+void applyPendingSessionReset() {
+    if (!__atomic_exchange_n(&sessionResetPending, false, __ATOMIC_ACQ_REL)) return;
+    sessionId = 0;
+    txSequence = 0;
+    lastControlSequence = 0;
+    TransferManager::abortSession();
+}
+
 void serviceWfsBle() {
-    if (__atomic_exchange_n(&sessionResetPending, false, __ATOMIC_ACQ_REL)) {
-        sessionId = 0;
-        txSequence = 0;
-        lastControlSequence = 0;
-        TransferManager::abortSession();
-    }
+    applyPendingSessionReset();
     const uint32_t dropped = __atomic_exchange_n(&queueDrops, 0, __ATOMIC_RELAXED);
     if (dropped) Serial.printf("[WFS] RX queue dropped %lu frame(s).\n", static_cast<unsigned long>(dropped));
 
@@ -503,6 +506,8 @@ void serviceWfsBle() {
         for (uint8_t processed = 0; processed < MAX_PACKETS_PER_LOOP; ++processed) {
             WfsPacket packet{};
             if (xQueueReceive(rxQueue, &packet, 0) != pdTRUE) break;
+            // A connect/disconnect callback may run between the outer check and dequeue.
+            applyPendingSessionReset();
             if (packet.generation != __atomic_load_n(&rxGeneration, __ATOMIC_ACQUIRE)) continue;
             if (packet.channel == 1) handleDataPacket(packet);
             else handleControlPacket(packet);
