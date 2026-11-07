@@ -26,7 +26,7 @@ void sortObjectIndices(const FaceModel& face, uint8_t* indices) {
 }
 
 uint8_t textScale(uint16_t fontSize) {
-    uint16_t scale = static_cast<uint16_t>((fontSize + 7U) / 8U);
+    uint16_t scale = static_cast<uint16_t>((fontSize + 4U) / 8U);
     if (scale < 1) scale = 1;
     if (scale > 8) scale = 8;
     return static_cast<uint8_t>(scale);
