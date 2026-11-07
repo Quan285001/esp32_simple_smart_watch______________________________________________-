@@ -38,3 +38,17 @@
 .settings-check{display:flex;gap:10px;align-items:center;font-size:13px;margin:18px 0}
 .settings-status{font-size:11px!important;color:var(--muted)!important}
 @media(max-width:700px){.settings-grid{grid-template-columns:1fr}.theme-options{gap:6px}.theme-option{padding:8px}.theme-option small{font-size:9px}}
+
+:root[data-theme="light"] .main{background:transparent}
+:root[data-theme="light"] .rightbar{background:#f7f9fb}
+:root[data-theme="light"] .object-row button{color:#536073}
+.resize-handle{position:absolute;width:10px;height:10px;border:2px solid #fff;background:var(--accent);border-radius:3px;z-index:9999;touch-action:none}
+.resize-handle.nw{left:-5px;top:-5px;cursor:nwse-resize}
+.resize-handle.ne{right:-5px;top:-5px;cursor:nesw-resize}
+.resize-handle.sw{left:-5px;bottom:-5px;cursor:nesw-resize}
+.resize-handle.se{right:-5px;bottom:-5px;cursor:nwse-resize}
+body[data-view="settings"] .rightbar{display:none}
+body[data-view="settings"] .workspace{grid-template-columns:240px minmax(0,1fr)}
+body[data-view="settings"] .main{max-width:1200px;margin:0 auto;width:100%}
+@media(max-width:1050px){body[data-view="settings"] .workspace{grid-template-columns:205px minmax(0,1fr)}}
+@media(max-width:700px){body[data-view="settings"] .workspace{display:block}body[data-view="settings"] .main{padding-bottom:30px}}
