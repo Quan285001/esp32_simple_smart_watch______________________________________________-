@@ -11,6 +11,7 @@ enum class FaceRenderStatus : uint8_t {
     UnsupportedFont
 };
 
+FaceRenderStatus validateFaceModelForRenderer(const FaceModel& face);
 FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInfo,
                                  const WeatherData& weather);
 FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& timeInfo,
