@@ -485,6 +485,7 @@ async function connectBLE(){
     if(latestPosition)await sendLatestPosition(true);
     else await syncTime();
     await sendBLECommand("GET_AUTO_SLEEP");
+    await sendBLECommand("GET_FACE_STYLE");
     await sendBLECommand("GET_WEATHER_MODEL");
     await requestWiFiScan();
   }catch(error){console.error(error);setStatus("Connection failed",false)}
@@ -708,6 +709,10 @@ function renderFacePreview(){
     const hand=(angle,length,width,color)=>{faceCtx.strokeStyle=color;faceCtx.lineWidth=width;faceCtx.lineCap="round";faceCtx.beginPath();faceCtx.moveTo(120,120);faceCtx.lineTo(120+Math.cos(angle)*length,120+Math.sin(angle)*length);faceCtx.stroke()};
     hand((10+10/60)*Math.PI/6-Math.PI/2,47,5,colors.hand);hand((10+35/60)*Math.PI/30-Math.PI/2,76,3,colors.hand);
     if(faceProject.showSeconds)hand(35*Math.PI/30-Math.PI/2,94,1.5,colors.accent);
+    if(styleMeta.family==="Hybrid"){
+      faceCtx.fillStyle=colors.accent;faceCtx.font="bold 12px monospace";
+      faceCtx.fillText(now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false}),120,174);
+    }
     faceCtx.fillStyle=colors.accent;faceCtx.beginPath();faceCtx.arc(120,120,5,0,Math.PI*2);faceCtx.fill();faceCtx.fillStyle=colors.hand;faceCtx.beginPath();faceCtx.arc(120,120,2,0,Math.PI*2);faceCtx.fill();
   }
   faceProject.layers.forEach(layer=>{
@@ -1137,6 +1142,7 @@ function handleNotifications(event){
     document.getElementById("faceApplyBtn").disabled=false;
     return;
   }
+  if(chunk.startsWith("FACE_STYLE:")){const id=Number(chunk.substring(11)),style=FACE_STYLES.find(item=>item.id===id);if(style){faceProject.style=style.key;const select=document.getElementById("faceStyleSelect");if(select)select.value=style.key;renderFacePreview();renderFaceStyleSelection();document.getElementById("faceStudioStatus").textContent="Watch style: "+style.name}return}
   if(chunk.startsWith("STYLE_OK:")){const id=Number(chunk.substring(9)),style=FACE_STYLES.find(item=>item.id===id);document.getElementById("faceStudioStatus").textContent=(style?style.name:"Clock style")+" renderer applied and saved on ESP32-C3";document.getElementById("faceApplyBtn").disabled=false;return}
   if(chunk==="ERR_STYLE"){document.getElementById("faceStudioStatus").textContent="ESP32 rejected this clock style";document.getElementById("faceApplyBtn").disabled=false;return}
   if(chunk==="ERR_FACE"){
