@@ -125,7 +125,7 @@ TRANSFER_BEGIN JSON fields are transferId, packageLength, payloadSha256 (hex SHA
    - legacy feature availability.
 6. Web runs compatibility validation before enabling Upload.
 
-The STATUS JSON payload contains wifiEnabled, wifiConnected, bleConnected, weatherValid, temperature, screen, autoSleepSeconds and heapFree. The current compact CAPABILITIES JSON payload uses these keys: sv (schema version), pv (package version), obj (maximum objects), json (maximum layout JSON bytes), frame (maximum framed write bytes), mtu (negotiated ATT MTU), el (comma-separated supported element types), img (1 if image assets are supported), upload (1 if package installation is enabled), free (SPIFFS free bytes), stage (maximum current inactive-slot staging capacity), and heap (free heap bytes).
+The STATUS JSON payload contains wifiEnabled, wifiConnected, bleConnected, weatherValid, temperature, screen, autoSleepSeconds, powerState and heapFree. The current compact CAPABILITIES JSON payload uses these keys: sv (schema version), pv (package version), obj (maximum objects), json (maximum layout JSON bytes), frame (maximum framed write bytes), mtu (negotiated ATT MTU), el (comma-separated supported element types), img (1 if image assets are supported), upload (1 if package installation is enabled), free (SPIFFS free bytes), stage (maximum current inactive-slot staging capacity), and heap (free heap bytes).
 
 Runtime heap/storage values are snapshots. TRANSFER_BEGIN must reserve storage again and can still reject if resources changed.
 
