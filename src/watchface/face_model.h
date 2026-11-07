@@ -60,6 +60,9 @@ struct FaceObject {
     uint16_t strokeColor;
     uint8_t strokeWidth;
     uint8_t shapeKind;
+    uint8_t cornerRadius;
+    char timeFormat[8];
+    bool showSeconds;
 };
 
 struct FaceModel {
