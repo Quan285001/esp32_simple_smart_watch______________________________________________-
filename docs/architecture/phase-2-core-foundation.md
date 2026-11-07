@@ -1,5 +1,7 @@
 # Phase 2 — Core Firmware Foundation Progress
 
+> **Historical snapshot:** this document predates the current WFS v1 GATT, transfer manager, package validator and Web uploader source. Its older statements that these modules do not exist are superseded by `phase-0-audit-6afd283.md` and `phase-1-architecture-contract.md`. Do not use this snapshot as the current source inventory.
+
 **Status:** substantial implementation in progress; the latest code is awaiting CI build and physical-board verification.  
 **Branch:** rebuild/watch-face-studio-v2  
 **Hardware profile:** ESP32-C3 + GC9A01 240×240  
