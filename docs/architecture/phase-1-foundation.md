@@ -206,7 +206,7 @@ Desktop and mobile layouts are designed separately. Beginner and Advanced modes 
 - [x] Package lifecycle and atomic-apply requirements documented.
 - [x] BLE/Wi-Fi responsibilities and browser limitations documented.
 - [x] Migration order and first vertical slice defined.
-- [ ] Schema validators and cross-language golden fixtures implemented.
+- [x] Python JSON Schema validator and initial JSON fixtures added to CI. Cross-language golden tests remain pending.
 - [ ] Protocol implementation and firmware capability report implemented.
 
 The unchecked items are implementation work and are not claimed as complete by this architecture document.
