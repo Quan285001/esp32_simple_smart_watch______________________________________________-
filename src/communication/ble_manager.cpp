@@ -24,6 +24,8 @@
 #include <WiFi.h>
 #include "../watchface/face_manager.h"
 #include "transfer_manager.h"
+
+extern bool canStartWfsTransfer();
 #include "command_handler.h"
 #include <stdlib.h>
 
@@ -308,6 +310,10 @@ void handleControlPacket(const WfsPacket& packet) {
             sendFrame(controlTx, WfsProtocol::MessageType::Pong, nullptr, 0);
             break;
         case WfsProtocol::MessageType::TransferBegin: {
+            if (!canStartWfsTransfer()) {
+                sendError(0x0024, "resource_busy");
+                break;
+            }
             JsonDocument request;
             if (deserializeJson(request, frame.payload, frame.payloadLength,
                                 DeserializationOption::NestingLimit(4))) {
