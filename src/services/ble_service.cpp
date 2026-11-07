@@ -140,8 +140,9 @@ void beginBLE() {
         return;
     }
 
-    bleAdvertising->addServiceUUID(SERVICE_UUID);
-    bleAdvertising->addServiceUUID(WfsProtocol::SERVICE_UUID);
+    // Keep the legacy UUID in the advertising packet to stay within the
+    // 31-byte legacy advertisement budget. Web Bluetooth discovers WFS v1
+    // through optionalServices after connecting by device name.
     bleAdvertising->setScanResponse(true);
 
     advertisingRestartPending = false;
@@ -251,7 +252,6 @@ void serviceBLE() {
 
  */
 void shutdownBLEForSleep() {
-    shutdownWfsGatt();
     if (bleAdvertising != nullptr) {
         bleAdvertising->stop();
     }
@@ -259,6 +259,7 @@ void shutdownBLEForSleep() {
     if (bleStackInitialized) {
         BLEDevice::deinit(false);
     }
+    shutdownWfsGatt();
 
     bleAdvertising = nullptr;
     commandCharacteristic = nullptr;
