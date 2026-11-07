@@ -111,7 +111,7 @@ void abortTransfer(const char* reason) {
 }
 
 bool beginTransfer(const uint8_t* packet, size_t length) {
-    if (length != 13 || packet[1] != PROTOCOL_VERSION ||
+    if (length != 14 || packet[1] != PROTOCOL_VERSION ||
         readU16(packet + 2) != IMAGE_WIDTH ||
         readU16(packet + 4) != IMAGE_HEIGHT ||
         readU32(packet + 6) != IMAGE_BYTES) {
@@ -142,7 +142,7 @@ bool beginTransfer(const uint8_t* packet, size_t length) {
         return false;
     }
 
-    expectedCrc = readU32(packet + 9);
+    expectedCrc = readU32(packet + 10);
     receivedBytes = 0;
     lastPacketAt = millis();
     transferActive = true;
@@ -248,8 +248,6 @@ void clearImage() {
     transferActive = false;
     stagingPartition = nullptr;
     stagingSlot = 0xFF;
-    activePartition = nullptr;
-    activeLookupDone = true;
 
     Preferences prefs;
     if (!prefs.begin("face", false)) {
@@ -263,6 +261,8 @@ void clearImage() {
         sendBLENotification("IMG_ERR:CLEAR");
         return;
     }
+    activePartition = nullptr;
+    activeLookupDone = true;
     sendBLENotification("IMG_CLEARED");
 }
 } // namespace
