@@ -13,7 +13,7 @@ uint8_t inactiveSlot();
 const char* slotPath(uint8_t slot);
 size_t slotSize(uint8_t slot);
 bool removeSlot(uint8_t slot);
-File openSlot(uint8_t slot, const char* mode);
+fs::File openSlot(uint8_t slot, const char* mode);
 bool activateSlot(uint8_t slot);
 
 } // namespace FaceStorage
