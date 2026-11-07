@@ -117,9 +117,13 @@ bool validateWfsPackage(File& file, size_t expectedFileLength,
         return false;
     }
     if (memcmp(header, WFS_MAGIC, sizeof(WFS_MAGIC)) != 0 ||
-        readU16(header + 4) != 1 || readU16(header + 6) != WFS_HEADER_SIZE ||
+        readU16(header + 6) != WFS_HEADER_SIZE ||
         readU16(header + 18) != 0 || readU32(header + 60) != 0) {
         error = PackageValidationError::Header;
+        return false;
+    }
+    if (readU16(header + 4) != 1) {
+        error = PackageValidationError::Version;
         return false;
     }
 
@@ -180,10 +184,11 @@ bool validateWfsPackage(File& file, size_t expectedFileLength,
     const DeserializationError manifestError =
         deserializeJson(manifest, manifestText, manifestLength,
                         DeserializationOption::NestingLimit(8));
+    const char* profileId = manifest["deviceProfileId"] | "";
     if (manifestError ||
         (manifest["packageFormatVersion"] | 0) != 1 ||
         (manifest["schemaVersion"] | 0) != 1 ||
-        (manifest["deviceProfileId"] | "") != "esp32-c3-gc9a01-240") {
+        strcmp(profileId, "esp32-c3-gc9a01-240") != 0) {
         free(manifestText);
         free(layoutText);
         error = PackageValidationError::Manifest;
@@ -261,6 +266,12 @@ bool validateWfsPackage(File& file, size_t expectedFileLength,
     }
 
     JsonArrayConst requiredCapabilities = manifest["requiredCapabilities"].as<JsonArrayConst>();
+    if (requiredCapabilities.isNull()) {
+        free(manifestText);
+        free(layoutText);
+        error = PackageValidationError::Manifest;
+        return false;
+    }
     for (JsonVariantConst capability : requiredCapabilities) {
         if (!capability.is<const char*>() || !isSupportedCapability(capability.as<const char*>())) {
             free(manifestText);
