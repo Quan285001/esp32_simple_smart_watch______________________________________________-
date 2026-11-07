@@ -52,3 +52,19 @@ body[data-view="settings"] .workspace{grid-template-columns:240px minmax(0,1fr)}
 body[data-view="settings"] .main{max-width:1200px;margin:0 auto;width:100%}
 @media(max-width:1050px){body[data-view="settings"] .workspace{grid-template-columns:205px minmax(0,1fr)}}
 @media(max-width:700px){body[data-view="settings"] .workspace{display:block}body[data-view="settings"] .main{padding-bottom:30px}}
+
+@media(prefers-color-scheme:light){
+:root[data-theme="system"]{color-scheme:light;--bg:#f4f6f8;--panel:#fff;--panel2:#edf1f5;--line:#dce2e9;--muted:#657184;--text:#17202c;--accent:#6b9d35;--accent-ink:#fff;--blue:#356fc1;--danger:#c43d49}
+:root[data-theme="system"] body{background:radial-gradient(ellipse at 55% -20%,#e5ebf2 0,transparent 48%),var(--bg);color:var(--text)}
+:root[data-theme="system"] .topbar,:root[data-theme="system"] .sidebar,:root[data-theme="system"] .rightbar,:root[data-theme="system"] .mobile-tabs{background:#ffffffed}
+:root[data-theme="system"] .panel-section,:root[data-theme="system"] .device-card,:root[data-theme="system"] .template-card,:root[data-theme="system"] .design-card,:root[data-theme="system"] .canvas-panel,:root[data-theme="system"] .settings-card{background:#fff}
+:root[data-theme="system"] .nav-item{color:#536073}
+:root[data-theme="system"] .nav-item:hover,:root[data-theme="system"] .nav-item.active{background:#edf2e8;color:#17202c}
+:root[data-theme="system"] .field input,:root[data-theme="system"] .field select,:root[data-theme="system"] .field textarea,:root[data-theme="system"] .settings-select{background:#f7f9fb;color:#17202c;border-color:#d5dce5}
+:root[data-theme="system"] .object-row{background:#f4f6f8;color:#293548}
+:root[data-theme="system"] .object-row.active{background:#edf4e5;border-color:#8cab69}
+:root[data-theme="system"] .mode-switch{background:#edf1f5}
+:root[data-theme="system"] .mode-switch button.active{background:#dce5d2;color:#1b2814}
+:root[data-theme="system"] .canvas-stage{background-color:#e8edf2;background-image:linear-gradient(#1b273508 1px,transparent 1px),linear-gradient(90deg,#1b273508 1px,transparent 1px)}
+:root[data-theme="system"] .tool-btn{background:#fff;color:#344054}
+}
