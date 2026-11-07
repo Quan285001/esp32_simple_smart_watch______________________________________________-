@@ -47,6 +47,7 @@ uint32_t sessionId = 0;
 uint16_t txSequence = 0;
 uint16_t lastControlSequence = 0;
 uint32_t queueDrops = 0;
+volatile bool transferAbortPending = false;
 
 class WfsWriteCallbacks final : public BLECharacteristicCallbacks {
 public:
@@ -371,12 +372,20 @@ void handleDataPacket(const WfsPacket& packet) {
         sendError(0x0002, WfsProtocol::frameErrorName(error));
         return;
     }
-    if (sessionId == 0 || frame.sessionId != sessionId ||
-        frame.sequence != static_cast<uint16_t>(lastControlSequence + 1U)) {
+    if (sessionId == 0 || frame.sessionId != sessionId) {
         sendError(0x0004, "data_sequence_or_session_invalid");
         return;
     }
-    lastControlSequence = frame.sequence;
+    const bool newSequence =
+        frame.sequence == static_cast<uint16_t>(lastControlSequence + 1U);
+    const bool retrySequence =
+        frame.type == WfsProtocol::MessageType::Data &&
+        frame.sequence == lastControlSequence;
+    if (!newSequence && !retrySequence) {
+        sendError(0x0004, "data_sequence_or_session_invalid");
+        return;
+    }
+    if (newSequence) lastControlSequence = frame.sequence;
     if (frame.type != WfsProtocol::MessageType::Data || frame.payloadLength <= 8) {
         sendError(0x0022, "data_frame_invalid");
         return;
@@ -435,11 +444,14 @@ bool beginWfsGatt(BLEServer* server) {
     dataTx->setValue("WFS1_DATA_READY");
     wfsService->start();
 
-    Serial.println("[WFS] Protocol v1 GATT service started (transfer disabled until installer is ready).");
+    Serial.println("[WFS] Protocol v1 GATT service started.");
     return true;
 }
 
 void serviceWfsBle() {
+    if (__atomic_exchange_n(&transferAbortPending, false, __ATOMIC_RELAXED)) {
+        TransferManager::abortSession();
+    }
     const uint32_t dropped = __atomic_exchange_n(&queueDrops, 0, __ATOMIC_RELAXED);
     if (dropped) Serial.printf("[WFS] RX queue dropped %lu frame(s).\n", static_cast<unsigned long>(dropped));
 
@@ -454,6 +466,7 @@ void serviceWfsBle() {
 }
 
 void resetWfsSession() {
+    transferAbortPending = true;
     sessionId = 0;
     txSequence = 0;
     lastControlSequence = 0;
@@ -463,6 +476,8 @@ void resetWfsSession() {
 
 void shutdownWfsGatt() {
     resetWfsSession();
+    // This function runs from the application loop, not a BLE callback.
+    TransferManager::abortSession();
     wfsService = nullptr;
     controlTx = nullptr;
     dataTx = nullptr;
