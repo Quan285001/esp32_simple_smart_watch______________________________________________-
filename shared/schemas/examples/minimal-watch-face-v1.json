@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "designId": "sample-minimal-digital",
+  "name": "Minimal Digital",
+  "deviceProfileId": "esp32-c3-gc9a01-240",
+  "canvas": {
+    "width": 240,
+    "height": 240,
+    "shape": "circle",
+    "backgroundColor": "#080B10",
+    "clipToShape": true,
+    "safeArea": {
+      "top": 12,
+      "right": 12,
+      "bottom": 12,
+      "left": 12
+    }
+  },
+  "objects": [
+    {
+      "id": "background",
+      "type": "background",
+      "name": "Background",
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "width": 240,
+        "height": 240,
+        "zIndex": 0
+      },
+      "style": {
+        "fill": "#080B10"
+      }
+    },
+    {
+      "id": "time",
+      "type": "digital-clock",
+      "name": "Digital Time",
+      "transform": {
+        "x": 35,
+        "y": 82,
+        "width": 170,
+        "height": 60,
+        "zIndex": 10
+      },
+      "dataBinding": {
+        "source": "time",
+        "format": "HH:mm",
+        "timezone": "Asia/Ho_Chi_Minh"
+      },
+      "timeFormat": "24h",
+      "showSeconds": false,
+      "showAmPm": false,
+      "textStyle": {
+        "fontSize": 40,
+        "fontWeight": 700,
+        "fill": "#FFFFFF"
+      },
+      "glyphOverrides": [],
+      "glyphFallback": "compatibility-error"
+    }
+  ]
+}
