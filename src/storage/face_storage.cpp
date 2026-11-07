@@ -26,12 +26,16 @@ bool begin() {
         return true;
     }
 
-    // Recover to the other slot if the stored pointer references a missing file.
-    const uint8_t fallback = stored == 0 ? 1 : 0;
-    if (StorageManager::exists(slotPath(fallback))) {
-        currentActiveSlot = fallback;
-        Serial.printf("[FACE_STORAGE] Active pointer missing; selected fallback slot %u.\n", fallback);
-        return true;
+    // Recover only if a committed pointer existed but its selected file is
+    // missing. An unset pointer means no package was committed; never promote
+    // an inactive slot that may contain a partial transfer after power loss.
+    if (stored <= 1) {
+        const uint8_t fallback = stored == 0 ? 1 : 0;
+        if (StorageManager::exists(slotPath(fallback))) {
+            currentActiveSlot = fallback;
+            Serial.printf("[FACE_STORAGE] Active pointer target missing; selected fallback slot %u.\\n", fallback);
+            return true;
+        }
     }
 
     currentActiveSlot = INVALID_SLOT;
