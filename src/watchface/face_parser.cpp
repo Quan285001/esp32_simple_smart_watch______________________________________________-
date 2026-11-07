@@ -92,6 +92,21 @@ bool hasNonEmptyString(JsonVariantConst value) {
     return text != nullptr && text[0] != '\\0';
 }
 
+bool hasOnlyKeys(JsonObjectConst object, const char* const* allowedKeys, size_t allowedCount) {
+    for (JsonPairConst pair : object) {
+        const char* key = pair.key().c_str();
+        bool found = false;
+        for (size_t i = 0; i < allowedCount; ++i) {
+            if (strcmp(key, allowedKeys[i]) == 0) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
 bool numberDiffersFrom(JsonObjectConst object, const char* key, float expected) {
     if (!object.containsKey(key)) return false;
     const JsonVariantConst value = object[key];
@@ -101,6 +116,58 @@ bool numberDiffersFrom(JsonObjectConst object, const char* key, float expected) 
 }
 
 bool hasUnsupportedObjectProperties(JsonObjectConst source) {
+    static const char* const objectKeys[] = {
+        "id", "type", "name", "visible", "locked", "transform", "style",
+        "assetId", "shape", "dataBinding", "clockMode", "timeFormat",
+        "showSeconds", "showAmPm", "handConfig", "text", "textStyle",
+        "glyphOverrides", "glyphAtlasAssetId", "glyphFallback",
+        "weatherFields", "children", "renderHints"
+    };
+    if (!hasOnlyKeys(source, objectKeys, sizeof(objectKeys) / sizeof(objectKeys[0]))) return true;
+
+    static const char* const transformKeys[] = {
+        "x", "y", "width", "height", "rotation", "opacity", "anchor", "zIndex"
+    };
+    static const char* const styleKeys[] = {
+        "fill", "stroke", "strokeWidth", "backgroundColor", "cornerRadius"
+    };
+    static const char* const textStyleKeys[] = {
+        "fontId", "fontFamily", "textAlign", "fontWeight", "fontSize",
+        "width", "height", "scaleX", "scaleY", "fill", "stroke",
+        "strokeWidth", "backgroundColor", "backgroundShape", "backgroundRadius",
+        "opacity", "rotation", "letterSpacing", "visible", "zIndex"
+    };
+    static const char* const bindingKeys[] = {
+        "source", "format", "timezone", "fallbackText", "visibleWhenMissing"
+    };
+    static const char* const handConfigKeys[] = {"hour", "minute", "second"};
+    static const char* const renderHintKeys[] = {
+        "preferredUpdateMs", "staticLayer", "requiresAntialias", "requiresBitmap"
+    };
+
+    JsonObjectConst transformObject = source["transform"].as<JsonObjectConst>();
+    JsonObjectConst styleObject = source["style"].as<JsonObjectConst>();
+    JsonObjectConst textStyleObject = source["textStyle"].as<JsonObjectConst>();
+    JsonObjectConst bindingObject = source["dataBinding"].as<JsonObjectConst>();
+    JsonObjectConst handConfigObject = source["handConfig"].as<JsonObjectConst>();
+    JsonObjectConst renderHintsObject = source["renderHints"].as<JsonObjectConst>();
+    if ((!transformObject.isNull() &&
+         !hasOnlyKeys(transformObject, transformKeys, sizeof(transformKeys) / sizeof(transformKeys[0]))) ||
+        (!styleObject.isNull() &&
+         !hasOnlyKeys(styleObject, styleKeys, sizeof(styleKeys) / sizeof(styleKeys[0]))) ||
+        (!textStyleObject.isNull() &&
+         !hasOnlyKeys(textStyleObject, textStyleKeys, sizeof(textStyleKeys) / sizeof(textStyleKeys[0]))) ||
+        (!bindingObject.isNull() &&
+         !hasOnlyKeys(bindingObject, bindingKeys, sizeof(bindingKeys) / sizeof(bindingKeys[0]))) ||
+        (!handConfigObject.isNull() &&
+         !hasOnlyKeys(handConfigObject, handConfigKeys, sizeof(handConfigKeys) / sizeof(handConfigKeys[0]))) ||
+        (!renderHintsObject.isNull() &&
+         !hasOnlyKeys(renderHintsObject, renderHintKeys, sizeof(renderHintKeys) / sizeof(renderHintKeys[0])))) {
+        return true;
+    }
+
+    JsonArrayConst children = source["children"].as<JsonArrayConst>();
+    if (source.containsKey("children") && (children.isNull() || children.size() > 0)) return true;
     JsonObjectConst transform = source["transform"].as<JsonObjectConst>();
     if (!transform.isNull() && transform.containsKey("anchor")) {
         const char* anchor = transform["anchor"] | "";
@@ -362,6 +429,15 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
     );
     if (error) return {FaceParseError::InvalidJson, 0};
 
+    static const char* const rootKeys[] = {
+        "schemaVersion", "designId", "name", "description", "deviceProfileId",
+        "createdAt", "updatedAt", "canvas", "metadata", "objects"
+    };
+    JsonObjectConst root = document.as<JsonObjectConst>();
+    if (!hasOnlyKeys(root, rootKeys, sizeof(rootKeys) / sizeof(rootKeys[0]))) {
+        return {FaceParseError::UnsupportedProperty, 0};
+    }
+
     if ((document["schemaVersion"] | 0) != 1) return {FaceParseError::UnsupportedSchema, 0};
     output.schemaVersion = 1;
     if (!copyString(document["designId"], output.designId, sizeof(output.designId), true) ||
@@ -372,6 +448,20 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
 
     JsonObjectConst canvas = document["canvas"].as<JsonObjectConst>();
     if (canvas.isNull()) return {FaceParseError::MissingField, 0};
+    static const char* const canvasKeys[] = {
+        "width", "height", "shape", "backgroundColor", "clipToShape", "safeArea"
+    };
+    if (!hasOnlyKeys(canvas, canvasKeys, sizeof(canvasKeys) / sizeof(canvasKeys[0]))) {
+        return {FaceParseError::UnsupportedProperty, 0};
+    }
+    if (canvas.containsKey("safeArea")) {
+        JsonObjectConst safeArea = canvas["safeArea"].as<JsonObjectConst>();
+        static const char* const safeAreaKeys[] = {"top", "right", "bottom", "left"};
+        if (safeArea.isNull() ||
+            !hasOnlyKeys(safeArea, safeAreaKeys, sizeof(safeAreaKeys) / sizeof(safeAreaKeys[0]))) {
+            return {FaceParseError::InvalidField, 0};
+        }
+    }
     if (canvas.containsKey("shape") && !canvas["shape"].is<const char*>()) {
         return {FaceParseError::InvalidField, 0};
     }
