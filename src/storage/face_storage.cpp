@@ -60,7 +60,7 @@ const char* slotPath(uint8_t slot) {
 size_t slotSize(uint8_t slot) {
     const char* path = slotPath(slot);
     if (path == nullptr || !StorageManager::exists(path)) return 0;
-    File file = StorageManager::open(path, "r");
+    fs::File file = StorageManager::open(path, "r");
     if (!file) return 0;
     const size_t size = file.size();
     file.close();
@@ -73,9 +73,9 @@ bool removeSlot(uint8_t slot) {
     return path != nullptr && (!StorageManager::exists(path) || StorageManager::remove(path));
 }
 
-File openSlot(uint8_t slot, const char* mode) {
+fs::File openSlot(uint8_t slot, const char* mode) {
     const char* path = slotPath(slot);
-    if (path == nullptr || mode == nullptr) return File();
+    if (path == nullptr || mode == nullptr) return fs::File();
     return StorageManager::open(path, mode);
 }
 
