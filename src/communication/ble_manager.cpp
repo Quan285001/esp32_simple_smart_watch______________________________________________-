@@ -27,6 +27,8 @@
 #include "command_handler.h"
 #include <stdlib.h>
 
+extern uint8_t getAutoSleepTimeoutSeconds();
+
 namespace {
 constexpr size_t PACKET_CAPACITY = WfsProtocol::MAX_DATA_FRAME_BYTES;
 constexpr UBaseType_t QUEUE_DEPTH = 4;
@@ -45,7 +47,6 @@ uint32_t sessionId = 0;
 uint16_t txSequence = 0;
 uint16_t lastControlSequence = 0;
 uint32_t queueDrops = 0;
-extern uint8_t getAutoSleepTimeoutSeconds();
 
 class WfsWriteCallbacks final : public BLECharacteristicCallbacks {
 public:
