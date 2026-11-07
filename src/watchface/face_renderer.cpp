@@ -26,8 +26,8 @@ void sortObjectIndices(const FaceModel& face, uint8_t* indices) {
     }
 }
 
-uint8_t textScale(uint16_t fontSize) {
-    uint16_t scale = static_cast<uint16_t>((fontSize + 4U) / 8U);
+uint8_t textScale(float fontSize) {
+    int scale = static_cast<int>(lroundf(fontSize / 8.0f));
     if (scale < 1) scale = 1;
     if (scale > 8) scale = 8;
     return static_cast<uint8_t>(scale);
@@ -56,7 +56,11 @@ FaceRenderStatus preflight(const FaceModel& face) {
     for (uint8_t i = 0; i < face.objectCount; ++i) {
         const FaceObject& object = face.objects[i];
         if (object.transform.rotation != 0.0f || object.transform.opacity < 0.999f ||
-            object.letterSpacing != 0 || (object.fontWeight != 400 && object.fontWeight != 600)) {
+            object.letterSpacing != 0 || (object.fontWeight != 400 && object.fontWeight != 600) ||
+            !isfinite(object.fontSize) || object.fontSize <= 0.0f || object.fontSize > 256.0f ||
+            !isfinite(object.glyphScaleX) || !isfinite(object.glyphScaleY) ||
+            object.glyphScaleX < 0.1f || object.glyphScaleX > 8.0f ||
+            object.glyphScaleY < 0.1f || object.glyphScaleY > 8.0f) {
             return FaceRenderStatus::UnsupportedTransform;
         }
         if (object.type == FaceElementType::Image) {
@@ -87,20 +91,88 @@ void drawTextInBounds(const char* text, const FaceObject& object, uint16_t color
     const int y = static_cast<int>(lroundf(object.transform.y));
     const int width = static_cast<int>(lroundf(object.transform.width));
     const int height = static_cast<int>(lroundf(object.transform.height));
-    const uint8_t scale = textScale(object.fontSize);
-    const int charWidth = 6 * scale + object.letterSpacing;
-    const int textWidth = static_cast<int>(strlen(text)) * charWidth;
-    int drawX = x;
-    if (object.textAlign == FaceTextAlign::Center) drawX += (width - textWidth) / 2;
-    else if (object.textAlign == FaceTextAlign::Right) drawX += width - textWidth;
-    const int drawY = y + (height - (8 * scale)) / 2;
+    if (width <= 0 || height <= 0) return;
 
-    tft.setTextSize(scale);
-    tft.setTextColor(color);
-    tft.setTextDatum(TL_DATUM);
-    tft.drawString(text, drawX, drawY, 1);
-    if (object.fontWeight >= 600) tft.drawString(text, drawX + 1, drawY, 1);
-    tft.setTextSize(1);
+    const float scaleX = (object.fontSize / 8.0f) * object.glyphScaleX;
+    const float scaleY = (object.fontSize / 8.0f) * object.glyphScaleY;
+    const float advance = 6.0f * scaleX + object.letterSpacing;
+    const float textWidth = strlen(text) * advance - object.letterSpacing;
+    float cursorX = static_cast<float>(x);
+    if (object.textAlign == FaceTextAlign::Center) cursorX += (width - textWidth) * 0.5f;
+    else if (object.textAlign == FaceTextAlign::Right) cursorX += width - textWidth;
+    const float drawY = y + (height - 8.0f * scaleY) * 0.5f;
+
+    // A 6x8 scratch glyph keeps the working buffer below 100 bytes. Each glyph
+    // is rasterized once, then scaled independently in X and Y into the TFT.
+    static TFT_eSprite glyphScratch(&tft);
+    static bool glyphScratchReady = false;
+    if (!glyphScratchReady) {
+        glyphScratch.setColorDepth(16);
+        glyphScratchReady = glyphScratch.createSprite(6, 8) != nullptr;
+        if (glyphScratchReady) {
+            glyphScratch.setTextSize(1);
+            glyphScratch.setTextColor(TFT_WHITE, TFT_BLACK);
+            glyphScratch.setTextDatum(TL_DATUM);
+        }
+    }
+
+    if (!glyphScratchReady) {
+        // Low-memory fallback: retain legible text rather than dropping it.
+        const uint8_t fallbackScale = textScale(object.fontSize);
+        tft.setTextSize(fallbackScale);
+        tft.setTextColor(color);
+        tft.setTextDatum(TL_DATUM);
+        tft.drawString(text, x, y + (height - 8 * fallbackScale) / 2, 1);
+        tft.setTextSize(1);
+        return;
+    }
+
+    const uint16_t* glyphPixels = static_cast<const uint16_t*>(glyphScratch.getPointer());
+    if (glyphPixels == nullptr) return;
+    const int clipLeft = x;
+    const int clipTop = y;
+    const int clipRight = x + width;
+    const int clipBottom = y + height;
+
+    tft.startWrite();
+    for (const unsigned char* character = reinterpret_cast<const unsigned char*>(text);
+         *character != 0; ++character) {
+        glyphScratch.fillSprite(TFT_BLACK);
+        glyphScratch.drawChar(static_cast<uint16_t>(*character), 0, 0, 1);
+
+        for (int row = 0; row < 8; ++row) {
+            int runStart = -1;
+            for (int column = 0; column <= 6; ++column) {
+                const bool pixelOn = column < 6 &&
+                    glyphPixels[row * 6 + column] != TFT_BLACK;
+                if (pixelOn && runStart < 0) {
+                    runStart = column;
+                } else if (!pixelOn && runStart >= 0) {
+                    int left = static_cast<int>(floorf(cursorX + runStart * scaleX));
+                    int right = static_cast<int>(ceilf(cursorX + column * scaleX));
+                    int top = static_cast<int>(floorf(drawY + row * scaleY));
+                    int bottom = static_cast<int>(ceilf(drawY + (row + 1) * scaleY));
+                    if (left < clipLeft) left = clipLeft;
+                    if (right > clipRight) right = clipRight;
+                    if (top < clipTop) top = clipTop;
+                    if (bottom > clipBottom) bottom = clipBottom;
+                    if (right > left && bottom > top) {
+                        tft.fillRect(left, top, right - left, bottom - top, color);
+                        if (object.fontWeight >= 600 && left + 1 < clipRight) {
+                            const int boldWidth = right - left;
+                            tft.fillRect(left + 1, top,
+                                         boldWidth > clipRight - left - 1
+                                             ? clipRight - left - 1 : boldWidth,
+                                         bottom - top, color);
+                        }
+                    }
+                    runStart = -1;
+                }
+            }
+        }
+        cursorX += advance;
+    }
+    tft.endWrite();
 }
 
 void formatTime(char* out, size_t capacity, const FaceObject& object,
