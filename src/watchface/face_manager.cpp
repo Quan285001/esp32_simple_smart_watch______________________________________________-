@@ -76,7 +76,8 @@ bool hasActiveFace() {
 
 bool setActiveModel(const FaceModel& model) {
     if (model.schemaVersion != 1 || model.objectCount > FACE_MAX_OBJECTS ||
-        model.canvasWidth != 240 || model.canvasHeight != 240) return false;
+        model.canvasWidth != 240 || model.canvasHeight != 240 ||
+        strcmp(model.deviceProfileId, "esp32-c3-gc9a01-240") != 0) return false;
     activeFace = model;
     activeFaceValid = true;
     return true;
