@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <sys/time.h>
 #include <string.h>
+#include <math.h>
 
 #include "../services/weather_service.h"
 
@@ -24,6 +25,17 @@ void setResult(Result& result, bool ok, uint16_t code, const char* message) {
     result.errorCode = code;
     if (message == nullptr) message = "";
     strncpy(result.message, message, sizeof(result.message) - 1);
+}
+
+bool validRequestId(const char* value) {
+    if (value == nullptr || value[0] == '\0') return true;
+    if (strlen(value) > 32) return false;
+    for (const char* p = value; *p; ++p) {
+        const char ch = *p;
+        if (!((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+              (ch >= '0' && ch <= '9') || ch == '_' || ch == '-' || ch == '.')) return false;
+    }
+    return true;
 }
 
 bool validText(const char* value, size_t maxLength, bool allowEmpty = false) {
@@ -64,6 +76,10 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
     }
 
     const char* requestId = request["requestId"] | "";
+    if (!validRequestId(requestId)) {
+        setResult(result, false, 0x0010, "invalid_request_id");
+        return false;
+    }
     if (requestId != nullptr && strlen(requestId) < sizeof(result.requestId)) {
         strncpy(result.requestId, requestId, sizeof(result.requestId) - 1);
     }
