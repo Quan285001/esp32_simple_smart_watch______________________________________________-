@@ -20,7 +20,7 @@ bool begin() {
 
     const uint8_t slot = FaceStorage::activeSlot();
     if (slot <= 1) {
-        File packageFile = FaceStorage::openSlot(slot, "r");
+        fs::File packageFile = FaceStorage::openSlot(slot, "r");
         PackageValidationError packageError = PackageValidationError::None;
         if (packageFile) {
             memset(&candidateFace, 0, sizeof(candidateFace));
@@ -38,7 +38,7 @@ bool begin() {
         Serial.printf("[FACE] Active package rejected: %s.\\n",
                       packageValidationErrorName(packageError));
         const uint8_t fallbackSlot = slot == 0 ? 1 : 0;
-        File fallbackFile = FaceStorage::openSlot(fallbackSlot, "r");
+        fs::File fallbackFile = FaceStorage::openSlot(fallbackSlot, "r");
         if (fallbackFile) {
             memset(&candidateFace, 0, sizeof(candidateFace));
             PackageValidationError fallbackError = PackageValidationError::None;
@@ -96,7 +96,7 @@ FaceParseResult loadJsonFile(const char* path) {
         return {FaceParseError::MissingField, 0};
     }
 
-    File file = StorageManager::open(path, "r");
+    fs::File file = StorageManager::open(path, "r");
     if (!file) return {FaceParseError::MissingField, 0};
     const size_t length = file.size();
     if (length == 0 || length > MAX_LAYOUT_FILE_BYTES) {
