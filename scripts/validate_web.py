@@ -27,7 +27,7 @@ for asset in parser.assets:
         continue
     if not (ROOT / asset).is_file():
         errors.append(f"Missing frontend asset: {asset}")
-required_ids = {"watchCanvas", "objectList", "inspector", "templateGrid", "libraryGrid", "connectBtn", "saveBtn", "exportBtn", "importBtn", "imageInput", "jsonInput", "designName", "bgColor", "toast", "legacyStatus", "syncTimeBtn", "syncWeatherBtn", "sleepWatchBtn", "scanWifiBtn", "saveWifiBtn", "saveAutoSleepBtn"}
+required_ids = {"watchCanvas", "objectList", "inspector", "templateGrid", "libraryGrid", "connectBtn", "saveBtn", "exportBtn", "importBtn", "imageInput", "jsonInput", "designName", "bgColor", "toast", "legacyStatus", "syncTimeBtn", "syncWeatherBtn", "sleepWatchBtn", "sendLocationBtn", "scanWifiBtn", "saveWifiBtn", "saveAutoSleepBtn"}
 missing = sorted(required_ids - parser.ids)
 if missing:
     errors.append("Missing required UI ids: " + ", ".join(missing))
