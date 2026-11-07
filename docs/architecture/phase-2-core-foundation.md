@@ -113,13 +113,3 @@ The final slot layout, package size ceiling and cleanup policy remain unimplemen
 3. Exercise the BLE handshake, reconnect and upload workflow against the physical ESP32-C3 from supported desktop/mobile browsers.
 4. Measure runtime heap minimum/largest block, task stack high-water marks, SPIFFS usable capacity and TLS peak on the target board.
 5. Complete repeated boot, clock, weather-cache, image, face-activation, idle, BLE connect/disconnect and Light Sleep wake regressions.
-## 7. Next mandatory phases
-
-1. Stabilize Phase 2 build and fix any compile/link regressions.
-2. Add host-side parser fixtures and malformed-input tests.
-3. Complete renderer property mapping and capability negotiation.
-4. Implement two-slot face storage with rollback.
-5. Freeze the package container and protocol UUIDs/frames.
-6. Implement BLE handshake and status before bulk transfer.
-7. Implement transfer and then the Web package builder/Upload action.
-8. Complete end-to-end and physical reliability tests.
