@@ -1,6 +1,6 @@
 # Watch Face Package Format — WFS1 / .wface
 
-**Status:** selected v1 container design; firmware parser and Web exporter are still under implementation.  
+**Status:** WFS1 container, firmware validator/transfer path and Web package builder exist in source. Current-branch build and physical end-to-end transfer are not yet verified. See `docs/architecture/phase-0-audit-6afd283.md` for current limitations.  
 **Target:** ESP32-C3, GC9A01 240×240, SPIFFS staging storage.
 
 ## 1. Decision
