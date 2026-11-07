@@ -17,6 +17,10 @@
 #include "../storage/storage_manager.h"
 #include "../storage/face_storage.h"
 #include "../watchface/face_model.h"
+#include "../app/app_state.h"
+#include "../services/weather_service.h"
+#include "../services/ble_service.h"
+#include <WiFi.h>
 #include "../watchface/face_manager.h"
 #include "transfer_manager.h"
 #include "command_handler.h"
@@ -40,6 +44,7 @@ uint32_t sessionId = 0;
 uint16_t txSequence = 0;
 uint16_t lastControlSequence = 0;
 uint32_t queueDrops = 0;
+extern uint8_t getAutoSleepTimeoutSeconds();
 
 class WfsWriteCallbacks final : public BLECharacteristicCallbacks {
 public:
@@ -137,6 +142,29 @@ void sendHelloAck() {
     }
 }
 
+void sendDeviceStatus() {
+    const WeatherData weather = getWeatherSnapshot();
+    char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
+    const int length = snprintf(payload, sizeof(payload),
+        "{\\"wifiEnabled\\":%s,\\"wifiConnected\\":%s,\\"bleConnected\\":%s,"
+        "\\"weatherValid\\":%s,\\"temperature\\":%d,\\"screen\\":%u,"
+        "\\"autoSleepSeconds\\":%u,\\"heapFree\\":%lu}",
+        wifiEnabled ? "true" : "false",
+        WiFi.status() == WL_CONNECTED ? "true" : "false",
+        isBLEConnected() ? "true" : "false",
+        weather.valid ? "true" : "false",
+        weather.currentTemp,
+        static_cast<unsigned int>(currentScreen),
+        static_cast<unsigned int>(getAutoSleepTimeoutSeconds()),
+        static_cast<unsigned long>(ESP.getFreeHeap()));
+    if (length > 0 && static_cast<size_t>(length) < sizeof(payload)) {
+        sendFrame(controlTx, WfsProtocol::MessageType::Status,
+                  reinterpret_cast<const uint8_t*>(payload), static_cast<uint16_t>(length));
+    } else {
+        sendError(0x0002, "status_payload_too_large");
+    }
+}
+
 void sendCapabilities() {
     const size_t inactiveBytes = FaceStorage::slotSize(FaceStorage::inactiveSlot());
     const size_t stageCapacity = StorageManager::freeBytes() + inactiveBytes;
@@ -203,6 +231,9 @@ void handleControlPacket(const WfsPacket& packet) {
     switch (frame.type) {
         case WfsProtocol::MessageType::GetCapabilities:
             sendCapabilities();
+            break;
+        case WfsProtocol::MessageType::GetStatus:
+            sendDeviceStatus();
             break;
         case WfsProtocol::MessageType::Command: {
             CommandHandler::Result result{};
