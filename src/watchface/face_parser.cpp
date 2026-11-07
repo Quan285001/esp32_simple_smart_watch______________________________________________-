@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 namespace {
@@ -89,13 +90,20 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
         target.transform.rotation < -3600.0f || target.transform.rotation > 3600.0f ||
         target.transform.opacity < 0.0f || target.transform.opacity > 1.0f) return false;
 
-    target.transform.zIndex = transform["zIndex"] | 0;
+    const int32_t zIndex = transform["zIndex"] | 0;
+    if (zIndex < -32768 || zIndex > 32767) return false;
+    target.transform.zIndex = static_cast<int16_t>(zIndex);
 
     JsonObjectConst textStyle = source["textStyle"].as<JsonObjectConst>();
     target.fontSize = textStyle["fontSize"] | 16;
     target.fontWeight = textStyle["fontWeight"] | 400;
-    target.letterSpacing = static_cast<int8_t>(textStyle["letterSpacing"] | 0);
-    if (target.fontSize == 0 || target.fontSize > 256) return false;
+    target.letterSpacing = textStyle["letterSpacing"] | 0;
+    if (target.fontSize == 0 || target.fontSize > 256 ||
+        !(target.fontWeight == 300 || target.fontWeight == 400 ||
+          target.fontWeight == 500 || target.fontWeight == 600 ||
+          target.fontWeight == 700 || target.fontWeight == 800 ||
+          target.fontWeight == 900) ||
+        target.letterSpacing < -64 || target.letterSpacing > 128) return false;
     if (!copyString(textStyle["fontFamily"], target.fontFamily, sizeof(target.fontFamily), false) ||
         !readColor(textStyle["fill"], target.textColor, 0xFFFF)) return false;
 
@@ -116,7 +124,9 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     JsonObjectConst style = source["style"].as<JsonObjectConst>();
     if (!readColor(style["fill"], target.fillColor, 0xFFFF) ||
         !readColor(style["stroke"], target.strokeColor, 0x0000)) return false;
-    target.strokeWidth = style["strokeWidth"] | 0;
+    const float strokeWidth = style["strokeWidth"] | 0.0f;
+    if (!isfinite(strokeWidth) || strokeWidth < 0.0f || strokeWidth > 64.0f) return false;
+    target.strokeWidth = static_cast<uint8_t>(strokeWidth);
 
     const char* shape = source["shape"] | "rect";
     if (strcmp(shape, "circle") == 0) target.shapeKind = 1;
