@@ -75,7 +75,8 @@ FrameError decodeFrame(const uint8_t* bytes, size_t length,
     if (!isKnownMessage(bytes[4])) return FrameError::UnknownMessage;
     if (bytes[5] != 0) return FrameError::InvalidFlags;
 
-    const uint16_t payloadLength = readU16(bytes + 10);
+    // WFS v1 layout: sessionId occupies bytes 8..11; payloadLength is 12..13.
+    const uint16_t payloadLength = readU16(bytes + 12);
     if (length != FRAME_HEADER_SIZE + payloadLength) return FrameError::InvalidLength;
 
     const uint16_t expectedCrc = readU16(bytes + 14);
@@ -111,7 +112,7 @@ bool encodeFrame(MessageType type, uint16_t sequence, uint32_t sessionId,
     output[5] = 0;
     writeU16(output + 6, sequence);
     writeU32(output + 8, sessionId);
-    writeU16(output + 10, payloadLength);
+    writeU16(output + 12, payloadLength);
     writeU16(output + 14, crc16CcittFalse(output, 14));
     if (payloadLength) memcpy(output + FRAME_HEADER_SIZE, payload, payloadLength);
     outputLength = required;
