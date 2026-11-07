@@ -213,6 +213,13 @@
           "type": "string",
           "maxLength": 64
         },
+        "fontFamily": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "textAlign": {
+          "enum": ["left", "center", "right"]
+        },
         "fontWeight": {
           "enum": [
             300,
