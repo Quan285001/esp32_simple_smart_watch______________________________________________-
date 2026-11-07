@@ -86,18 +86,19 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
             setResult(result, false, 0x0010, "invalid_unix_epoch");
             return false;
         }
+        const char* timezone = request["timezone"] | "";
+        const long utcOffset = request["utcOffsetSeconds"] | LONG_MIN;
+        if ((timezone[0] != '\0' || utcOffset != LONG_MIN) &&
+            (timezone[0] == '\0' || utcOffset < -43200L || utcOffset > 50400L)) {
+            setResult(result, false, 0x0010, "invalid_timezone");
+            return false;
+        }
         timeval tv = {static_cast<time_t>(epoch), 0};
         if (settimeofday(&tv, nullptr) != 0) {
             setResult(result, false, 0x0010, "time_update_failed");
             return false;
         }
-        const char* timezone = request["timezone"] | "";
-        const long utcOffset = request["utcOffsetSeconds"] | LONG_MIN;
-        if (timezone[0] != '\0' || utcOffset != LONG_MIN) {
-            if (timezone[0] == '\0' || utcOffset < -43200L || utcOffset > 50400L) {
-                setResult(result, false, 0x0010, "invalid_timezone");
-                return false;
-            }
+        if (timezone[0] != '\0') {
             applyTimezoneFromWeather(String(timezone), utcOffset);
         }
         setResult(result, true, 0, "time_updated");
