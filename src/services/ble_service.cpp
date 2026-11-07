@@ -35,12 +35,12 @@ class ServerCallbacks final : public BLEServerCallbacks {
      */
     void onConnect(BLEServer *) override {
         clientConnected = true;
-        resetWfsSession();
+        requestWfsSessionReset();
     }
 
     void onDisconnect(BLEServer *) override {
         clientConnected = false;
-        resetWfsSession();
+        requestWfsSessionReset();
 
         // BLE callbacks run in the host task. Defer advertising API calls
         // to serviceBLE(), which executes in the application loop.
