@@ -22,12 +22,17 @@ extern uint8_t getAutoSleepTimeoutSeconds();
 extern bool setFaceStudioConfig(uint16_t background, uint16_t dial, uint16_t hand,
                                 uint16_t accent, uint8_t flags);
 extern bool setFaceStyleConfig(uint8_t styleId);
+extern uint8_t getFaceStyleConfig();
 
 /**
  * @brief Parses and executes one BLE command.
  * @param cmd Input or state used by this operation.
  */
 static void handleCommand(const String &cmd) {
+    if (cmd == "GET_FACE_STYLE") {
+        sendBLENotification(String("FACE_STYLE:") + String(getFaceStyleConfig()));
+        return;
+    }
     if (cmd.startsWith("STYLE:")) {
         const String value = cmd.substring(6);
         const int styleId = value.toInt();
