@@ -19,6 +19,7 @@
 #include "../watchface/face_model.h"
 #include "../watchface/face_manager.h"
 #include "transfer_manager.h"
+#include "command_handler.h"
 #include <stdlib.h>
 
 namespace {
@@ -203,6 +204,26 @@ void handleControlPacket(const WfsPacket& packet) {
         case WfsProtocol::MessageType::GetCapabilities:
             sendCapabilities();
             break;
+        case WfsProtocol::MessageType::Command: {
+            CommandHandler::Result result{};
+            CommandHandler::dispatch(frame.payload, frame.payloadLength, result);
+            char response[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
+            const int responseLength = snprintf(response, sizeof(response),
+                "{\"requestId\":\"%s\",\"ok\":%s,\"code\":%u,\"message\":\"%s\",\"value\":%ld}",
+                result.requestId, result.ok ? "true" : "false",
+                static_cast<unsigned int>(result.errorCode), result.message,
+                static_cast<long>(result.value));
+            if (responseLength > 0 && static_cast<size_t>(responseLength) < sizeof(response)) {
+                sendFrame(controlTx, WfsProtocol::MessageType::Response,
+                          reinterpret_cast<const uint8_t*>(response),
+                          static_cast<uint16_t>(responseLength));
+            }
+            if (result.requestSleep) {
+                delay(80);
+                CommandHandler::executeDeferred(result);
+            }
+            break;
+        }
         case WfsProtocol::MessageType::Ping:
             sendFrame(controlTx, WfsProtocol::MessageType::Pong, nullptr, 0);
             break;
