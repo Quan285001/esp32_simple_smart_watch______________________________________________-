@@ -31,18 +31,19 @@ extern uint8_t getAutoSleepTimeoutSeconds();
 
 namespace {
 constexpr size_t PACKET_CAPACITY = WfsProtocol::MAX_DATA_FRAME_BYTES;
-constexpr UBaseType_t QUEUE_DEPTH = 4;
+constexpr UBaseType_t QUEUE_DEPTH = 8;
+constexpr uint8_t MAX_PACKETS_PER_LOOP = 2;
 
 struct WfsPacket {
     uint16_t length;
+    uint8_t channel;
     uint8_t bytes[PACKET_CAPACITY];
 };
 
 BLEService* wfsService = nullptr;
 BLECharacteristic* controlTx = nullptr;
 BLECharacteristic* dataTx = nullptr;
-QueueHandle_t controlQueue = nullptr;
-QueueHandle_t dataQueue = nullptr;
+QueueHandle_t rxQueue = nullptr;
 uint32_t sessionId = 0;
 uint16_t txSequence = 0;
 uint16_t lastControlSequence = 0;
@@ -51,7 +52,8 @@ volatile bool transferAbortPending = false;
 
 class WfsWriteCallbacks final : public BLECharacteristicCallbacks {
 public:
-    explicit WfsWriteCallbacks(QueueHandle_t* target) : targetQueue(target) {}
+    explicit WfsWriteCallbacks(QueueHandle_t* target, uint8_t channel)
+        : targetQueue(target), channel_(channel) {}
 
     void onWrite(BLECharacteristic* characteristic) override {
         QueueHandle_t queue = targetQueue != nullptr ? *targetQueue : nullptr;
@@ -61,6 +63,7 @@ public:
 
         WfsPacket packet{};
         packet.length = static_cast<uint16_t>(value.size());
+        packet.channel = channel_;
         memcpy(packet.bytes, value.data(), value.size());
         if (xQueueSend(queue, &packet, 0) != pdTRUE) {
             __atomic_fetch_add(&queueDrops, 1, __ATOMIC_RELAXED);
@@ -69,6 +72,7 @@ public:
 
 private:
     QueueHandle_t* targetQueue;
+    uint8_t channel_;
 };
 
 bool sendFrame(BLECharacteristic* characteristic, WfsProtocol::MessageType type,
@@ -433,9 +437,8 @@ void handleDataPacket(const WfsPacket& packet) {
 
 bool beginWfsGatt(BLEServer* server) {
     if (server == nullptr) return false;
-    if (controlQueue == nullptr) controlQueue = xQueueCreate(QUEUE_DEPTH, sizeof(WfsPacket));
-    if (dataQueue == nullptr) dataQueue = xQueueCreate(QUEUE_DEPTH, sizeof(WfsPacket));
-    if (controlQueue == nullptr || dataQueue == nullptr) {
+    if (rxQueue == nullptr) rxQueue = xQueueCreate(QUEUE_DEPTH, sizeof(WfsPacket));
+    if (rxQueue == nullptr) {
         Serial.println("[WFS] Queue allocation failed.");
         return false;
     }
@@ -467,8 +470,8 @@ bool beginWfsGatt(BLEServer* server) {
     dataTx->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED);
     controlTx->addDescriptor(new BLE2902());
     dataTx->addDescriptor(new BLE2902());
-    controlRx->setCallbacks(new WfsWriteCallbacks(&controlQueue));
-    dataRx->setCallbacks(new WfsWriteCallbacks(&dataQueue));
+    controlRx->setCallbacks(new WfsWriteCallbacks(&rxQueue, 0));
+    dataRx->setCallbacks(new WfsWriteCallbacks(&rxQueue, 1));
     controlTx->setValue("WFS1_READY");
     dataTx->setValue("WFS1_DATA_READY");
     wfsService->start();
@@ -484,13 +487,13 @@ void serviceWfsBle() {
     const uint32_t dropped = __atomic_exchange_n(&queueDrops, 0, __ATOMIC_RELAXED);
     if (dropped) Serial.printf("[WFS] RX queue dropped %lu frame(s).\n", static_cast<unsigned long>(dropped));
 
-    if (controlQueue != nullptr) {
-        WfsPacket packet{};
-        if (xQueueReceive(controlQueue, &packet, 0) == pdTRUE) handleControlPacket(packet);
-    }
-    if (dataQueue != nullptr) {
-        WfsPacket packet{};
-        if (xQueueReceive(dataQueue, &packet, 0) == pdTRUE) handleDataPacket(packet);
+    if (rxQueue != nullptr) {
+        for (uint8_t processed = 0; processed < MAX_PACKETS_PER_LOOP; ++processed) {
+            WfsPacket packet{};
+            if (xQueueReceive(rxQueue, &packet, 0) != pdTRUE) break;
+            if (packet.channel == 1) handleDataPacket(packet);
+            else handleControlPacket(packet);
+        }
     }
 }
 
@@ -499,8 +502,7 @@ void resetWfsSession() {
     sessionId = 0;
     txSequence = 0;
     lastControlSequence = 0;
-    if (controlQueue != nullptr) xQueueReset(controlQueue);
-    if (dataQueue != nullptr) xQueueReset(dataQueue);
+    if (rxQueue != nullptr) xQueueReset(rxQueue);
 }
 
 void shutdownWfsGatt() {
@@ -510,12 +512,8 @@ void shutdownWfsGatt() {
     wfsService = nullptr;
     controlTx = nullptr;
     dataTx = nullptr;
-    if (controlQueue != nullptr) {
-        vQueueDelete(controlQueue);
-        controlQueue = nullptr;
-    }
-    if (dataQueue != nullptr) {
-        vQueueDelete(dataQueue);
-        dataQueue = nullptr;
+    if (rxQueue != nullptr) {
+        vQueueDelete(rxQueue);
+        rxQueue = nullptr;
     }
 }
