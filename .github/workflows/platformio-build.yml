@@ -25,6 +25,11 @@ jobs:
       - name: Install PlatformIO
         run: python -m pip install --upgrade platformio jsonschema
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Create temporary build-only Wi-Fi config
         run: |
           cat > src/secrets.h <<'EOF'
@@ -35,6 +40,12 @@ jobs:
 
       - name: Validate shared JSON schemas
         run: python scripts/validate_schemas.py
+
+      - name: Validate Web app assets
+        run: python scripts/validate_web.py
+
+      - name: Check Web app JavaScript syntax
+        run: node --check web/app.js
 
       - name: Build ESP32-C3 firmware
         run: pio run -e c3_clock
