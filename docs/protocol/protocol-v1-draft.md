@@ -1,6 +1,6 @@
 # Watch Face Studio Communication Protocol — WFS BLE v1
 
-**Status:** selected protocol contract; firmware GATT implementation and Web transport are still pending.  
+**Status:** WFS v1 GATT, Web transport and package-transfer paths now exist in source. They are not yet verified by a current PlatformIO build or physical browser-to-device test. The frame payload-length offset defect was corrected in commit 679f610; golden host coverage was added in commit 51590e7.  
 **Legacy compatibility:** the existing text service remains available during migration.
 
 ## 1. BLE services
@@ -31,18 +31,20 @@ The Web client must request both the legacy service UUID and the new WFS service
 
 All multi-byte integers are little-endian. Header size is 16 bytes.
 
-| Field | Bytes | Meaning |
-|---|---:|---|
-| Magic | 2 | 0x57 0x46 ("WF") |
-| Protocol major | 1 | 1 |
-| Protocol minor | 1 | 0 for initial implementation |
-| Message type | 1 | Enumerated below |
-| Flags | 1 | Must be zero in v1 |
-| Sequence | 2 | Per-direction monotonically increasing sequence |
-| Session ID | 4 | Nonzero session identifier |
-| Payload length | 2 | Exact payload length |
-| Header CRC16 | 2 | CRC-16/CCITT-FALSE over preceding 14 header bytes |
-| Payload | N | Message-specific bytes |
+| Offset | Size | Field | Meaning |
+|---:|---:|---|---|
+| 0 | 2 | Magic | 0x57 0x46 (\"WF\") |
+| 2 | 1 | Protocol major | 1 |
+| 3 | 1 | Protocol minor | 0 for initial implementation |
+| 4 | 1 | Message type | Enumerated below |
+| 5 | 1 | Flags | Must be zero in v1 |
+| 6 | 2 | Sequence | Per-direction monotonically increasing sequence |
+| 8 | 4 | Session ID | Nonzero session identifier |
+| 12 | 2 | Payload length | Exact payload length |
+| 14 | 2 | Header CRC16 | CRC-16/CCITT-FALSE over bytes 0–13 |
+| 16 | N | Payload | Message-specific bytes |
+
+**Implementation invariant:** session ID occupies bytes 8–11; payload length occupies bytes 12–13. Do not use offset 10 for payload length. The host golden fixture uses a JavaScript-compatible frame with session ID 0x12345678 and payload length 4.
 
 Reject invalid magic/version, unknown mandatory message types, nonzero reserved flags, oversized payloads, bad header CRC, truncated frames, wrong session IDs and invalid sequence transitions.
 
@@ -95,6 +97,7 @@ TRANSFER_BEGIN JSON fields are transferId, packageLength, payloadSha256 (hex SHA
 ## 4. Negotiated chunk size and reliability
 
 - Request an ATT MTU suitable for bulk transfer where the stack/platform allows it.
+- Current Web uploader uses stop-and-wait and waits for one ACK per chunk. Bounded retransmission of the same chunk after ACK timeout, idempotent duplicate handling, and reconnect recovery remain required work; they must not be considered implemented merely because the message IDs exist.
 - Device capabilities report the maximum complete framed write accepted by the active connection.
 - Maximum DATA payload = negotiated framed-write limit minus the 16-byte WFS frame header and the DATA message's fixed payload fields.
 - The Web client must use the reported chunk size; it must not assume a 20-byte or 244-byte payload.
