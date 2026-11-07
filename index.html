@@ -595,7 +595,7 @@ function faceDesignFromControls(){return {format:"WFACE-PROFILE",version:1,displ
 function faceApplyProject(project){
   faceProject=faceClone(project);
   faceProject.name=String(faceProject.name||"Untitled face").slice(0,32);
-  faceProject.style=["classic","minimal","digital","pilot","diver"].includes(faceProject.style)?faceProject.style:"classic";
+  faceProject.style=FACE_STYLE_BY_KEY[faceProject.style]?faceProject.style:"classic";
   faceProject.colors=faceProject.colors||{};
   const defaults={background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"};
   Object.keys(defaults).forEach(key=>{if(!/^#[0-9a-fA-F]{6}$/.test(faceProject.colors[key]||""))faceProject.colors[key]=defaults[key]});
@@ -650,10 +650,24 @@ function renderFacePreview(){
     }
   }
   const style=faceProject.style||"classic";
+  const styleMeta=FACE_STYLE_BY_KEY[style]||FACE_STYLE_BY_KEY.classic;
   const now=new Date();
   const liveTime=now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
   faceCtx.strokeStyle=colors.accent;faceCtx.fillStyle=colors.accent;faceCtx.textAlign="center";faceCtx.textBaseline="middle";
-  if(style==="minimal"){
+  if(styleMeta.family==="Digital"){
+    const time=faceProject.showSeconds?liveTime:liveTime.slice(0,5);
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 11px Arial";faceCtx.fillText(style==="digitalLed"?"MATRIX CLOCK":"LOCAL TIME",120,78);
+    faceCtx.fillStyle=colors.hand;faceCtx.font=style==="digitalBold"?"bold 42px Arial":style==="digitalMono"||style==="digitalLed"?"bold 25px monospace":style==="digitalFlip"?"bold 36px Georgia":"bold 32px monospace";
+    if(style==="digitalStack"||style==="digitalRetro"||style==="digitalFlip"){faceCtx.fillText(time.slice(0,5),120,116);if(faceProject.showSeconds){faceCtx.font="bold 16px monospace";faceCtx.fillStyle=colors.accent;faceCtx.fillText(time.slice(6,8),120,148)}}else faceCtx.fillText(time,120,122);
+    if(faceProject.showDate){faceCtx.font="10px Arial";faceCtx.fillStyle=colors.accent;faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,166)}
+  }else if(styleMeta.family==="Typography"){
+    const words=["TWELVE","ONE","TWO","THREE","FOUR","FIVE","SIX","SEVEN","EIGHT","NINE","TEN","ELEVEN"];
+    const hour=words[now.getHours()%12],minute=Math.round(now.getMinutes()/5)*5;
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 11px Arial";faceCtx.fillText(style==="editorial"?"LOCAL TIME":"THE TIME IS",120,76);
+    faceCtx.fillStyle=colors.hand;faceCtx.font=style==="largeNumbers"?"bold 31px Georgia":"bold 25px Georgia";faceCtx.fillText(hour,120,112);
+    faceCtx.fillStyle=colors.accent;faceCtx.font="bold 16px Arial";faceCtx.fillText(minute===0?"O'CLOCK":String(minute).padStart(2,"0")+" MINUTES",120,145);
+    if(faceProject.showDate){faceCtx.font="10px Arial";faceCtx.fillText(now.toLocaleDateString("en",{weekday:"short",day:"2-digit",month:"short"}).toUpperCase(),120,174)}
+  }else if(style==="minimal"){
     faceCtx.lineWidth=2;
     for(let i=0;i<12;i++){const a=i*Math.PI/6-Math.PI/2;faceCtx.beginPath();faceCtx.arc(120+Math.cos(a)*103,120+Math.sin(a)*103, i%3===0?2.4:1.3,0,Math.PI*2);faceCtx.fill()}
   }else if(style==="roman"){
@@ -941,22 +955,21 @@ async function applyFaceToWatch(){
   const command="FS:"+[colors.background,colors.dial,colors.hand,colors.accent].map(hex=>hex4(faceHexToRgb565(hex))).join("")+flags.toString();
   button.disabled=true;status.textContent="Sending supported face settings...";
   const ok=await sendBLECommand(command);
-  if(!ok){status.textContent="Transfer failed · check Bluetooth";button.disabled=false;return}
-  status.textContent="Profile sent · waiting for firmware confirmation...";
+  if(!ok){status.textContent="Color profile transfer failed";button.disabled=false;return}
+  const selected=FACE_STYLE_BY_KEY[faceProject.style]||FACE_STYLE_BY_KEY.classic;
+  const styleSent=await sendBLECommand("STYLE:"+selected.id);
+  if(!styleSent){status.textContent="Colors sent, but style command failed";button.disabled=false;return}
+  status.textContent="Sending "+selected.name+" renderer to ESP32...";
   window.setTimeout(()=>{button.disabled=false},2500);
 }
 function chooseFaceStyle(style){
-  const allowed=["classic","minimal","pilot","diver","roman","digital","digitalStack","digitalMono","words"];
-  if(!allowed.includes(style))return;
+  if(!FACE_STYLE_BY_KEY[style])return;
   facePushUndo();faceProject.style=style;
   const select=document.getElementById("faceStyleSelect");if(select)select.value=style;
   renderFacePreview();renderFaceStyleSelection();faceMarkChanged();
 }
 function renderFaceStyleSelection(){
-  document.querySelectorAll(".fs-style-card").forEach(card=>{
-    const match=card.getAttribute("onclick")?.match(/chooseFaceStyle\('([^']+)'\)/);
-    card.classList.toggle("selected",!!match&&match[1]===(faceProject.style||"classic"));
-  });
+  document.querySelectorAll(".fs-style-card").forEach(card=>card.classList.toggle("selected",card.dataset.style===(faceProject.style||"classic")));
 }
 
 function closeFaceCategory(){
@@ -1124,6 +1137,8 @@ function handleNotifications(event){
     document.getElementById("faceApplyBtn").disabled=false;
     return;
   }
+  if(chunk.startsWith("STYLE_OK:")){const id=Number(chunk.substring(9)),style=FACE_STYLES.find(item=>item.id===id);document.getElementById("faceStudioStatus").textContent=(style?style.name:"Clock style")+" renderer applied and saved on ESP32-C3";document.getElementById("faceApplyBtn").disabled=false;return}
+  if(chunk==="ERR_STYLE"){document.getElementById("faceStudioStatus").textContent="ESP32 rejected this clock style";document.getElementById("faceApplyBtn").disabled=false;return}
   if(chunk==="ERR_FACE"){
     document.getElementById("faceStudioStatus").textContent="Firmware rejected the base profile · check compatibility";
     document.getElementById("faceApplyBtn").disabled=false;
