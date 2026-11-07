@@ -8,7 +8,7 @@ namespace WfsProtocol {
 constexpr uint8_t PROTOCOL_MAJOR = 1;
 constexpr uint8_t PROTOCOL_MINOR = 0;
 constexpr size_t FRAME_HEADER_SIZE = 16;
-constexpr size_t MAX_CONTROL_PAYLOAD = 512;
+constexpr size_t MAX_CONTROL_PAYLOAD = 220;
 constexpr size_t MAX_DATA_FRAME_BYTES = 240;
 
 constexpr char SERVICE_UUID[] = "f2c6b100-2f3a-4c1b-9d70-8e4a5c6b7100";
