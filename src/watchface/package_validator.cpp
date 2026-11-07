@@ -1,0 +1,319 @@
+#include "package_validator.h"
+
+#include <ArduinoJson.h>
+#include <mbedtls/sha256.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "face_parser.h"
+
+namespace {
+constexpr size_t WFS_HEADER_SIZE = 64;
+constexpr size_t MAX_MANIFEST_BYTES = 8192;
+constexpr size_t MAX_LAYOUT_BYTES = 16384;
+constexpr uint16_t MAX_ASSETS = 16;
+constexpr uint8_t WFS_MAGIC[4] = {'W', 'F', 'S', '1'};
+
+uint16_t readU16(const uint8_t* p) {
+    return static_cast<uint16_t>(p[0]) | (static_cast<uint16_t>(p[1]) << 8);
+}
+uint32_t readU32(const uint8_t* p) {
+    return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
+           (static_cast<uint32_t>(p[2]) << 16) | (static_cast<uint32_t>(p[3]) << 24);
+}
+uint32_t crc32Iso(const uint8_t* data, size_t length) {
+    uint32_t crc = 0xFFFFFFFFUL;
+    for (size_t i = 0; i < length; ++i) {
+        crc ^= data[i];
+        for (uint8_t bit = 0; bit < 8; ++bit) {
+            crc = (crc & 1U) ? ((crc >> 1) ^ 0xEDB88320UL) : (crc >> 1);
+        }
+    }
+    return crc ^ 0xFFFFFFFFUL;
+}
+
+bool hexToBytes(const char* hex, uint8_t* out, size_t count) {
+    if (hex == nullptr || out == nullptr || strlen(hex) != count * 2) return false;
+    for (size_t i = 0; i < count; ++i) {
+        char pair[3] = {hex[i * 2], hex[i * 2 + 1], '\0'};
+        char* end = nullptr;
+        const unsigned long value = strtoul(pair, &end, 16);
+        if (end == nullptr || *end != '\0' || value > 255) return false;
+        out[i] = static_cast<uint8_t>(value);
+    }
+    return true;
+}
+
+bool digestBytes(const uint8_t* data, size_t length, uint8_t output[32]) {
+    mbedtls_sha256_context context;
+    mbedtls_sha256_init(&context);
+    const int start = mbedtls_sha256_starts_ret(&context, 0);
+    const int update = start == 0 ? mbedtls_sha256_update_ret(&context, data, length) : start;
+    const int finish = update == 0 ? mbedtls_sha256_finish_ret(&context, output) : update;
+    mbedtls_sha256_free(&context);
+    return finish == 0;
+}
+
+bool digestFileRange(File& file, size_t offset, size_t length, uint8_t output[32]) {
+    if (!file.seek(offset, SeekSet)) return false;
+    mbedtls_sha256_context context;
+    mbedtls_sha256_init(&context);
+    if (mbedtls_sha256_starts_ret(&context, 0) != 0) {
+        mbedtls_sha256_free(&context);
+        return false;
+    }
+    uint8_t buffer[512];
+    size_t remaining = length;
+    while (remaining > 0) {
+        const size_t wanted = remaining < sizeof(buffer) ? remaining : sizeof(buffer);
+        const size_t read = file.read(buffer, wanted);
+        if (read != wanted || mbedtls_sha256_update_ret(&context, buffer, read) != 0) {
+            mbedtls_sha256_free(&context);
+            return false;
+        }
+        remaining -= read;
+    }
+    const int result = mbedtls_sha256_finish_ret(&context, output);
+    mbedtls_sha256_free(&context);
+    return result == 0;
+}
+
+bool isSupportedCapability(const char* value) {
+    if (value == nullptr) return false;
+    return strcmp(value, "text.basic") == 0 ||
+           strcmp(value, "clock.digital") == 0 ||
+           strcmp(value, "clock.analog") == 0 ||
+           strcmp(value, "date.basic") == 0 ||
+           strcmp(value, "weather.temperature") == 0 ||
+           strcmp(value, "shape.basic") == 0;
+}
+
+bool hasAsset(JsonArrayConst assets, const char* assetId) {
+    if (assetId == nullptr || assetId[0] == '\0') return false;
+    for (JsonObjectConst asset : assets) {
+        const char* id = asset["assetId"] | "";
+        if (strcmp(id, assetId) == 0) return true;
+    }
+    return false;
+}
+}
+
+bool validateWfsPackage(File& file, size_t expectedFileLength,
+                        const uint8_t* expectedPayloadDigest,
+                        const char* expectedDesignId,
+                        FaceModel& output,
+                        PackageValidationError& error) {
+    error = PackageValidationError::None;
+    memset(&output, 0, sizeof(output));
+
+    if (!file || expectedFileLength < WFS_HEADER_SIZE || file.size() != expectedFileLength) {
+        error = PackageValidationError::Io;
+        return false;
+    }
+
+    uint8_t header[WFS_HEADER_SIZE] = {};
+    if (!file.seek(0, SeekSet) || file.read(header, sizeof(header)) != sizeof(header)) {
+        error = PackageValidationError::Io;
+        return false;
+    }
+    if (memcmp(header, WFS_MAGIC, sizeof(WFS_MAGIC)) != 0 ||
+        readU16(header + 4) != 1 || readU16(header + 6) != WFS_HEADER_SIZE ||
+        readU16(header + 18) != 0 || readU32(header + 60) != 0) {
+        error = PackageValidationError::Header;
+        return false;
+    }
+
+    const uint32_t manifestLength = readU32(header + 8);
+    const uint32_t layoutLength = readU32(header + 12);
+    const uint16_t assetCount = readU16(header + 16);
+    const uint32_t payloadLength = readU32(header + 20);
+    if (manifestLength == 0 || manifestLength > MAX_MANIFEST_BYTES ||
+        layoutLength == 0 || layoutLength > MAX_LAYOUT_BYTES ||
+        assetCount > MAX_ASSETS ||
+        payloadLength != expectedFileLength - WFS_HEADER_SIZE ||
+        static_cast<uint64_t>(manifestLength) + layoutLength > payloadLength) {
+        error = PackageValidationError::Length;
+        return false;
+    }
+    if (crc32Iso(header, 56) != readU32(header + 56)) {
+        error = PackageValidationError::HeaderCrc;
+        return false;
+    }
+
+    uint8_t headerDigest[32] = {};
+    memcpy(headerDigest, header + 24, sizeof(headerDigest));
+    if (expectedPayloadDigest != nullptr &&
+        memcmp(headerDigest, expectedPayloadDigest, sizeof(headerDigest)) != 0) {
+        error = PackageValidationError::PayloadDigest;
+        return false;
+    }
+
+    uint8_t actualPayloadDigest[32] = {};
+    if (!digestFileRange(file, WFS_HEADER_SIZE, payloadLength, actualPayloadDigest) ||
+        memcmp(actualPayloadDigest, headerDigest, sizeof(headerDigest)) != 0) {
+        error = PackageValidationError::PayloadDigest;
+        return false;
+    }
+
+    char* manifestText = static_cast<char*>(malloc(manifestLength + 1));
+    char* layoutText = static_cast<char*>(malloc(layoutLength + 1));
+    if (manifestText == nullptr || layoutText == nullptr) {
+        free(manifestText);
+        free(layoutText);
+        error = PackageValidationError::Io;
+        return false;
+    }
+
+    bool readOk = file.seek(WFS_HEADER_SIZE, SeekSet) &&
+                  file.read(reinterpret_cast<uint8_t*>(manifestText), manifestLength) == manifestLength &&
+                  file.read(reinterpret_cast<uint8_t*>(layoutText), layoutLength) == layoutLength;
+    if (!readOk) {
+        free(manifestText);
+        free(layoutText);
+        error = PackageValidationError::Io;
+        return false;
+    }
+    manifestText[manifestLength] = '\0';
+    layoutText[layoutLength] = '\0';
+
+    JsonDocument manifest;
+    const DeserializationError manifestError =
+        deserializeJson(manifest, manifestText, manifestLength,
+                        DeserializationOption::NestingLimit(8));
+    if (manifestError ||
+        (manifest["packageFormatVersion"] | 0) != 1 ||
+        (manifest["schemaVersion"] | 0) != 1 ||
+        (manifest["deviceProfileId"] | "") != "esp32-c3-gc9a01-240") {
+        free(manifestText);
+        free(layoutText);
+        error = PackageValidationError::Manifest;
+        return false;
+    }
+
+    const char* designId = manifest["designId"] | "";
+    if (designId[0] == '\0' ||
+        (expectedDesignId != nullptr && strcmp(designId, expectedDesignId) != 0)) {
+        free(manifestText);
+        free(layoutText);
+        error = PackageValidationError::DesignIdMismatch;
+        return false;
+    }
+
+    uint8_t expectedLayoutDigest[32] = {};
+    uint8_t actualLayoutDigest[32] = {};
+    if (!hexToBytes(manifest["layoutSha256"] | "", expectedLayoutDigest, 32) ||
+        !digestBytes(reinterpret_cast<const uint8_t*>(layoutText), layoutLength, actualLayoutDigest) ||
+        memcmp(expectedLayoutDigest, actualLayoutDigest, 32) != 0) {
+        free(manifestText);
+        free(layoutText);
+        error = PackageValidationError::LayoutDigest;
+        return false;
+    }
+
+    JsonArrayConst assets = manifest["assets"].as<JsonArrayConst>();
+    if (assets.isNull() || assets.size() != assetCount) {
+        free(manifestText);
+        free(layoutText);
+        error = PackageValidationError::AssetManifest;
+        return false;
+    }
+
+    uint32_t expectedAssetOffset = 0;
+    for (JsonObjectConst asset : assets) {
+        const char* assetId = asset["assetId"] | "";
+        const char* encoding = asset["encoding"] | "";
+        const char* mediaType = asset["mediaType"] | "";
+        const char* assetShaText = asset["sha256"] | "";
+        const uint32_t width = asset["width"] | 0;
+        const uint32_t height = asset["height"] | 0;
+        const uint32_t byteLength = asset["byteLength"] | 0;
+        const uint32_t offset = asset["offset"] | 0;
+        uint8_t expectedAssetDigest[32] = {};
+        uint8_t actualAssetDigest[32] = {};
+
+        if (assetId[0] == '\0' || strcmp(encoding, "rgb565le") != 0 ||
+            strcmp(mediaType, "image/rgb565") != 0 ||
+            width == 0 || width > 240 || height == 0 || height > 240 ||
+            byteLength != width * height * 2U || offset != expectedAssetOffset ||
+            !hexToBytes(assetShaText, expectedAssetDigest, 32)) {
+            free(manifestText);
+            free(layoutText);
+            error = PackageValidationError::AssetManifest;
+            return false;
+        }
+
+        const size_t absoluteOffset = WFS_HEADER_SIZE + manifestLength + layoutLength + offset;
+        if (!digestFileRange(file, absoluteOffset, byteLength, actualAssetDigest) ||
+            memcmp(expectedAssetDigest, actualAssetDigest, 32) != 0) {
+            free(manifestText);
+            free(layoutText);
+            error = PackageValidationError::AssetDigest;
+            return false;
+        }
+        expectedAssetOffset += byteLength;
+    }
+
+    if (static_cast<uint64_t>(manifestLength) + layoutLength + expectedAssetOffset != payloadLength) {
+        free(manifestText);
+        free(layoutText);
+        error = PackageValidationError::Length;
+        return false;
+    }
+
+    JsonArrayConst requiredCapabilities = manifest["requiredCapabilities"].as<JsonArrayConst>();
+    for (JsonVariantConst capability : requiredCapabilities) {
+        if (!capability.is<const char*>() || !isSupportedCapability(capability.as<const char*>())) {
+            free(manifestText);
+            free(layoutText);
+            error = PackageValidationError::UnsupportedCapability;
+            return false;
+        }
+    }
+
+    const FaceParseResult parseResult =
+        parseWatchFaceJson(layoutText, layoutLength, output);
+    free(manifestText);
+    free(layoutText);
+    if (!parseResult) {
+        error = PackageValidationError::LayoutSchema;
+        return false;
+    }
+    if (strcmp(output.designId, designId) != 0) {
+        error = PackageValidationError::DesignIdMismatch;
+        return false;
+    }
+
+    // Image objects are recognized by the model/parser, but the current
+    // renderer does not yet advertise or install image assets.
+    for (uint8_t i = 0; i < output.objectCount; ++i) {
+        if (output.objects[i].type == FaceElementType::Image) {
+            error = PackageValidationError::UnsupportedCapability;
+            return false;
+        }
+    }
+    if (assetCount != 0) {
+        error = PackageValidationError::UnsupportedCapability;
+        return false;
+    }
+    return true;
+}
+
+const char* packageValidationErrorName(PackageValidationError error) {
+    switch (error) {
+        case PackageValidationError::None: return "NONE";
+        case PackageValidationError::Io: return "IO";
+        case PackageValidationError::Header: return "HEADER";
+        case PackageValidationError::Version: return "VERSION";
+        case PackageValidationError::Length: return "LENGTH";
+        case PackageValidationError::HeaderCrc: return "HEADER_CRC";
+        case PackageValidationError::PayloadDigest: return "PAYLOAD_DIGEST";
+        case PackageValidationError::Manifest: return "MANIFEST";
+        case PackageValidationError::LayoutDigest: return "LAYOUT_DIGEST";
+        case PackageValidationError::LayoutSchema: return "LAYOUT_SCHEMA";
+        case PackageValidationError::DesignIdMismatch: return "DESIGN_ID_MISMATCH";
+        case PackageValidationError::AssetManifest: return "ASSET_MANIFEST";
+        case PackageValidationError::AssetDigest: return "ASSET_DIGEST";
+        case PackageValidationError::UnsupportedCapability: return "UNSUPPORTED_CAPABILITY";
+        default: return "UNKNOWN";
+    }
+}
