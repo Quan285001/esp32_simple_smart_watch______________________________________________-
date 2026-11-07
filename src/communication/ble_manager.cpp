@@ -18,6 +18,7 @@
 #include "../storage/face_storage.h"
 #include "../watchface/face_model.h"
 #include "../app/app_state.h"
+#include "../system/system_manager.h"
 #include "../services/weather_service.h"
 #include "../services/ble_service.h"
 #include <WiFi.h>
@@ -148,7 +149,7 @@ void sendDeviceStatus() {
     const int length = snprintf(payload, sizeof(payload),
         "{\\"wifiEnabled\\":%s,\\"wifiConnected\\":%s,\\"bleConnected\\":%s,"
         "\\"weatherValid\\":%s,\\"temperature\\":%d,\\"screen\\":%u,"
-        "\\"autoSleepSeconds\\":%u,\\"heapFree\\":%lu}",
+        "\\"autoSleepSeconds\\":%u,\\"powerState\\":\\"%s\\",\\"heapFree\\":%lu}",
         wifiEnabled ? "true" : "false",
         WiFi.status() == WL_CONNECTED ? "true" : "false",
         isBLEConnected() ? "true" : "false",
@@ -156,6 +157,7 @@ void sendDeviceStatus() {
         weather.currentTemp,
         static_cast<unsigned int>(currentScreen),
         static_cast<unsigned int>(getAutoSleepTimeoutSeconds()),
+        SystemManager::powerStateName(SystemManager::powerState()),
         static_cast<unsigned long>(ESP.getFreeHeap()));
     if (length > 0 && static_cast<size_t>(length) < sizeof(payload)) {
         sendFrame(controlTx, WfsProtocol::MessageType::Status,
