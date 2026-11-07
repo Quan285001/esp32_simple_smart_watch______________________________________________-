@@ -242,6 +242,10 @@ void drawObject(const FaceObject& object, const struct tm& timeInfo,
 }
 }
 
+FaceRenderStatus validateFaceModelForRenderer(const FaceModel& face) {
+    return preflight(face);
+}
+
 FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInfo,
                                  const WeatherData& weather) {
     const FaceRenderStatus status = preflight(face);
