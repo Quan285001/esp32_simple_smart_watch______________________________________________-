@@ -1,17 +1,12 @@
 #pragma once
 
 #include <Arduino.h>
+#include "memory_monitor.h"
 
 namespace SystemDiagnostics {
 
-struct MemorySnapshot {
-    uint32_t freeHeap;
-    uint32_t minimumFreeHeap;
-    uint32_t largestFreeBlock;
-};
-
 void begin();
-MemorySnapshot captureMemory();
+MemoryMonitor::Snapshot captureMemory();
 void logMemory(const char* reason);
 void service();
 
