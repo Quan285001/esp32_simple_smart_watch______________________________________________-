@@ -198,7 +198,7 @@ bool apply(uint32_t transferId) {
 
 void cancel(uint32_t transferId) {
     if (transferId != currentTransferId ||
-        (currentState != State::Receiving && currentState != State::Verifying && currentState != State::Verified)) return;
+        (currentState != State::Receiving && currentState != State::Verifying && currentState != State::Verified && currentState != State::Failed)) return;
     if (stagingFile) {
         stagingFile.close();
     }
@@ -209,7 +209,7 @@ void cancel(uint32_t transferId) {
 
 void abortSession() {
     if (currentState != State::Receiving && currentState != State::Verifying &&
-        currentState != State::Verified) return;
+        currentState != State::Verified && currentState != State::Failed) return;
     const uint32_t transferId = currentTransferId;
     cancel(transferId);
     currentState = State::Cancelled;
