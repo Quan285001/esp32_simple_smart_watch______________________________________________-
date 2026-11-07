@@ -1,6 +1,7 @@
 #include "face_parser.h"
 
 #include <ArduinoJson.h>
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +31,27 @@ bool readNumber(JsonVariantConst value, float& output, bool required, float fall
     if (!value.is<float>() && !value.is<int>() && !value.is<unsigned int>()) return false;
     output = value.as<float>();
     return isfinite(output);
+}
+
+
+bool validFormatTokens(const char* format, bool dateFormat) {
+    if (format == nullptr || format[0] == '\0') return true;
+    for (const char* cursor = format; *cursor != '\0';) {
+        if (dateFormat && strncmp(cursor, "YYYY", 4) == 0) cursor += 4;
+        else if (dateFormat && strncmp(cursor, "ddd", 3) == 0) cursor += 3;
+        else if (dateFormat && strncmp(cursor, "MMM", 3) == 0) cursor += 3;
+        else if (dateFormat && (strncmp(cursor, "MM", 2) == 0 ||
+                                strncmp(cursor, "DD", 2) == 0)) cursor += 2;
+        else if (!dateFormat && (strncmp(cursor, "HH", 2) == 0 ||
+                                 strncmp(cursor, "mm", 2) == 0 ||
+                                 strncmp(cursor, "ss", 2) == 0)) cursor += 2;
+        else {
+            const unsigned char value = static_cast<unsigned char>(*cursor);
+            if (value < 0x20 || value > 0x7E || isalpha(value)) return false;
+            ++cursor;
+        }
+    }
+    return true;
 }
 
 bool readColor(JsonVariantConst value, uint16_t& output, uint16_t fallback) {
@@ -321,6 +343,10 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     }
     if (target.timeFormat[0] != '\0' &&
         strcmp(target.timeFormat, "12h") != 0 && strcmp(target.timeFormat, "24h") != 0) return false;
+    if ((target.type == FaceElementType::DigitalClock &&
+         !validFormatTokens(target.dataFormat, false)) ||
+        (target.type == FaceElementType::Date &&
+         !validFormatTokens(target.dataFormat, true))) return false;
     return true;
 }
 }
