@@ -82,7 +82,7 @@ The final slot layout, package size ceiling and cleanup policy remain unimplemen
 - No versioned frame parser, handshake, capability response or request correlation is implemented.
 - No chunk transfer, ACK/retry, digest verification or cancellation is implemented.
 - No .wface archive/container parser or Web package exporter is implemented.
-- No image conversion, glyph atlas generation or firmware image streaming is implemented.
+- Image support is limited to opaque RGB565 assets, streamed row-by-row. Transparent overlays, image alpha masks, image scaling on-device and compressed PNG/JPEG decoding are not supported.
 - The renderer does not yet support opacity, rotation, arbitrary fonts, glyph overrides, groups, gauges or progress rings.
 - Analog hand style configuration is not yet mapped from the full schema.
 - Weather renderer currently displays a basic temperature value; field-specific layout and freshness are incomplete.
