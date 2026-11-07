@@ -26,3 +26,17 @@ subprocess.run(
 )
 
 print("WFS cross-language golden-frame host tests passed.")
+
+TRANSFER_TEST = ROOT / "tests" / "host" / "transfer_sequence_test.cpp"
+
+with tempfile.TemporaryDirectory(prefix="wfs-transfer-test-") as tmp:
+    binary = Path(tmp) / "transfer_sequence_test"
+    subprocess.run(
+        ["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+         str(TRANSFER_TEST), "-o", str(binary)],
+        cwd=ROOT,
+        check=True,
+    )
+    subprocess.run([str(binary)], cwd=ROOT, check=True)
+
+print("WFS transfer sequencing host tests passed.")
