@@ -1,6 +1,7 @@
 #include "image.h"
 
 #include <TFT_eSPI.h>
+#include <math.h>
 #include <string.h>
 
 #include "../../display/display_manager.h"
