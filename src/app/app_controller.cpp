@@ -115,6 +115,7 @@ void drawCurrentScreen(bool force) {
                 if (status != FaceRenderStatus::Ok) {
                     Serial.printf("[FACE] Render rejected (%u); using built-in clock.\\n",
                                   static_cast<unsigned int>(status));
+                    FaceManager::disableActive();
                     tft.fillScreen(TFT_BLACK);
                     drawAnalogClockFace(timeinfo, 0, 0, 0);
                 }
