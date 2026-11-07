@@ -61,7 +61,7 @@
             <div class="watch-canvas" id="watchCanvas"></div>
             <div class="stage-hint">Select a layer · drag to reposition</div>
           </div>
-          <div class="canvas-footer"><span id="canvasName">Minimal Digital</span><span>Round display · <span id="canvasSizeFooter">240 × 240</span></span></div>
+          <div class="canvas-footer"><div class="canvas-footer-meta"><span id="canvasName">Minimal Digital</span><span>Round display · <span id="canvasSizeFooter">240 × 240</span></span></div><button class="btn primary small upload-watch-btn" id="transferBtn" type="button" title="Send the current design to the connected watch">↑ Upload to watch</button></div>
           <div class="mobile-add-tools"><select id="quickAddSelect"><option value="digital-clock">Digital time</option><option value="analog-clock">Analog clock</option><option value="date">Date</option><option value="weather">Weather</option><option value="text">Text</option><option value="shape">Shape</option><option value="image">Image</option></select><button class="btn primary small" id="quickAddBtn" type="button">＋ Add</button></div>
         </div>
       </div>
@@ -121,11 +121,7 @@
           <div class="field"><label for="wifiPassword">WI-FI PASSWORD</label><input id="wifiPassword" type="password" autocomplete="new-password" placeholder="Password"></div>
           <button class="btn" id="saveWifiBtn" type="button">Send Wi-Fi configuration</button>
         </section>
-        <section class="settings-card">
-          <div class="eyebrow">WATCH FACE TRANSFER</div><h2>Apply design to watch</h2>
-          <p>Your design can currently be saved in this browser or exported as JSON. The existing BLE firmware only supports legacy commands; the new face-package transfer protocol is not implemented yet.</p>
-          <button class="btn primary" id="transferBtn" type="button">Prepare for watch</button>
-        </section>
+        
       </div>
     </section>
   </main>
