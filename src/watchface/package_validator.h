@@ -23,7 +23,7 @@ enum class PackageValidationError : uint8_t {
     UnsupportedCapability
 };
 
-bool validateWfsPackage(File& file, size_t expectedFileLength,
+bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
                         const uint8_t* expectedPayloadDigest,
                         const char* expectedDesignId,
                         FaceModel& output,
