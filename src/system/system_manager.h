@@ -1,0 +1,24 @@
+#pragma once
+
+#include <Arduino.h>
+
+namespace SystemManager {
+
+enum class PowerState : uint8_t {
+    Active,
+    PreparingSleep,
+    Sleeping,
+    Waking
+};
+
+void begin();
+void requestSleep();
+bool sleepRequested();
+void beginSleep();
+void markSleeping();
+void markWaking();
+void markActive();
+PowerState powerState();
+const char* powerStateName(PowerState state);
+
+} // namespace SystemManager
