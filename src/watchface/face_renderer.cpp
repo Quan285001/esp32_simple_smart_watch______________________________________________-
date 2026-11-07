@@ -49,7 +49,7 @@ bool intersects(const FaceObject& object, int x, int y, int w, int h) {
 }
 
 FaceRenderStatus preflight(const FaceModel& face) {
-    if (face.objectCount > FACE_MAX_OBJECTS ||
+    if (face.objectCount > FACE_MAX_OBJECTS || face.assetCount > FACE_MAX_ASSETS ||
         face.canvasWidth != 240 || face.canvasHeight != 240) {
         return FaceRenderStatus::UnsupportedTransform;
     }
