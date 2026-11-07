@@ -75,6 +75,21 @@ Control payloads are compact UTF-8 JSON with a negotiated maximum. Data payloads
 
 Every COMMAND/RESPONSE pair includes a requestId. Events include eventId. Transfer messages include transferId and sequence/chunk indexes. A successful GATT write is not proof of command processing.
 
+### DATA payload layout
+
+The DATA frame payload begins with an 8-byte transfer prefix followed by raw package bytes:
+- transferId: uint32 little-endian;
+- chunkIndex: uint32 little-endian, starting at zero;
+- chunkBytes: 1–216 bytes.
+
+DATA_ACK payload is exactly 14 bytes:
+- transferId: uint32 little-endian;
+- highest contiguous accepted chunk index: uint32 little-endian;
+- total bytes written: uint32 little-endian;
+- status code: uint16 little-endian (zero means accepted).
+
+TRANSFER_BEGIN JSON fields are transferId, packageLength, payloadSha256 (hex SHA-256 of the WFS1 payload), and designId. TRANSFER_READY returns transferId, chunkSize and nextChunk. TRANSFER_END and APPLY JSON payloads contain transferId. VERIFY_RESULT returns transferId, ok and error. APPLY_RESULT returns transferId, ok and designId.
+
 ## 4. Negotiated chunk size and reliability
 
 - Request an ATT MTU suitable for bulk transfer where the stack/platform allows it.
@@ -107,6 +122,8 @@ Every COMMAND/RESPONSE pair includes a requestId. Events include eventId. Transf
    - accepted framed-write and data chunk sizes;
    - legacy feature availability.
 6. Web runs compatibility validation before enabling Upload.
+
+The current compact CAPABILITIES JSON payload uses these keys: sv (schema version), pv (package version), obj (maximum objects), json (maximum layout JSON bytes), frame (maximum framed write bytes), mtu (negotiated ATT MTU), el (comma-separated supported element types), img (1 if image assets are supported), upload (1 if package installation is enabled), free (SPIFFS free bytes), stage (maximum current inactive-slot staging capacity), and heap (free heap bytes).
 
 Runtime heap/storage values are snapshots. TRANSFER_BEGIN must reserve storage again and can still reject if resources changed.
 
