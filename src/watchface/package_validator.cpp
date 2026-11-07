@@ -80,6 +80,21 @@ bool digestFileRange(fs::File& file, size_t offset, size_t length, uint8_t outpu
     return result == 0;
 }
 
+bool hasOnlyKeys(JsonObjectConst object, const char* const* allowedKeys, size_t allowedCount) {
+    for (JsonPairConst pair : object) {
+        const char* key = pair.key().c_str();
+        bool found = false;
+        for (size_t i = 0; i < allowedCount; ++i) {
+            if (strcmp(key, allowedKeys[i]) == 0) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
 bool isSupportedCapability(const char* value) {
     if (value == nullptr) return false;
     return strcmp(value, "text.basic") == 0 ||
@@ -129,7 +144,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     const uint32_t payloadLength = readU32(header + 20);
     if (manifestLength == 0 || manifestLength > MAX_MANIFEST_BYTES ||
         layoutLength == 0 || layoutLength > MAX_LAYOUT_BYTES ||
-        assetCount > MAX_ASSETS ||
+        assetCount > MAX_ASSETS || assetCount > FACE_MAX_ASSETS ||
         payloadLength != expectedFileLength - WFS_HEADER_SIZE ||
         static_cast<uint64_t>(manifestLength) + layoutLength > payloadLength) {
         error = PackageValidationError::Length;
@@ -180,8 +195,15 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     const DeserializationError manifestError =
         deserializeJson(manifest, manifestText, manifestLength,
                         DeserializationOption::NestingLimit(8));
+    static const char* const manifestKeys[] = {
+        "packageFormatVersion", "schemaVersion", "designId", "name",
+        "deviceProfileId", "layoutSha256", "requiredCapabilities", "assets"
+    };
+    JsonObjectConst manifestObject = manifest.as<JsonObjectConst>();
     const char* profileId = manifest["deviceProfileId"] | "";
-    if (manifestError ||
+    if (manifestError || manifestObject.isNull() ||
+        !hasOnlyKeys(manifestObject, manifestKeys,
+                     sizeof(manifestKeys) / sizeof(manifestKeys[0])) ||
         (manifest["packageFormatVersion"] | 0) != 1 ||
         (manifest["schemaVersion"] | 0) != 1 ||
         strcmp(profileId, "esp32-c3-gc9a01-240") != 0) {
@@ -192,13 +214,17 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     }
 
     const char* designId = manifest["designId"] | "";
-    if (designId[0] == '\0' ||
+    char manifestDesignId[FACE_ID_CAPACITY] = {};
+    const size_t manifestDesignIdLength = strlen(designId);
+    if (manifestDesignIdLength == 0 ||
+        manifestDesignIdLength >= sizeof(manifestDesignId) ||
         (expectedDesignId != nullptr && strcmp(designId, expectedDesignId) != 0)) {
         free(manifestText);
         free(layoutText);
         error = PackageValidationError::DesignIdMismatch;
         return false;
     }
+    memcpy(manifestDesignId, designId, manifestDesignIdLength + 1);
 
     uint8_t expectedLayoutDigest[32] = {};
     uint8_t actualLayoutDigest[32] = {};
@@ -222,7 +248,18 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     uint32_t expectedAssetOffset = 0;
     FaceAsset parsedAssets[FACE_MAX_ASSETS] = {};
     uint8_t parsedAssetCount = 0;
+    static const char* const assetKeys[] = {
+        "assetId", "mediaType", "encoding", "width", "height",
+        "byteLength", "offset", "sha256"
+    };
     for (JsonObjectConst asset : assets) {
+        if (asset.isNull() ||
+            !hasOnlyKeys(asset, assetKeys, sizeof(assetKeys) / sizeof(assetKeys[0]))) {
+            free(manifestText);
+            free(layoutText);
+            error = PackageValidationError::AssetManifest;
+            return false;
+        }
         const char* assetId = asset["assetId"] | "";
         const char* encoding = asset["encoding"] | "";
         const char* mediaType = asset["mediaType"] | "";
@@ -234,7 +271,8 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         uint8_t expectedAssetDigest[32] = {};
         uint8_t actualAssetDigest[32] = {};
 
-        if (assetId[0] == '\0' || strcmp(encoding, "rgb565le") != 0 ||
+        if (assetId[0] == '\0' || strlen(assetId) >= FACE_ASSET_ID_CAPACITY ||
+            parsedAssetCount >= FACE_MAX_ASSETS || strcmp(encoding, "rgb565le") != 0 ||
             strcmp(mediaType, "image/rgb565") != 0 ||
             width == 0 || width > 240 || height == 0 || height > 240 ||
             byteLength != width * height * 2U || offset != expectedAssetOffset ||
@@ -308,7 +346,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         error = PackageValidationError::LayoutSchema;
         return false;
     }
-    if (strcmp(output.designId, designId) != 0 ||
+    if (strcmp(output.designId, manifestDesignId) != 0 ||
         strcmp(output.deviceProfileId, "esp32-c3-gc9a01-240") != 0) {
         error = PackageValidationError::DesignIdMismatch;
         return false;
