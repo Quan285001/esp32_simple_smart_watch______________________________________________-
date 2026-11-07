@@ -51,7 +51,9 @@ struct FaceObject {
     char assetId[FACE_ASSET_ID_CAPACITY];
 
     char fontFamily[FACE_FONT_CAPACITY];
-    uint16_t fontSize;
+    float fontSize;
+    float glyphScaleX;
+    float glyphScaleY;
     uint16_t fontWeight;
     uint16_t textColor;
     FaceTextAlign textAlign;
