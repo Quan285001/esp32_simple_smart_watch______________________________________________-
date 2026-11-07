@@ -6,8 +6,10 @@
 #include <sys/time.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 
 #include "../services/weather_service.h"
+#include "../services/time_service.h"
 
 extern bool wifiEnabled;
 extern void requestLightSleep();
@@ -99,6 +101,15 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
         if (settimeofday(&tv, nullptr) != 0) {
             setResult(result, false, 0x0010, "time_update_failed");
             return false;
+        }
+        const char* timezone = request["timezone"] | "";
+        const long utcOffset = request["utcOffsetSeconds"] | LONG_MIN;
+        if (timezone[0] != '\0' || utcOffset != LONG_MIN) {
+            if (timezone[0] == '\0' || utcOffset < -43200L || utcOffset > 50400L) {
+                setResult(result, false, 0x0010, "invalid_timezone");
+                return false;
+            }
+            applyTimezoneFromWeather(String(timezone), utcOffset);
         }
         setResult(result, true, 0, "time_updated");
         return true;
