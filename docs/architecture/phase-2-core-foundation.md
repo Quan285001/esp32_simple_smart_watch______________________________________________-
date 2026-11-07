@@ -77,7 +77,6 @@ Implemented safe replacement strategy:
 
 The current package ceiling is constrained by a 16 KiB layout parser limit, manifest limit, 16 objects, 16 assets, negotiated chunk size and actual SPIFFS free capacity. Host tests cover sequencing and cancellation policy; SPIFFS write-fault, power-loss and reboot-recovery integration tests remain open.
 
-The final slot layout, package size ceiling and cleanup policy remain unimplemented.
 
 ## 4. Current implementation limitations
 
