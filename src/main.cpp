@@ -898,13 +898,15 @@ void loop() {
         if (FaceManager::hasActiveFace()) {
             static int lastCustomFaceSecond = -1;
             if (cachedTime.tm_sec != lastCustomFaceSecond) {
-                const FaceRenderStatus status = FaceManager::renderActive(cachedTime, getWeatherSnapshot());
+                const FaceRenderStatus status = FaceManager::renderActiveDynamic(cachedTime, getWeatherSnapshot());
                 if (status == FaceRenderStatus::Ok) {
                     lastCustomFaceSecond = cachedTime.tm_sec;
                 } else {
                     Serial.printf("[FACE] Custom renderer rejected frame (%u); reverting to built-in face.\\n",
                                   static_cast<unsigned int>(status));
-                    lastCustomFaceSecond = -1;
+                    FaceManager::disableActive();
+                    drawAnalogClockFace(cachedTime, static_cast<int>(elapsed), 0, 0);
+                    lastCustomFaceSecond = cachedTime.tm_sec;
                 }
             }
         } else {
