@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://watch-face-studio.local/schemas/device-profile.schema.json",
+  "title": "Watch Face Studio Device Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profileVersion",
+    "id",
+    "name",
+    "display"
+  ],
+  "properties": {
+    "profileVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "manufacturer": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "deviceModel": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "shape",
+        "colorFormat",
+        "rotation"
+      ],
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "shape": {
+          "enum": [
+            "circle",
+            "rectangle",
+            "rounded-rectangle"
+          ]
+        },
+        "driver": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "colorFormat": {
+          "enum": [
+            "RGB565",
+            "RGB888",
+            "INDEXED8",
+            "MONO1"
+          ]
+        },
+        "rotation": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "centerX": {
+          "type": "number"
+        },
+        "centerY": {
+          "type": "number"
+        },
+        "safeArea": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "top": {
+              "type": "number",
+              "minimum": 0
+            },
+            "right": {
+              "type": "number",
+              "minimum": 0
+            },
+            "bottom": {
+              "type": "number",
+              "minimum": 0
+            },
+            "left": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "nominalLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxBitmapWidth": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxBitmapHeight": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxObjects": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxPackageBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxAssetBytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "declaredCapabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 80
+      }
+    }
+  }
+}
