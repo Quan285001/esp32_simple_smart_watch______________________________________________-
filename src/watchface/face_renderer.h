@@ -8,7 +8,8 @@ enum class FaceRenderStatus : uint8_t {
     Ok,
     UnsupportedTransform,
     UnsupportedAsset,
-    UnsupportedFont
+    UnsupportedFont,
+    AssetReadFailed
 };
 
 FaceRenderStatus validateFaceModelForRenderer(const FaceModel& face);
