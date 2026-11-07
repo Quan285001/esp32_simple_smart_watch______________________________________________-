@@ -63,6 +63,113 @@ bool parseType(const char* value, FaceElementType& type) {
     return true;
 }
 
+
+bool hasNonEmptyString(JsonVariantConst value) {
+    if (value.isNull() || !value.is<const char*>()) return false;
+    const char* text = value.as<const char*>();
+    return text != nullptr && text[0] != '\\0';
+}
+
+bool numberDiffersFrom(JsonObjectConst object, const char* key, float expected) {
+    if (!object.containsKey(key)) return false;
+    const JsonVariantConst value = object[key];
+    if (!value.is<float>() && !value.is<int>() && !value.is<unsigned int>()) return true;
+    const float number = value.as<float>();
+    return !isfinite(number) || fabsf(number - expected) > 0.001f;
+}
+
+bool hasUnsupportedObjectProperties(JsonObjectConst source) {
+    JsonObjectConst transform = source["transform"].as<JsonObjectConst>();
+    if (!transform.isNull() && transform.containsKey("anchor")) {
+        const char* anchor = transform["anchor"] | "";
+        if (strcmp(anchor, "top-left") != 0) return true;
+    }
+
+    JsonObjectConst textStyle = source["textStyle"].as<JsonObjectConst>();
+    if (!textStyle.isNull()) {
+        if (textStyle.containsKey("fontId") || textStyle.containsKey("width") ||
+            textStyle.containsKey("height") || hasNonEmptyString(textStyle["stroke"]) ||
+            hasNonEmptyString(textStyle["backgroundColor"])) return true;
+        if (numberDiffersFrom(textStyle, "scaleX", 1.0f) ||
+            numberDiffersFrom(textStyle, "scaleY", 1.0f) ||
+            numberDiffersFrom(textStyle, "opacity", 1.0f) ||
+            numberDiffersFrom(textStyle, "rotation", 0.0f) ||
+            numberDiffersFrom(textStyle, "strokeWidth", 0.0f) ||
+            numberDiffersFrom(textStyle, "backgroundRadius", 0.0f) ||
+            numberDiffersFrom(textStyle, "letterSpacing", 0.0f) ||
+            numberDiffersFrom(textStyle, "zIndex", 0.0f)) return true;
+        if (textStyle.containsKey("backgroundShape") &&
+            strcmp(textStyle["backgroundShape"] | "none", "none") != 0) return true;
+        if (textStyle.containsKey("visible") && !(textStyle["visible"] | true)) return true;
+    }
+
+    JsonArrayConst glyphOverrides = source["glyphOverrides"].as<JsonArrayConst>();
+    if (!glyphOverrides.isNull() && glyphOverrides.size() > 0) return true;
+    if (hasNonEmptyString(source["glyphAtlasAssetId"])) return true;
+    if (source.containsKey("glyphFallback") &&
+        strcmp(source["glyphFallback"] | "compatibility-error", "compatibility-error") != 0) return true;
+
+    JsonObjectConst handConfig = source["handConfig"].as<JsonObjectConst>();
+    if (!handConfig.isNull()) {
+        for (JsonPairConst pair : handConfig) {
+            const char* key = pair.key().c_str();
+            if (strcmp(key, "hour") != 0 && strcmp(key, "minute") != 0 &&
+                strcmp(key, "second") != 0) return true;
+            JsonObjectConst hand = pair.value().as<JsonObjectConst>();
+            if (hand.isNull() || hand.size() != 0) return true;
+        }
+    }
+
+    JsonObjectConst binding = source["dataBinding"].as<JsonObjectConst>();
+    if (!binding.isNull()) {
+        if (hasNonEmptyString(binding["timezone"]) ||
+            hasNonEmptyString(binding["fallbackText"]) ||
+            (binding["visibleWhenMissing"] | false)) return true;
+    }
+
+    JsonObjectConst style = source["style"].as<JsonObjectConst>();
+    if (!style.isNull()) {
+        if (hasNonEmptyString(style["backgroundColor"])) return true;
+        if (style.containsKey("strokeWidth")) {
+            const float width = style["strokeWidth"] | -1.0f;
+            if (!isfinite(width) || (width != 0.0f && width != 1.0f)) return true;
+        }
+    }
+
+    JsonObjectConst renderHints = source["renderHints"].as<JsonObjectConst>();
+    if (!renderHints.isNull() &&
+        ((renderHints["requiresAntialias"] | false) ||
+         (renderHints["requiresBitmap"] | false))) return true;
+
+    const char* shape = source["shape"] | "rect";
+    if (strcmp(shape, "arc") == 0) return true;
+
+    JsonArrayConst weatherFields = source["weatherFields"].as<JsonArrayConst>();
+    if (!weatherFields.isNull()) {
+        for (JsonVariantConst field : weatherFields) {
+            if (field.is<const char*>() && strcmp(field.as<const char*>(), "icon") == 0) {
+                return true;
+            }
+        }
+    }
+
+    const char* type = source["type"] | "";
+    const char* clockMode = source["clockMode"] | "";
+    if (clockMode[0] != '\\0') {
+        if ((strcmp(type, "analog-clock") == 0 && strcmp(clockMode, "analog") != 0) ||
+            (strcmp(type, "digital-clock") == 0 && strcmp(clockMode, "digital") != 0) ||
+            (strcmp(type, "analog-clock") != 0 && strcmp(type, "digital-clock") != 0)) return true;
+    }
+    const char* timeFormat = source["timeFormat"] | "";
+    if (timeFormat[0] != '\\0' &&
+        strcmp(timeFormat, "12h") != 0 && strcmp(timeFormat, "24h") != 0) return true;
+    if ((source["showAmPm"] | false) && strcmp(timeFormat, "12h") != 0) return true;
+    if (source.containsKey("showAmPm") && !(source["showAmPm"] | false) &&
+        strcmp(timeFormat, "12h") == 0) return true;
+
+    return false;
+}
+
 bool parseObject(JsonObjectConst source, FaceObject& target) {
     memset(&target, 0, sizeof(target));
     if (!copyString(source["id"], target.id, sizeof(target.id), true) ||
@@ -135,7 +242,6 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     if (strcmp(shape, "circle") == 0) target.shapeKind = 1;
     else if (strcmp(shape, "rounded-rect") == 0) target.shapeKind = 2;
     else if (strcmp(shape, "line") == 0) target.shapeKind = 3;
-    else if (strcmp(shape, "arc") == 0) target.shapeKind = 4;
     else if (strcmp(shape, "rect") == 0) target.shapeKind = 0;
     else if (target.type == FaceElementType::Shape) return false;
 
@@ -151,7 +257,7 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
             const char* fieldName = field.as<const char*>();
             if (strcmp(fieldName, "temperature") == 0) target.showWeatherTemperature = true;
             else if (strcmp(fieldName, "condition") == 0) target.showWeatherCondition = true;
-            else if (strcmp(fieldName, "icon") != 0) return false;
+            else return false;
         }
     }
 
@@ -185,6 +291,8 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
 
     JsonObjectConst canvas = document["canvas"].as<JsonObjectConst>();
     if (canvas.isNull()) return {FaceParseError::MissingField, 0};
+    const char* canvasShape = canvas["shape"] | "circle";
+    if (strcmp(canvasShape, "circle") != 0) return {FaceParseError::UnsupportedProperty, 0};
     output.canvasWidth = canvas["width"] | 0;
     output.canvasHeight = canvas["height"] | 0;
     if (output.canvasWidth != 240 || output.canvasHeight != 240) {
@@ -201,6 +309,7 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
 
     uint8_t index = 0;
     for (JsonObjectConst object : objects) {
+        if (hasUnsupportedObjectProperties(object)) return {FaceParseError::UnsupportedProperty, index};
         if (!parseObject(object, output.objects[index])) {
             const char* type = object["type"] | "";
             if (strcmp(type, "text") != 0 && strcmp(type, "digital-clock") != 0 &&
@@ -228,6 +337,7 @@ const char* faceParseErrorName(FaceParseError error) {
         case FaceParseError::InvalidField: return "INVALID_FIELD";
         case FaceParseError::TooManyObjects: return "TOO_MANY_OBJECTS";
         case FaceParseError::UnsupportedElement: return "UNSUPPORTED_ELEMENT";
+        case FaceParseError::UnsupportedProperty: return "UNSUPPORTED_PROPERTY";
         case FaceParseError::BufferOverflow: return "BUFFER_OVERFLOW";
         default: return "UNKNOWN";
     }
