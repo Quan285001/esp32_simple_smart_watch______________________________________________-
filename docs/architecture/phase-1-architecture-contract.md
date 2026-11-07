@@ -146,7 +146,7 @@ All integers are little-endian. The Web and firmware must use these exact offset
 | 14 | 2 | CRC16-CCITT-FALSE over bytes 0–13 |
 | 16 | N | Payload |
 
-The firmware currently uses offset 10 for payload length. This is a confirmed source-level defect and must be corrected before any end-to-end protocol test.
+Historical note: the 6afd283 audit found the firmware using offset 10. The current source at 67e99e1 reads/writes payload length at offset 12, matching the Web encoder. `tests/host/protocol_codec_test.cpp` now contains a fixed golden frame with independently specified bytes. The browser encoder has not yet been executed against that fixture, and physical BLE interoperability remains untested.
 
 Control payloads are UTF-8 JSON bounded to 220 bytes. Data frames are bounded to 240 total bytes. The negotiated maximum data chunk is `min(216, ATT_MTU - 27)`, subject to the actual stack-reported MTU and packet buffer limit.
 
@@ -194,7 +194,7 @@ Command responses must include requestId, ok, stable error code and safe message
 - APPLY is allowed only after successful verification. Device switches the active pointer only after the candidate is fully valid and preserves the previous slot for rollback.
 - Web reports success only after a matching successful APPLY_RESULT and a refreshed device status.
 
-The current firmware's exact duplicate handling and Web retry behavior do not yet meet this contract.
+Current source status at 67e99e1: firmware accepts an identical retransmission of the immediately previous chunk and rejects conflicting/out-of-order chunks; the Web uploader now retries the same encoded frame up to three attempts, preserving sequence and chunk index. This is source-implemented but still requires host fault-injection and physical BLE verification.
 
 ## 5. WFS1 package contract
 
@@ -263,8 +263,9 @@ Completed as GitHub source inspection. No build or hardware claim.
 - [x] Canonical schema ownership and runtime capability distinction documented.
 - [x] WFS UUIDs and exact frame layout documented.
 - [x] Transfer/package/storage contract documented.
-- [ ] Contract cross-checked against golden Web/C++ test fixtures.
-- [ ] Stale docs reconciled.
+- [x] C++ codec checked against a fixed golden frame matching the documented Web DataView layout.
+- [ ] Browser encoder independently checked against the same golden frame.
+- [ ] Remaining historical audit/protocol notes reconciled against the latest branch.
 
 ### Phase 2 — Core foundation
 Acceptance: clean PlatformIO build; single display init; boot fallback; bounded diagnostics; button behavior; storage failure remains non-fatal.
