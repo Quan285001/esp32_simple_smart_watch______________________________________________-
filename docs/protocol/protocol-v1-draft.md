@@ -56,6 +56,8 @@ Control payloads are compact UTF-8 JSON with a negotiated maximum. Data payloads
 | 0x02 | HELLO_ACK | Device → Web | Selected protocol, session and device identity |
 | 0x03 | GET_CAPABILITIES | Web → Device | Request static and runtime capabilities |
 | 0x04 | CAPABILITIES | Device → Web | Schema, elements, formats, memory/storage and transfer limits |
+| 0x05 | GET_STATUS | Web → Device | Request current runtime status |
+| 0x06 | STATUS | Device → Web | Wi-Fi, BLE, weather, screen, auto-sleep and heap snapshot |
 | 0x10 | COMMAND | Web → Device | Typed device command with requestId |
 | 0x11 | RESPONSE | Device → Web | Correlated command result |
 | 0x12 | EVENT | Device → Web | State change or asynchronous result |
@@ -123,7 +125,7 @@ TRANSFER_BEGIN JSON fields are transferId, packageLength, payloadSha256 (hex SHA
    - legacy feature availability.
 6. Web runs compatibility validation before enabling Upload.
 
-The current compact CAPABILITIES JSON payload uses these keys: sv (schema version), pv (package version), obj (maximum objects), json (maximum layout JSON bytes), frame (maximum framed write bytes), mtu (negotiated ATT MTU), el (comma-separated supported element types), img (1 if image assets are supported), upload (1 if package installation is enabled), free (SPIFFS free bytes), stage (maximum current inactive-slot staging capacity), and heap (free heap bytes).
+The STATUS JSON payload contains wifiEnabled, wifiConnected, bleConnected, weatherValid, temperature, screen, autoSleepSeconds and heapFree. The current compact CAPABILITIES JSON payload uses these keys: sv (schema version), pv (package version), obj (maximum objects), json (maximum layout JSON bytes), frame (maximum framed write bytes), mtu (negotiated ATT MTU), el (comma-separated supported element types), img (1 if image assets are supported), upload (1 if package installation is enabled), free (SPIFFS free bytes), stage (maximum current inactive-slot staging capacity), and heap (free heap bytes).
 
 Runtime heap/storage values are snapshots. TRANSFER_BEGIN must reserve storage again and can still reject if resources changed.
 
