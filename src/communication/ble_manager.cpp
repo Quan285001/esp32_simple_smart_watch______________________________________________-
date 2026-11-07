@@ -279,7 +279,7 @@ void handleControlPacket(const WfsPacket& packet) {
             TransferManager::cancel(transferId);
             char response[96] = {};
             const int responseLength = snprintf(response, sizeof(response),
-                "{\\"event\\":\\"TRANSFER_CANCELLED\\",\\"transferId\\":%lu}",
+                "{\"event\":\"TRANSFER_CANCELLED\",\"transferId\":%lu}",
                 static_cast<unsigned long>(transferId));
             if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::Event,
                 reinterpret_cast<const uint8_t*>(response), static_cast<uint16_t>(responseLength));
