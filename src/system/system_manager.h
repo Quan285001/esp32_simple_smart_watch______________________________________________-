@@ -8,7 +8,8 @@ enum class PowerState : uint8_t {
     Active,
     PreparingSleep,
     Sleeping,
-    Waking
+    Waking,
+    RestoringServices
 };
 
 void begin();
@@ -17,6 +18,7 @@ bool sleepRequested();
 void beginSleep();
 void markSleeping();
 void markWaking();
+void markRestoringServices();
 void markActive();
 PowerState powerState();
 const char* powerStateName(PowerState state);
