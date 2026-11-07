@@ -184,8 +184,8 @@ void sendCapabilities() {
     char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
     const int length = snprintf(payload, sizeof(payload),
         "{\"sv\":1,\"pv\":1,\"obj\":%u,\"json\":16384,\"frame\":%u,"
-        "\"mtu\":%u,\"chunk\":%u,\"el\":\"text,digital-clock,analog-clock,date,weather,shape\","
-        "\"img\":0,\"upload\":%u,\"free\":%lu,\"stage\":%lu,\"heap\":%lu}",
+        "\"mtu\":%u,\"chunk\":%u,\"el\":\"text,digital-clock,analog-clock,date,weather,shape,image\","
+        "\"img\":1,\"upload\":%u,\"free\":%lu,\"stage\":%lu,\"heap\":%lu}",
         FACE_MAX_OBJECTS, static_cast<unsigned int>(frameLimit),
         static_cast<unsigned int>(mtu), static_cast<unsigned int>(chunkLimit),
         chunkLimit >= 16 ? 1U : 0U,
