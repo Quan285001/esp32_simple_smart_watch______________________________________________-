@@ -1,6 +1,6 @@
 # Phase 2 — Core Firmware Foundation Progress
 
-**Status:** in progress; implementation has not yet passed the current PlatformIO CI run.  
+**Status:** substantial implementation in progress; the latest code is awaiting CI build and physical-board verification.  
 **Branch:** rebuild/watch-face-studio-v2  
 **Hardware profile:** ESP32-C3 + GC9A01 240×240  
 **Important:** this document records implemented source changes and outstanding verification separately.
@@ -89,7 +89,7 @@ The final slot layout, package size ceiling and cleanup policy remain unimplemen
 - FaceManager's raw JSON boot path is for integration bring-up only and must be replaced by the package installer.
 - No physical hardware tests have been run for these new modules.
 
-## 5. Phase 2 acceptance checklist
+## 6. Phase 2 acceptance checklist
 
 - [x] Single display instance moved into DisplayManager.
 - [x] Memory snapshot module and bounded diagnostics cadence added.
@@ -103,7 +103,7 @@ The final slot layout, package size ceiling and cleanup policy remain unimplemen
 - [ ] Physical board boot regression completed.
 - [ ] Physical board display/clock/weather/button/sleep regression completed.
 
-## 6. Next mandatory phases
+## 7. Next mandatory phases
 
 1. Stabilize Phase 2 build and fix any compile/link regressions.
 2. Add host-side parser fixtures and malformed-input tests.
