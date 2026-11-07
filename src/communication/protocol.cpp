@@ -109,8 +109,8 @@ bool encodeFrame(MessageType type, uint16_t sequence, uint32_t sessionId,
     output[3] = PROTOCOL_MINOR;
     output[4] = static_cast<uint8_t>(type);
     output[5] = 0;
-    writeU16(output + 8, sequence);
-    writeU32(output + 6, sessionId);
+    writeU16(output + 6, sequence);
+    writeU32(output + 8, sessionId);
     writeU16(output + 10, payloadLength);
     writeU16(output + 14, crc16CcittFalse(output, 14));
     if (payloadLength) memcpy(output + FRAME_HEADER_SIZE, payload, payloadLength);
