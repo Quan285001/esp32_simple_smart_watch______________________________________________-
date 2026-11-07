@@ -577,7 +577,7 @@ const FACE_STYLES=[{"key":"classic","id":0,"name":"Classic","family":"Analog"},{
 const FACE_STYLE_BY_KEY=Object.fromEntries(FACE_STYLES.map(style=>[style.key,style]));
 const FACE_LIBRARY_KEY="esp32-face-studio-library-v2";
 let faceLibrary=[];
-let faceProject={format:"WFACE-PROJECT",version:2,displayProfile:"gc9a01-240-round",rendererApi:1,name:"My custom face",style:"classic",colors:{background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"},showSeconds:true,showDate:true,image:null,layers:[],selectedLayerId:null};
+let faceProject={format:"WFACE-PROJECT",version:2,displayProfile:"gc9a01-240-round",rendererApi:1,name:"My custom face",style:"classic",colors:{background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"},showSeconds:true,showDate:true,clockPosition:{x:120,y:120},image:null,layers:[],selectedLayerId:"__clock"};
 let faceUndoStack=[],faceRedoStack=[],faceZoomLevel=1,faceGridVisible=false,faceDragging=null,faceHueValue=210,faceSatValue=1,faceBrightValue=1,faceCurrentColor="#ffffff",faceCustomFont=null,faceCachedImage=null,faceCachedImageSrc="";
 const faceCanvas=document.getElementById("facePreview");
 const faceCtx=faceCanvas.getContext("2d");
@@ -601,6 +601,9 @@ function faceApplyProject(project){
   const defaults={background:"#000000",dial:"#18c3c3",hand:"#ffffff",accent:"#fbe0a0"};
   Object.keys(defaults).forEach(key=>{if(!/^#[0-9a-fA-F]{6}$/.test(faceProject.colors[key]||""))faceProject.colors[key]=defaults[key]});
   faceProject.layers=Array.isArray(faceProject.layers)?faceProject.layers:[];
+  faceProject.clockPosition=faceProject.clockPosition||{x:120,y:120};
+  faceProject.clockPosition.x=Math.max(0,Math.min(240,Number(faceProject.clockPosition.x)||120));
+  faceProject.clockPosition.y=Math.max(0,Math.min(240,Number(faceProject.clockPosition.y)||120));
   faceProject.image=faceProject.image||null;
   faceProject.selectedLayerId=faceProject.selectedLayerId||null;
   if(faceProject.customFont?.dataUrl){try{const font=new FontFace(faceProject.customFont.family||"CustomFaceFont","url("+faceProject.customFont.dataUrl+")");font.load().then(loaded=>document.fonts.add(loaded)).then(()=>renderFacePreview())}catch(error){console.warn("Custom font could not be restored",error)}}
@@ -650,6 +653,7 @@ function renderFacePreview(){
       faceCtx.globalAlpha=1;
     }
   }
+  faceCtx.save();faceCtx.translate(faceProject.clockPosition.x-120,faceProject.clockPosition.y-120);
   const style=faceProject.style||"classic";
   const styleMeta=FACE_STYLE_BY_KEY[style]||FACE_STYLE_BY_KEY.classic;
   const now=new Date();
@@ -723,6 +727,7 @@ function renderFacePreview(){
     }
     faceCtx.fillStyle=colors.accent;faceCtx.beginPath();faceCtx.arc(120,120,5,0,Math.PI*2);faceCtx.fill();faceCtx.fillStyle=colors.hand;faceCtx.beginPath();faceCtx.arc(120,120,2,0,Math.PI*2);faceCtx.fill();
   }
+  faceCtx.restore(); // End the movable built-in clock renderer layer.
   faceProject.layers.forEach(layer=>{
     if(layer.visible===false)return;
     faceCtx.save();faceCtx.globalAlpha=Number(layer.opacity??100)/100;
@@ -752,10 +757,11 @@ function moveFaceLayer(direction){const index=faceProject.layers.findIndex(layer
 function toggleSelectedFaceLayer(){const layer=faceSelectedLayer();if(!layer)return;facePushUndo();layer.visible=layer.visible===false;faceSyncUI();faceMarkChanged()}
 function renderFaceLayers(){
   const list=document.getElementById("faceLayerList");list.innerHTML="";
+  const clockItem=document.createElement("button");clockItem.className="fs-layer-item"+(faceProject.selectedLayerId==="__clock"?" active":"");clockItem.innerHTML='<span class="fs-layer-icon">◷</span><span class="fs-layer-name">Clock renderer · '+(FACE_STYLE_BY_KEY[faceProject.style]?.name||"Analog")+"</span>";clockItem.onclick=()=>{faceProject.selectedLayerId="__clock";syncFaceInspector();renderFaceLayers()};list.appendChild(clockItem);
   if(faceProject.image){const item=document.createElement("button");item.className="fs-layer-item"+(faceProject.selectedLayerId==="__image"?" active":"");item.innerHTML='<span class="fs-layer-icon">▧</span><span class="fs-layer-name">Background image</span>';item.onclick=()=>{faceProject.selectedLayerId="__image";syncFaceInspector();renderFaceLayers()};list.appendChild(item)}
   faceProject.layers.slice().reverse().forEach(layer=>{const item=document.createElement("button");item.className="fs-layer-item"+(faceProject.selectedLayerId===layer.id?" active":"");const icon=layer.type==="text"?"T":"◇";const name=document.createElement("span");name.className="fs-layer-name";name.textContent=(layer.visible===false?"◌ ":"")+layer.name;item.append(document.createTextNode(icon+" "),name);item.onclick=()=>{faceProject.selectedLayerId=layer.id;syncFaceInspector();renderFaceLayers()};list.appendChild(item)});
   if(!faceProject.image&&!faceProject.layers.length){const empty=document.createElement("div");empty.className="fs-empty";empty.textContent="No custom layers yet. Add an image or text element.";list.appendChild(empty)}
-  document.getElementById("faceLayerCount").textContent=(faceProject.layers.length+(faceProject.image?1:0))+" ELEMENTS";
+  document.getElementById("faceLayerCount").textContent=(1+faceProject.layers.length+(faceProject.image?1:0))+" ELEMENTS";
 }
 function renderFaceAssets(){
   const list=document.getElementById("faceAssetList");list.innerHTML="";
@@ -767,21 +773,21 @@ function renderFaceAssets(){
   card.append(thumb,meta);list.appendChild(card);
 }
 function syncFaceInspector(){
-  const layer=faceSelectedLayer(),isImage=faceProject.selectedLayerId==="__image"&&!!faceProject.image;
-  document.getElementById("faceSelectedLabel").textContent=isImage?"IMAGE":layer?layer.type.toUpperCase():"FACE";
-  document.getElementById("faceSelectedType").textContent=isImage?"Background image":layer?layer.type==="text"?"Text layer":"Layer":"Clock face";
+  const layer=faceSelectedLayer(),isImage=faceProject.selectedLayerId==="__image"&&!!faceProject.image,isClock=faceProject.selectedLayerId==="__clock";
+  document.getElementById("faceSelectedLabel").textContent=isImage?"IMAGE":isClock?"CLOCK":layer?layer.type.toUpperCase():"FACE";
+  document.getElementById("faceSelectedType").textContent=isImage?"Background image":isClock?"Built-in clock renderer":layer?layer.type==="text"?"Text layer":"Layer":"Clock face";
   const source=layer||null;
-  document.getElementById("faceLayerName").value=isImage?faceProject.image.name:source?source.name:"Clock face";
-  document.getElementById("faceX").value=source?source.x:120;document.getElementById("faceY").value=source?source.y:120;
+  document.getElementById("faceLayerName").value=isImage?faceProject.image.name:isClock?"Clock renderer":source?source.name:"Clock face";
+  document.getElementById("faceX").value=isClock?faceProject.clockPosition.x:source?source.x:120;document.getElementById("faceY").value=isClock?faceProject.clockPosition.y:source?source.y:120;
   document.getElementById("faceSize").value=source?source.fontSize||18:18;document.getElementById("faceSizeValue").textContent=(source?source.fontSize||18:18)+" px";document.getElementById("faceOpacity").value=source?source.opacity??100:100;document.getElementById("faceOpacityValue").textContent=(source?source.opacity??100:100)+"%";
-  document.getElementById("faceXValue").textContent=source?Math.round(source.x):"—";document.getElementById("faceYValue").textContent=source?Math.round(source.y):"—";
+  document.getElementById("faceXValue").textContent=isClock?Math.round(faceProject.clockPosition.x):source?Math.round(source.x):"—";document.getElementById("faceYValue").textContent=isClock?Math.round(faceProject.clockPosition.y):source?Math.round(source.y):"—";
   document.getElementById("faceLayerVisible").checked=source?source.visible!==false:true;
   document.getElementById("faceTextContent").value=source?.text||"";
   const fontSelect=document.getElementById("faceFontFamily");const selectedFont=source?.fontFamily||"Arial";if(![...fontSelect.options].some(option=>option.value===selectedFont)){const option=document.createElement("option");option.value=selectedFont;option.textContent=selectedFont==="CustomFaceFont"?"Custom uploaded font":selectedFont;fontSelect.appendChild(option)}fontSelect.value=selectedFont;
   document.getElementById("faceFontWeight").value=source?.fontWeight||"600";
   document.getElementById("faceTextAlign").value=source?.align||"center";
   document.getElementById("faceTextUpper").checked=!!source?.uppercase;
-  document.getElementById("faceX").disabled=!source;document.getElementById("faceY").disabled=!source;
+  document.getElementById("faceX").disabled=!(source||isClock);document.getElementById("faceY").disabled=!(source||isClock);
   document.getElementById("faceSize").disabled=!source;document.getElementById("faceOpacity").disabled=!source;
   document.getElementById("faceLayerVisible").disabled=!source;
   const target=document.getElementById("faceColorTarget");target.value=source?"accent":target.value||"accent";
@@ -868,26 +874,28 @@ function faceCanvasPoint(event){
 }
 function faceHitTest(point){
   for(let i=faceProject.layers.length-1;i>=0;i--){const layer=faceProject.layers[i];if(layer.type!=="text"||layer.visible===false)continue;const width=Math.max(28,String(layer.text||"Text").length*(Number(layer.fontSize)||18)*.58);if(Math.abs(point.x-layer.x)<width/2+8&&Math.abs(point.y-layer.y)<(Number(layer.fontSize)||18)+8)return layer}
+  if(faceProject.selectedLayerId==="__image"&&faceProject.image&&Math.hypot(point.x-120-faceProject.image.x,point.y-120-faceProject.image.y)<116)return {id:"__image",type:"image"};
+  if(Math.hypot(point.x-faceProject.clockPosition.x,point.y-faceProject.clockPosition.y)<116)return {id:"__clock",type:"clock"};
   if(faceProject.image&&Math.hypot(point.x-120-faceProject.image.x,point.y-120-faceProject.image.y)<116)return {id:"__image",type:"image"};
-  return null;
-}
+  return null;}
 faceCanvas.addEventListener("pointerdown",event=>{
   const point=faceCanvasPoint(event),hit=faceHitTest(point);
   if(!hit)return;
-  facePushUndo();faceProject.selectedLayerId=hit.id;faceDragging={id:hit.id,start:point,original:hit.id==="__image"?{x:faceProject.image.x,y:faceProject.image.y}:{x:hit.x,y:hit.y}};
+  facePushUndo();faceProject.selectedLayerId=hit.id;faceDragging={id:hit.id,start:point,original:hit.id==="__image"?{x:faceProject.image.x,y:faceProject.image.y}:hit.id==="__clock"?{x:faceProject.clockPosition.x,y:faceProject.clockPosition.y}:{x:hit.x,y:hit.y}};
   faceCanvas.setPointerCapture(event.pointerId);syncFaceInspector();renderFaceLayers();
 });
 faceCanvas.addEventListener("pointermove",event=>{
   if(!faceDragging)return;const point=faceCanvasPoint(event),dx=point.x-faceDragging.start.x,dy=point.y-faceDragging.start.y;
   if(faceDragging.id==="__image"){faceProject.image.x=Math.max(-120,Math.min(120,faceDragging.original.x+dx));faceProject.image.y=Math.max(-120,Math.min(120,faceDragging.original.y+dy))}
+  else if(faceDragging.id==="__clock"){faceProject.clockPosition.x=Math.max(0,Math.min(240,faceDragging.original.x+dx));faceProject.clockPosition.y=Math.max(0,Math.min(240,faceDragging.original.y+dy))}
   else{const layer=faceProject.layers.find(item=>item.id===faceDragging.id);if(layer){layer.x=Math.max(0,Math.min(240,faceDragging.original.x+dx));layer.y=Math.max(0,Math.min(240,faceDragging.original.y+dy))}}
-  renderFacePreview();document.getElementById("faceX").value=faceDragging.id==="__image"?faceProject.image.x:Math.round(faceSelectedLayer()?.x||0);document.getElementById("faceY").value=faceDragging.id==="__image"?faceProject.image.y:Math.round(faceSelectedLayer()?.y||0);
+  renderFacePreview();document.getElementById("faceX").value=faceDragging.id==="__image"?faceProject.image.x:faceDragging.id==="__clock"?Math.round(faceProject.clockPosition.x):Math.round(faceSelectedLayer()?.x||0);document.getElementById("faceY").value=faceDragging.id==="__image"?faceProject.image.y:faceDragging.id==="__clock"?Math.round(faceProject.clockPosition.y):Math.round(faceSelectedLayer()?.y||0);
 });
 faceCanvas.addEventListener("pointerup",()=>{if(faceDragging){faceDragging=null;faceMarkChanged();syncFaceInspector()}});
 faceCanvas.addEventListener("pointercancel",()=>{faceDragging=null});
 
 function faceBindInspector(){
-  const updateLayer=(key,value)=>{const layer=faceSelectedLayer();if(!layer)return;facePushUndo();layer[key]=value;renderFacePreview();renderFaceLayers();faceMarkChanged()};
+  const updateLayer=(key,value)=>{if(faceProject.selectedLayerId==="__clock"&&(key==="x"||key==="y")){facePushUndo();faceProject.clockPosition[key]=value;renderFacePreview();renderFaceLayers();syncFaceInspector();faceMarkChanged();return}const layer=faceSelectedLayer();if(!layer)return;facePushUndo();layer[key]=value;renderFacePreview();renderFaceLayers();faceMarkChanged()};
   document.getElementById("faceImageInput").addEventListener("change",event=>{faceLoadImage(event.target.files?.[0]);event.target.value=""});
   document.getElementById("faceImportInput").addEventListener("change",importFaceDesign);
   document.getElementById("faceStyleSelect").addEventListener("change",e=>{facePushUndo();faceProject.style=e.target.value;renderFacePreview();faceMarkChanged()});
