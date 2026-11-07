@@ -35,6 +35,10 @@ bool hasActiveFace() {
     return activeFaceValid;
 }
 
+void disableActive() {
+    activeFaceValid = false;
+}
+
 const FaceModel* getActiveFace() {
     return activeFaceValid ? &activeFace : nullptr;
 }
@@ -78,6 +82,11 @@ FaceParseResult loadJsonFile(const char* path) {
 FaceRenderStatus renderActive(const struct tm& timeInfo, const WeatherData& weather) {
     if (!activeFaceValid) return FaceRenderStatus::UnsupportedTransform;
     return renderWatchFace(activeFace, timeInfo, weather);
+}
+
+FaceRenderStatus renderActiveDynamic(const struct tm& timeInfo, const WeatherData& weather) {
+    if (!activeFaceValid) return FaceRenderStatus::UnsupportedTransform;
+    return renderWatchFaceDynamic(activeFace, timeInfo, weather);
 }
 
 } // namespace FaceManager
