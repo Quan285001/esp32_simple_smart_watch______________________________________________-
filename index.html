@@ -92,6 +92,24 @@
       <div id="advancedFields" class="hidden"><div class="side-divider"></div><div class="eyebrow">ADVANCED MODE</div><p class="note">Precise geometry, typography, per-glyph styling and renderer-specific options are being added in the next editor iterations.</p></div>
     </section>
     <section class="panel-section">
+      <div class="panel-heading"><h3>Legacy device controls</h3><span class="pill">BLE</span></div>
+      <p class="note" id="legacyStatus">Connect to use the existing firmware commands.</p>
+      <div class="field-row">
+        <button class="btn small" id="syncTimeBtn" type="button">Sync time</button>
+        <button class="btn small" id="syncWeatherBtn" type="button">Sync weather</button>
+      </div>
+      <div class="field-row">
+        <button class="btn small" id="sleepWatchBtn" type="button">Light Sleep</button>
+        <button class="btn small" id="scanWifiBtn" type="button">Scan Wi-Fi</button>
+      </div>
+      <div class="field"><label for="autoSleepSelect">AUTOMATIC LIGHT SLEEP</label><select id="autoSleepSelect"><option value="0">Disabled</option><option value="10">10 seconds</option><option value="12">12 seconds</option><option value="15" selected>15 seconds</option><option value="18">18 seconds</option><option value="20">20 seconds</option></select></div>
+      <button class="btn small" id="saveAutoSleepBtn" type="button">Save auto-sleep setting</button>
+      <div class="field"><label for="wifiSelect">AVAILABLE WI-FI NETWORKS</label><select id="wifiSelect"><option value="">Scan for networks first</option></select></div>
+      <div class="field"><label for="wifiSsid">WI-FI NAME (SSID)</label><input id="wifiSsid" autocomplete="off" placeholder="Network name"></div>
+      <div class="field"><label for="wifiPassword">WI-FI PASSWORD</label><input id="wifiPassword" type="password" autocomplete="new-password" placeholder="Password"></div>
+      <button class="btn small" id="saveWifiBtn" type="button">Send Wi-Fi configuration</button>
+    </section>
+    <section class="panel-section">
       <div class="panel-heading"><h3>Apply to watch</h3><span class="pill">PREVIEW</span></div>
       <p class="note">Your current design is saved locally. The existing BLE firmware only supports legacy commands; the new package-transfer protocol is not implemented yet.</p>
       <button class="btn primary" id="transferBtn" type="button" style="width:100%">Prepare for watch</button>
