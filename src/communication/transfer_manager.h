@@ -1,6 +1,7 @@
 #pragma once
 
-#include <Arduino.h>
+#include <stddef.h>
+#include <stdint.h>
 
 namespace TransferManager {
 
@@ -14,6 +15,11 @@ enum class State : uint8_t {
     Failed,
     Cancelled
 };
+
+constexpr bool canCancel(State state) {
+    return state == State::Receiving || state == State::Verifying ||
+           state == State::Verified || state == State::Failed;
+}
 
 enum class Error : uint8_t {
     None,
