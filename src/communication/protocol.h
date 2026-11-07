@@ -24,6 +24,8 @@ enum class MessageType : uint8_t {
     Capabilities = 0x04,
     GetStatus = 0x05,
     Status = 0x06,
+    GetFaceStatus = 0x07,
+    FaceStatus = 0x08,
     Command = 0x10,
     Response = 0x11,
     Event = 0x12,
