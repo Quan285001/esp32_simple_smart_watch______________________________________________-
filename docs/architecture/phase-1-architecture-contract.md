@@ -267,6 +267,7 @@ Completed as GitHub source inspection. No build or hardware claim.
 - [x] Transfer/package/storage contract documented.
 - [x] C++ codec checked against a fixed golden frame matching the documented Web DataView layout.
 - [x] Browser encoder independently checked against the same golden frame by the Node host test.
+- [x] C++ protocol host test also rejects malformed magic, unsupported version, unknown message, invalid flags, invalid lengths, bad CRC and invalid sessions.
 - [x] Web BLE acknowledgement waiters now have explicit cancellation/timeout cleanup, covered by the Node host test.
 - [x] Web package builder is host-tested for WFS1 header fields, payload SHA-256, layout SHA-256, CRC32, capability manifest, staging-capacity rejection and preservation of glyph scaleX/scaleY.
 - [x] Firmware parser rejects unknown keys at the root, canvas, object and supported nested-object levels instead of silently discarding unrecognized properties.
