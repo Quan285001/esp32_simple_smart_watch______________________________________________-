@@ -116,6 +116,11 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
     'SHA-256', payload.slice(manifestLength, manifestLength + layoutLength)));
   assert.equal(manifest.layoutSha256, hex(layoutDigest));
 
+  const invalidDesign = structuredClone(design);
+  invalidDesign.objects[0].textStyle.unknownVisualEffect = true;
+  await assert.rejects(buildPackage(invalidDesign), /Schema validation failed/,
+    'package builder must reject properties outside the shared schema');
+
   state.wfsCapabilities.stage = 64;
   await assert.rejects(buildPackage(design), /staging storage/,
     'package builder must reject a package larger than the reported staging capacity');
