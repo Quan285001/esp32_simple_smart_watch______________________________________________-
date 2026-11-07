@@ -10,6 +10,7 @@ namespace FaceManager {
 
 bool begin();
 bool hasActiveFace();
+bool setActiveModel(const FaceModel& model);
 void disableActive();
 const FaceModel* getActiveFace();
 FaceParseResult loadJsonFile(const char* path);
