@@ -22,6 +22,8 @@ enum class MessageType : uint8_t {
     HelloAck = 0x02,
     GetCapabilities = 0x03,
     Capabilities = 0x04,
+    GetStatus = 0x05,
+    Status = 0x06,
     Command = 0x10,
     Response = 0x11,
     Event = 0x12,
