@@ -38,3 +38,25 @@ The GitHub Actions workflow checks schema fixtures, frontend asset references, J
 ## Important architecture boundary
 
 The editor stores declarative design data. It does not generate or execute arbitrary C++ on the ESP32. A later compiler/package step must convert supported design objects and assets into a versioned device package, and the firmware must acknowledge validation and atomic application before the UI reports success.
+
+## Follow-up implementation — Settings and editor reliability
+
+Implemented on `rebuild/watch-face-studio-v2`:
+
+- Fixed the initialization crash caused by binding `oninput` to the missing `#bgQuick` element. The optional control is now null-checked.
+- Added a Settings destination on desktop and mobile, with Light, Dark, and Follow System application themes. The selection is persisted locally and remains separate from the watch-face canvas background.
+- Added a language preference selector and persists the selected locale. Full translation of every existing screen is still pending.
+- Added an automatic draft-save preference.
+- Added direct resize handles to selected unlocked canvas objects.
+- Added numeric controls for font family, weight, alignment, opacity, rotation and layer order, plus shape fill/stroke properties.
+- Added layer reorder controls and bounded undo/redo history (50 snapshots maximum).
+- Preserved the legacy BLE commands and the explicit warning that custom-face transfer is not yet implemented.
+
+### Remaining work
+
+- Full bilingual localization across all application strings.
+- Full object-specific inspector controls and proper analog hand rendering.
+- Undo/redo regression tests and responsive interaction tests on mobile.
+- Complete object grouping, multi-select, smart guides, image crop/bitmap conversion, .wface packaging, and offline PWA validation.
+- New BLE/Wi-Fi protocol and matching firmware receiver, staging validation, and atomic apply.
+- Real-device verification is not claimed by these frontend changes.
