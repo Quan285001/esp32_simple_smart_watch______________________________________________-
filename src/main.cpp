@@ -20,6 +20,7 @@
 #include "storage/storage_manager.h"
 #include "storage/face_storage.h"
 #include "watchface/face_manager.h"
+#include "system/system_manager.h"
 
 extern void handleBLECommands();
 
@@ -92,7 +93,6 @@ static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
 static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
-static bool lightSleepRequested = false;
 static uint8_t autoSleepTimeoutSeconds = 15; // 0 disables automatic sleep.
 static uint32_t lastUserActivityMs = 0;
 static uint32_t lastButtonActivitySeenMs = 0;
@@ -114,13 +114,13 @@ uint8_t getAutoSleepTimeoutSeconds() { return autoSleepTimeoutSeconds; }
 /**
  * @brief Schedules entry into Light Sleep mode from the main application loop.
  */
-void requestLightSleep() { lightSleepRequested = true; }
+void requestLightSleep() { SystemManager::requestSleep(); }
 
 /**
  * @brief Powers down Wi-Fi, Bluetooth, and the display before entering Light Sleep; restores the display and input after wake-up.
  */
 static void enterLightSleep() {
-    lightSleepRequested = false;
+    SystemManager::beginSleep();
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
 
     // The main loop defers sleep until background radio work has completed.
@@ -143,8 +143,10 @@ static void enterLightSleep() {
     esp_sleep_enable_gpio_wakeup();
 
     Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT panel blanked.");
+    SystemManager::markSleeping();
     esp_light_sleep_start();
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
+    SystemManager::markWaking();
 
     const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
     Serial.printf("[POWER] Wake cause: %d\\n", static_cast<int>(wakeCause));
@@ -161,6 +163,7 @@ static void enterLightSleep() {
     // Radios remain OFF until explicitly enabled from the menu.
     beginButtonManager();
     drawCurrentScreen(true);
+    SystemManager::markActive();
     Serial.println("[POWER] Wake complete; radios remain OFF.");
 }
 
@@ -547,6 +550,7 @@ static void bootNetworkTask(void *parameter) {
  * startup services run, then hands the display to the clock UI.
  */
 void setup() {
+    SystemManager::begin();
     Serial.begin(115200);
     delay(250);
 
@@ -706,7 +710,7 @@ void loop() {
         lightSleepRequested = true;
     }
 
-    if (lightSleepRequested) {
+    if (SystemManager::sleepRequested()) {
         // Keep the UI loop responsive while HTTPS/TLS work finishes.
         // Sleep is entered on a later loop iteration once radio tasks are idle.
         if (backgroundWorkActive) {
