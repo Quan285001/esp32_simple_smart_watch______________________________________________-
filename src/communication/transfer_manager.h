@@ -16,6 +16,11 @@ enum class State : uint8_t {
     Cancelled
 };
 
+constexpr bool isBusyState(State state) {
+    return state == State::Receiving || state == State::Verifying ||
+           state == State::Verified || state == State::Applying;
+}
+
 constexpr bool canCancel(State state) {
     return state == State::Receiving || state == State::Verifying ||
            state == State::Verified || state == State::Failed;
@@ -56,6 +61,7 @@ bool apply(uint32_t transferId);
 void cancel(uint32_t transferId);
 void abortSession();
 Snapshot snapshot();
+bool isBusy();
 const char* stateName(State state);
 const char* errorName(Error error);
 
