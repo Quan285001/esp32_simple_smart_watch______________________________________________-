@@ -37,6 +37,22 @@ bool begin() {
         }
         Serial.printf("[FACE] Active package rejected: %s.\\n",
                       packageValidationErrorName(packageError));
+        const uint8_t fallbackSlot = slot == 0 ? 1 : 0;
+        File fallbackFile = FaceStorage::openSlot(fallbackSlot, "r");
+        if (fallbackFile) {
+            FaceModel fallbackModel{};
+            PackageValidationError fallbackError = PackageValidationError::None;
+            const bool fallbackValid = validateWfsPackage(
+                fallbackFile, fallbackFile.size(), nullptr, nullptr,
+                fallbackModel, fallbackError);
+            fallbackFile.close();
+            if (fallbackValid && FaceStorage::activateSlot(fallbackSlot)) {
+                activeFace = fallbackModel;
+                activeFaceValid = true;
+                Serial.printf("[FACE] Recovered previous package from slot %u.\\n", fallbackSlot);
+                return true;
+            }
+        }
     }
 
     if (StorageManager::exists("/face.json")) {
