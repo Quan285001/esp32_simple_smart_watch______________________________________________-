@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 constexpr uint8_t FACE_MAX_OBJECTS = 16;
+constexpr uint8_t FACE_MAX_ASSETS = 16;
 constexpr size_t FACE_ID_CAPACITY = 65;
 constexpr size_t FACE_NAME_CAPACITY = 81;
 constexpr size_t FACE_TEXT_CAPACITY = 257;
@@ -67,6 +68,14 @@ struct FaceObject {
     bool showWeatherCondition;
 };
 
+struct FaceAsset {
+    char id[FACE_ID_CAPACITY];
+    uint16_t width;
+    uint16_t height;
+    uint32_t packageOffset;
+    uint32_t byteLength;
+};
+
 struct FaceModel {
     uint16_t schemaVersion;
     char designId[FACE_ID_CAPACITY];
@@ -77,6 +86,8 @@ struct FaceModel {
     uint16_t backgroundColor;
     bool clipToShape;
     uint8_t objectCount;
+    uint8_t assetCount;
+    FaceAsset assets[FACE_MAX_ASSETS];
     FaceObject objects[FACE_MAX_OBJECTS];
     bool containsImageAssets;
 };
