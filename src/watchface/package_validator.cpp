@@ -46,16 +46,6 @@ bool hexToBytes(const char* hex, uint8_t* out, size_t count) {
     return true;
 }
 
-bool digestBytes(const uint8_t* data, size_t length, uint8_t output[32]) {
-    mbedtls_sha256_context context;
-    mbedtls_sha256_init(&context);
-    const int start = mbedtls_sha256_starts_ret(&context, 0);
-    const int update = start == 0 ? mbedtls_sha256_update_ret(&context, data, length) : start;
-    const int finish = update == 0 ? mbedtls_sha256_finish_ret(&context, output) : update;
-    mbedtls_sha256_free(&context);
-    return finish == 0;
-}
-
 bool digestFileRange(fs::File& file, size_t offset, size_t length, uint8_t output[32]) {
     if (!file.seek(offset, SeekSet)) return false;
     mbedtls_sha256_context context;
