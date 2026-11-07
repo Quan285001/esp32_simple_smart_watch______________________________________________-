@@ -17,6 +17,7 @@
 #include "services/ble_service.h"
 #include "system/diagnostics.h"
 #include "display/display_manager.h"
+#include "storage/storage_manager.h"
 
 extern void handleBLECommands();
 
@@ -565,6 +566,7 @@ void setup() {
     beginDisplay(0);
 
     showBootTerminal();
+    StorageManager::begin();
     bootTerminalLog("[BOOT] Restoring saved state", TFT_YELLOW);
 
     Preferences prefs;
