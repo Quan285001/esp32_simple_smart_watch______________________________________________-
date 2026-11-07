@@ -11,7 +11,7 @@
 namespace TransferManager {
 namespace {
 constexpr size_t MIN_PACKAGE_LENGTH = 64;
-File stagingFile;
+fs::File stagingFile;
 State currentState = State::Idle;
 Error currentError = Error::None;
 uint32_t currentTransferId = 0;
@@ -141,7 +141,7 @@ bool finish(uint32_t transferId) {
     stagingFile.flush();
     stagingFile.close();
 
-    File packageFile = FaceStorage::openSlot(stagingSlot, "r");
+    fs::File packageFile = FaceStorage::openSlot(stagingSlot, "r");
     PackageValidationError validationError = PackageValidationError::None;
     const bool valid = packageFile &&
         validateWfsPackage(packageFile, totalLength, expectedDigest,
