@@ -4,12 +4,12 @@
 
 constexpr uint8_t FACE_MAX_OBJECTS = 16;
 constexpr size_t FACE_ID_CAPACITY = 65;
-constexpr size_t FACE_NAME_CAPACITY = 33;
-constexpr size_t FACE_TEXT_CAPACITY = 129;
-constexpr size_t FACE_FONT_CAPACITY = 25;
-constexpr size_t FACE_BINDING_CAPACITY = 25;
-constexpr size_t FACE_FORMAT_CAPACITY = 41;
-constexpr size_t FACE_ASSET_ID_CAPACITY = 33;
+constexpr size_t FACE_NAME_CAPACITY = 81;
+constexpr size_t FACE_TEXT_CAPACITY = 257;
+constexpr size_t FACE_FONT_CAPACITY = 65;
+constexpr size_t FACE_BINDING_CAPACITY = 65;
+constexpr size_t FACE_FORMAT_CAPACITY = 65;
+constexpr size_t FACE_ASSET_ID_CAPACITY = 65;
 
 enum class FaceElementType : uint8_t {
     Text,
@@ -54,7 +54,7 @@ struct FaceObject {
     uint16_t fontWeight;
     uint16_t textColor;
     FaceTextAlign textAlign;
-    int8_t letterSpacing;
+    int16_t letterSpacing;
 
     uint16_t fillColor;
     uint16_t strokeColor;
