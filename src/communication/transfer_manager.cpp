@@ -1,4 +1,5 @@
 #include "transfer_manager.h"
+#include "transfer_sequence.h"
 
 #include <SPIFFS.h>
 #include <string.h>
@@ -17,11 +18,7 @@ Error currentError = Error::None;
 uint32_t currentTransferId = 0;
 uint32_t totalLength = 0;
 uint32_t receivedLength = 0;
-uint32_t nextChunk = 0;
-uint8_t lastChunkData[216] = {};
-uint16_t lastChunkLength = 0;
-uint32_t lastChunkIndex = 0;
-bool hasLastChunk = false;
+WfsTransferSequence::Receiver chunkSequence;
 uint8_t stagingSlot = FaceStorage::INVALID_SLOT;
 uint8_t previousActiveSlot = FaceStorage::INVALID_SLOT;
 uint8_t expectedDigest[32] = {};
@@ -41,10 +38,7 @@ void clearTransferFields() {
     currentTransferId = 0;
     totalLength = 0;
     receivedLength = 0;
-    nextChunk = 0;
-    lastChunkLength = 0;
-    lastChunkIndex = 0;
-    hasLastChunk = false;
+    chunkSequence.reset();
     stagingSlot = FaceStorage::INVALID_SLOT;
     previousActiveSlot = FaceStorage::INVALID_SLOT;
     memset(expectedDigest, 0, sizeof(expectedDigest));
@@ -113,18 +107,18 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
         currentError = Error::WrongTransfer;
         return false;
     }
-    if (bytes == nullptr || length == 0 || length > sizeof(lastChunkData)) {
+    const WfsTransferSequence::Decision decision =
+        chunkSequence.inspect(chunkIndex, bytes, length);
+    if (decision == WfsTransferSequence::Decision::InvalidPayload) {
         currentError = Error::ChunkInvalid;
         return false;
     }
-    if (chunkIndex != nextChunk) {
-        // Stop-and-wait retry: ACK a byte-identical retransmission of the
-        // immediately previous chunk without writing it twice.
-        if (hasLastChunk && chunkIndex == lastChunkIndex &&
-            length == lastChunkLength && memcmp(bytes, lastChunkData, length) == 0) {
-            currentError = Error::None;
-            return true;
-        }
+    if (decision == WfsTransferSequence::Decision::Duplicate) {
+        // ACK a byte-identical retransmission without writing it twice.
+        currentError = Error::None;
+        return true;
+    }
+    if (decision == WfsTransferSequence::Decision::OutOfOrder) {
         currentError = Error::WrongSequence;
         return false;
     }
@@ -138,12 +132,11 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
         return false;
     }
     stagingFile.flush();
-    memcpy(lastChunkData, bytes, length);
-    lastChunkLength = static_cast<uint16_t>(length);
-    lastChunkIndex = chunkIndex;
-    hasLastChunk = true;
+    if (!chunkSequence.commit(chunkIndex, bytes, length)) {
+        fail(Error::WrongSequence);
+        return false;
+    }
     receivedLength += static_cast<uint32_t>(written);
-    ++nextChunk;
     currentError = Error::None;
     return true;
 }
@@ -225,7 +218,7 @@ void abortSession() {
 
 Snapshot snapshot() {
     return {currentState, currentError, currentTransferId,
-            totalLength, receivedLength, nextChunk};
+            totalLength, receivedLength, chunkSequence.nextIndex()};
 }
 
 const char* stateName(State state) {
