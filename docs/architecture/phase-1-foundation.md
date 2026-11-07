@@ -206,7 +206,7 @@ Desktop and mobile layouts are designed separately. Beginner and Advanced modes 
 - [x] Package lifecycle and atomic-apply requirements documented.
 - [x] BLE/Wi-Fi responsibilities and browser limitations documented.
 - [x] Migration order and first vertical slice defined.
-- [x] Python JSON Schema validator and initial JSON fixtures added to CI. Cross-language golden tests remain pending.
-- [ ] Protocol implementation and firmware capability report implemented.
+- [x] Python JSON Schema validator and initial JSON fixtures added to CI; C++ and Web codecs now share a byte-exact golden frame test.
+- [x] WFS v1 protocol implementation, handshake/capability/status reporting and bounded transfer state machine are present in source; physical BLE interoperability remains unverified.
 
 The unchecked items are implementation work and are not claimed as complete by this architecture document.
