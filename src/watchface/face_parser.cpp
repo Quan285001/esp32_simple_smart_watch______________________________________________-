@@ -88,8 +88,12 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
     JsonObjectConst textStyle = source["textStyle"].as<JsonObjectConst>();
     if (!textStyle.isNull()) {
         if (textStyle.containsKey("fontId") || textStyle.containsKey("width") ||
-            textStyle.containsKey("height") || hasNonEmptyString(textStyle["stroke"]) ||
-            hasNonEmptyString(textStyle["backgroundColor"])) return true;
+            textStyle.containsKey("height")) return true;
+        if ((textStyle.containsKey("stroke") &&
+             (!textStyle["stroke"].is<const char*>() || hasNonEmptyString(textStyle["stroke"]))) ||
+            (textStyle.containsKey("backgroundColor") &&
+             (!textStyle["backgroundColor"].is<const char*>() ||
+              hasNonEmptyString(textStyle["backgroundColor"])))) return true;
         if (numberDiffersFrom(textStyle, "opacity", 1.0f) ||
             numberDiffersFrom(textStyle, "rotation", 0.0f) ||
             numberDiffersFrom(textStyle, "strokeWidth", 0.0f) ||
@@ -97,8 +101,10 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
             numberDiffersFrom(textStyle, "letterSpacing", 0.0f) ||
             numberDiffersFrom(textStyle, "zIndex", 0.0f)) return true;
         if (textStyle.containsKey("backgroundShape") &&
-            strcmp(textStyle["backgroundShape"] | "none", "none") != 0) return true;
-        if (textStyle.containsKey("visible") && !(textStyle["visible"] | true)) return true;
+            (!textStyle["backgroundShape"].is<const char*>() ||
+             strcmp(textStyle["backgroundShape"] | "none", "none") != 0)) return true;
+        if (textStyle.containsKey("visible") &&
+            (!textStyle["visible"].is<bool>() || !(textStyle["visible"] | true))) return true;
     }
 
     JsonArrayConst glyphOverrides = source["glyphOverrides"].as<JsonArrayConst>();
@@ -126,14 +132,18 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
     JsonObjectConst binding = source["dataBinding"].as<JsonObjectConst>();
     if (source.containsKey("dataBinding") && binding.isNull()) return false;
     if (!binding.isNull()) {
-        if (hasNonEmptyString(binding["timezone"]) ||
-            hasNonEmptyString(binding["fallbackText"]) ||
-            (binding["visibleWhenMissing"] | false)) return true;
+        if ((binding.containsKey("timezone") &&
+             (!binding["timezone"].is<const char*>() || hasNonEmptyString(binding["timezone"]))) ||
+            (binding.containsKey("fallbackText") &&
+             (!binding["fallbackText"].is<const char*>() || hasNonEmptyString(binding["fallbackText"]))) ||
+            (binding.containsKey("visibleWhenMissing") &&
+             (!binding["visibleWhenMissing"].is<bool>() || (binding["visibleWhenMissing"] | false)))) return true;
     }
 
     JsonObjectConst style = source["style"].as<JsonObjectConst>();
     if (!style.isNull()) {
-        if (hasNonEmptyString(style["backgroundColor"])) return true;
+        if (style.containsKey("backgroundColor") &&
+            (!style["backgroundColor"].is<const char*>() || hasNonEmptyString(style["backgroundColor"]))) return true;
         if (style.containsKey("strokeWidth")) {
             const float width = style["strokeWidth"] | -1.0f;
             if (!isfinite(width) || (width != 0.0f && width != 1.0f)) return true;
@@ -214,6 +224,8 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
         target.transform.rotation < -3600.0f || target.transform.rotation > 3600.0f ||
         target.transform.opacity < 0.0f || target.transform.opacity > 1.0f) return false;
 
+    if (transform.containsKey("zIndex") &&
+        !transform["zIndex"].is<int>() && !transform["zIndex"].is<long>()) return false;
     const int32_t zIndex = transform["zIndex"] | 0;
     if (zIndex < -32768 || zIndex > 32767) return false;
     target.transform.zIndex = static_cast<int16_t>(zIndex);
@@ -225,6 +237,9 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     target.glyphScaleY = 1.0f;
     if (!readNumber(textStyle["scaleX"], target.glyphScaleX, false, 1.0f) ||
         !readNumber(textStyle["scaleY"], target.glyphScaleY, false, 1.0f)) return false;
+    if (textStyle.containsKey("fontWeight") &&
+        !textStyle["fontWeight"].is<int>() && !textStyle["fontWeight"].is<unsigned int>()) return false;
+    if (textStyle.containsKey("textAlign") && !textStyle["textAlign"].is<const char*>()) return false;
     target.fontWeight = textStyle["fontWeight"] | 400;
     target.letterSpacing = textStyle["letterSpacing"] | 0;
     if (target.fontSize <= 0.0f || target.fontSize > 256.0f ||
@@ -263,6 +278,8 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     const float strokeWidth = style["strokeWidth"] | 0.0f;
     if (!isfinite(strokeWidth) || strokeWidth < 0.0f || strokeWidth > 64.0f) return false;
     target.strokeWidth = static_cast<uint8_t>(strokeWidth);
+    if (style.containsKey("cornerRadius") &&
+        !style["cornerRadius"].is<float>() && !style["cornerRadius"].is<int>()) return false;
     const float cornerRadius = style["cornerRadius"] | 0.0f;
     if (!isfinite(cornerRadius) || cornerRadius < 0.0f || cornerRadius > 255.0f) return false;
     target.cornerRadius = static_cast<uint8_t>(cornerRadius);
