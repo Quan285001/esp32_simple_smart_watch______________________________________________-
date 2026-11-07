@@ -22,7 +22,7 @@ bool drawImageElement(const FaceModel& face, const FaceObject& object) {
     if (slot > 1) return false;
     fs::File file = FaceStorage::openSlot(slot, "r");
     if (!file) return false;
-    if (!file.seek(asset->packageOffset, SeekSet)) {
+    if (!file.seek(asset->packageOffset, fs::SeekSet)) {
         file.close();
         return false;
     }
