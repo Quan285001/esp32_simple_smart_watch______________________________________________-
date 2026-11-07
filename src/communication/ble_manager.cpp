@@ -17,6 +17,9 @@
 #include "../storage/storage_manager.h"
 #include "../storage/face_storage.h"
 #include "../watchface/face_model.h"
+#include "../watchface/face_manager.h"
+#include "transfer_manager.h"
+#include <stdlib.h>
 
 namespace {
 constexpr size_t PACKET_CAPACITY = WfsProtocol::MAX_DATA_FRAME_BYTES;
@@ -82,6 +85,43 @@ void sendError(uint16_t code, const char* message) {
         sendFrame(controlTx, WfsProtocol::MessageType::Error,
                   reinterpret_cast<const uint8_t*>(payload), static_cast<uint16_t>(length));
     }
+}
+
+uint32_t readU32(const uint8_t* p) {
+    return static_cast<uint32_t>(p[0]) |
+           (static_cast<uint32_t>(p[1]) << 8) |
+           (static_cast<uint32_t>(p[2]) << 16) |
+           (static_cast<uint32_t>(p[3]) << 24);
+}
+
+void writeU32(uint8_t* p, uint32_t value) {
+    p[0] = static_cast<uint8_t>(value & 0xFF);
+    p[1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    p[2] = static_cast<uint8_t>((value >> 16) & 0xFF);
+    p[3] = static_cast<uint8_t>((value >> 24) & 0xFF);
+}
+
+bool parseDigest(const char* hex, uint8_t output[32]) {
+    if (hex == nullptr || strlen(hex) != 64) return false;
+    for (size_t i = 0; i < 32; ++i) {
+        char pair[3] = {hex[i * 2], hex[i * 2 + 1], '\\0'};
+        char* end = nullptr;
+        const unsigned long value = strtoul(pair, &end, 16);
+        if (end == nullptr || *end != '\\0' || value > 255) return false;
+        output[i] = static_cast<uint8_t>(value);
+    }
+    return true;
+}
+
+void sendDataAck(uint32_t transferId) {
+    const TransferManager::Snapshot status = TransferManager::snapshot();
+    uint8_t payload[14] = {};
+    writeU32(payload, transferId);
+    writeU32(payload + 4, status.nextChunkIndex == 0 ? 0 : status.nextChunkIndex - 1);
+    writeU32(payload + 8, status.receivedBytes);
+    payload[12] = static_cast<uint8_t>(status.error);
+    payload[13] = 0;
+    sendFrame(dataTx, WfsProtocol::MessageType::DataAck, payload, sizeof(payload));
 }
 
 void sendHelloAck() {
@@ -167,12 +207,80 @@ void handleControlPacket(const WfsPacket& packet) {
         case WfsProtocol::MessageType::Ping:
             sendFrame(controlTx, WfsProtocol::MessageType::Pong, nullptr, 0);
             break;
-        case WfsProtocol::MessageType::TransferBegin:
-        case WfsProtocol::MessageType::TransferEnd:
-        case WfsProtocol::MessageType::Apply:
-        case WfsProtocol::MessageType::Cancel:
-            sendError(0x0020, "face_transfer_not_enabled");
+        case WfsProtocol::MessageType::TransferBegin: {
+            JsonDocument request;
+            if (deserializeJson(request, frame.payload, frame.payloadLength,
+                                DeserializationOption::NestingLimit(4))) {
+                sendError(0x0022, "transfer_begin_json_invalid");
+                break;
+            }
+            const uint32_t transferId = request["transferId"] | 0;
+            const uint32_t packageLength = request["packageLength"] | 0;
+            const char* designId = request["designId"] | "";
+            const char* digestText = request["payloadSha256"] | "";
+            uint8_t digest[32] = {};
+            if (!parseDigest(digestText, digest) ||
+                !TransferManager::begin(transferId, packageLength, digest, designId)) {
+                sendError(0x0023, TransferManager::errorName(TransferManager::snapshot().error));
+                break;
+            }
+            char response[160] = {};
+            const int responseLength = snprintf(response, sizeof(response),
+                "{\\"transferId\\":%lu,\\"chunkSize\\":216,\\"nextChunk\\":0}",
+                static_cast<unsigned long>(transferId));
+            if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::TransferReady,
+                reinterpret_cast<const uint8_t*>(response), static_cast<uint16_t>(responseLength));
             break;
+        }
+        case WfsProtocol::MessageType::TransferEnd: {
+            JsonDocument request;
+            if (deserializeJson(request, frame.payload, frame.payloadLength,
+                                DeserializationOption::NestingLimit(4))) {
+                sendError(0x0022, "transfer_end_json_invalid");
+                break;
+            }
+            const uint32_t transferId = request["transferId"] | 0;
+            const bool verified = TransferManager::finish(transferId);
+            char response[160] = {};
+            const int responseLength = snprintf(response, sizeof(response),
+                "{\\"transferId\\":%lu,\\"ok\\":%s,\\"error\\":\\"%s\\"}",
+                static_cast<unsigned long>(transferId), verified ? "true" : "false",
+                TransferManager::errorName(TransferManager::snapshot().error));
+            if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::VerifyResult,
+                reinterpret_cast<const uint8_t*>(response), static_cast<uint16_t>(responseLength));
+            break;
+        }
+        case WfsProtocol::MessageType::Apply: {
+            JsonDocument request;
+            if (deserializeJson(request, frame.payload, frame.payloadLength,
+                                DeserializationOption::NestingLimit(4))) {
+                sendError(0x0022, "apply_json_invalid");
+                break;
+            }
+            const uint32_t transferId = request["transferId"] | 0;
+            const bool applied = TransferManager::apply(transferId);
+            const FaceModel* active = FaceManager::getActiveFace();
+            char response[180] = {};
+            const int responseLength = snprintf(response, sizeof(response),
+                "{\\"transferId\\":%lu,\\"ok\\":%s,\\"designId\\":\\"%s\\"}",
+                static_cast<unsigned long>(transferId), applied ? "true" : "false",
+                applied && active != nullptr ? active->designId : "");
+            if (responseLength > 0) sendFrame(controlTx, WfsProtocol::MessageType::ApplyResult,
+                reinterpret_cast<const uint8_t*>(response), static_cast<uint16_t>(responseLength));
+            break;
+        }
+        case WfsProtocol::MessageType::Cancel: {
+            JsonDocument request;
+            if (deserializeJson(request, frame.payload, frame.payloadLength,
+                                DeserializationOption::NestingLimit(4))) {
+                sendError(0x0022, "cancel_json_invalid");
+                break;
+            }
+            const uint32_t transferId = request["transferId"] | 0;
+            TransferManager::cancel(transferId);
+            sendError(0x0000, "transfer_cancelled");
+            break;
+        }
         default:
             sendError(0x0010, "command_not_implemented");
             break;
@@ -187,7 +295,25 @@ void handleDataPacket(const WfsPacket& packet) {
         sendError(0x0002, WfsProtocol::frameErrorName(error));
         return;
     }
-    sendError(0x0020, "face_transfer_not_enabled");
+    if (sessionId == 0 || frame.sessionId != sessionId ||
+        frame.sequence != static_cast<uint16_t>(lastControlSequence + 1U)) {
+        sendError(0x0004, "data_sequence_or_session_invalid");
+        return;
+    }
+    lastControlSequence = frame.sequence;
+    if (frame.type != WfsProtocol::MessageType::Data || frame.payloadLength <= 8) {
+        sendError(0x0022, "data_frame_invalid");
+        return;
+    }
+    const uint32_t transferId = readU32(frame.payload);
+    const uint32_t chunkIndex = readU32(frame.payload + 4);
+    const uint8_t* chunkBytes = frame.payload + 8;
+    const size_t chunkLength = frame.payloadLength - 8;
+    if (!TransferManager::writeChunk(transferId, chunkIndex, chunkBytes, chunkLength)) {
+        sendError(0x0025, TransferManager::errorName(TransferManager::snapshot().error));
+        return;
+    }
+    sendDataAck(transferId);
 }
 }
 
