@@ -7,6 +7,8 @@
 #include <freertos/queue.h>
 
 #include "ble_service.h"
+#include "../communication/ble_manager.h"
+#include "../communication/protocol.h"
 
 static constexpr char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 static constexpr char CHARACTERISTIC_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
@@ -31,10 +33,12 @@ class ServerCallbacks final : public BLEServerCallbacks {
      */
     void onConnect(BLEServer *) override {
         clientConnected = true;
+        resetWfsSession();
     }
 
     void onDisconnect(BLEServer *) override {
         clientConnected = false;
+        resetWfsSession();
 
         // BLE callbacks run in the host task. Defer advertising API calls
         // to serviceBLE(), which executes in the application loop.
@@ -90,6 +94,7 @@ void beginBLE() {
 
     Serial.println("[BLE] Initializing stack once...");
     BLEDevice::init("ESP32_Watch_C3");
+    BLEDevice::setMTU(247);
     bleStackInitialized = true;
 
     Serial.println("[BLE] Creating server...");
@@ -125,6 +130,10 @@ void beginBLE() {
 
     service->start();
 
+    if (!beginWfsGatt(bleServer)) {
+        Serial.println("[WFS] New protocol service unavailable; legacy BLE remains active.");
+    }
+
     bleAdvertising = BLEDevice::getAdvertising();
     if (bleAdvertising == nullptr) {
         Serial.println("[BLE] Advertising instance unavailable.");
@@ -132,6 +141,7 @@ void beginBLE() {
     }
 
     bleAdvertising->addServiceUUID(SERVICE_UUID);
+    bleAdvertising->addServiceUUID(WfsProtocol::SERVICE_UUID);
     bleAdvertising->setScanResponse(true);
 
     advertisingRestartPending = false;
@@ -203,6 +213,7 @@ void toggleBLE() {
  * @brief Processes deferred advertising restarts from the application loop.
  */
 void serviceBLE() {
+    serviceWfsBle();
     const uint32_t dropped =
         __atomic_exchange_n(&commandQueueDropCount, 0, __ATOMIC_RELAXED);
     if (dropped > 0) {
@@ -240,6 +251,7 @@ void serviceBLE() {
 
  */
 void shutdownBLEForSleep() {
+    shutdownWfsGatt();
     if (bleAdvertising != nullptr) {
         bleAdvertising->stop();
     }
