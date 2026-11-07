@@ -90,9 +90,7 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
         if (textStyle.containsKey("fontId") || textStyle.containsKey("width") ||
             textStyle.containsKey("height") || hasNonEmptyString(textStyle["stroke"]) ||
             hasNonEmptyString(textStyle["backgroundColor"])) return true;
-        if (numberDiffersFrom(textStyle, "scaleX", 1.0f) ||
-            numberDiffersFrom(textStyle, "scaleY", 1.0f) ||
-            numberDiffersFrom(textStyle, "opacity", 1.0f) ||
+        if (numberDiffersFrom(textStyle, "opacity", 1.0f) ||
             numberDiffersFrom(textStyle, "rotation", 0.0f) ||
             numberDiffersFrom(textStyle, "strokeWidth", 0.0f) ||
             numberDiffersFrom(textStyle, "backgroundRadius", 0.0f) ||
@@ -204,10 +202,16 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
 
     JsonObjectConst textStyle = source["textStyle"].as<JsonObjectConst>();
     if (source.containsKey("textStyle") && textStyle.isNull()) return false;
-    target.fontSize = textStyle["fontSize"] | 16;
+    if (!readNumber(textStyle["fontSize"], target.fontSize, false, 16.0f)) return false;
+    target.glyphScaleX = 1.0f;
+    target.glyphScaleY = 1.0f;
+    if (!readNumber(textStyle["scaleX"], target.glyphScaleX, false, 1.0f) ||
+        !readNumber(textStyle["scaleY"], target.glyphScaleY, false, 1.0f)) return false;
     target.fontWeight = textStyle["fontWeight"] | 400;
     target.letterSpacing = textStyle["letterSpacing"] | 0;
-    if (target.fontSize == 0 || target.fontSize > 256 ||
+    if (target.fontSize <= 0.0f || target.fontSize > 256.0f ||
+        target.glyphScaleX < 0.1f || target.glyphScaleX > 8.0f ||
+        target.glyphScaleY < 0.1f || target.glyphScaleY > 8.0f ||
         !(target.fontWeight == 300 || target.fontWeight == 400 ||
           target.fontWeight == 500 || target.fontWeight == 600 ||
           target.fontWeight == 700 || target.fontWeight == 800 ||
@@ -223,6 +227,10 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     else return false;
 
     if (!copyString(source["text"], target.text, sizeof(target.text), false)) return false;
+    for (const unsigned char* character = reinterpret_cast<const unsigned char*>(target.text);
+         *character != 0; ++character) {
+        if (*character < 0x20 || *character > 0x7E) return false;
+    }
 
     JsonObjectConst binding = source["dataBinding"].as<JsonObjectConst>();
     if (!binding.isNull()) {
