@@ -11,15 +11,17 @@ const sandbox = {
     querySelectorAll: () => [],
     addEventListener: () => {},
   },
+  setTimeout,
+  clearTimeout,
 };
 vm.runInNewContext(
-  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame };',
+  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage };',
   sandbox,
   { filename: 'web/app.js' },
 );
 
-const { state, encode, decode } = sandbox.__wfsCodecTest;
-state.wfs = { txSequence: 7, sessionId: 0x12345678 };
+const { state, encode, decode, waitFor } = sandbox.__wfsCodecTest;
+state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map() };
 
 const payload = Uint8Array.from([0x10, 0x20, 0x30, 0x40]);
 const frame = encode(0x30, payload);
@@ -37,4 +39,19 @@ const corrupted = frame.slice();
 corrupted[6] ^= 1;
 assert.throws(() => decode(corrupted), /CRC mismatch/);
 
-console.log('WFS Web protocol codec tests passed.');
+(async () => {
+  const pendingAck = waitFor(0x23, 60000);
+  assert.equal(state.wfs.pending.size, 1, 'ACK waiter should be registered');
+  pendingAck.cancel();
+  assert.equal(await pendingAck, null, 'cancelled ACK waiter should resolve without rejection');
+  assert.equal(state.wfs.pending.size, 0, 'cancelled ACK waiter should be removed');
+
+  const timedOut = waitFor(0x24, 5);
+  await assert.rejects(timedOut, /WFS response timeout/);
+  assert.equal(state.wfs.pending.size, 0, 'timed-out waiter should be removed');
+
+  console.log('WFS Web protocol codec and waiter lifecycle tests passed.');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
