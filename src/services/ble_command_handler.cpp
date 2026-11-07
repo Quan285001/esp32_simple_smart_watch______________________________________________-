@@ -5,6 +5,7 @@
 
 #include "ble_service.h"
 #include "weather_service.h"
+#include "../face/face_image.h"
 
 extern bool wifiEnabled;
 /**
@@ -222,8 +223,23 @@ static void handleCommand(const String &cmd) {
 
  */
 void handleBLECommands() {
-    String command;
-    while (readBLECommand(command)) {
+    BLEPacket packet{};
+    while (readBLEPacket(packet)) {
+        if (packet.length == 0 || packet.length > BLE_PACKET_MAX_BYTES) continue;
+
+        // Binary image frames use reserved leading bytes outside the ASCII command set.
+        if (packet.data[0] >= 0xF0 && packet.data[0] <= 0xF3) {
+            handleFaceImagePacket(packet.data, packet.length);
+            continue;
+        }
+
+        if (packet.length >= 128) {
+            sendBLENotification("ERR_COMMAND_SIZE");
+            continue;
+        }
+        char text[128] = {};
+        memcpy(text, packet.data, packet.length);
+        String command(text);
         Serial.printf("[BLE] Received command (%u bytes).\n",
                       static_cast<unsigned int>(command.length()));
         handleCommand(command);
