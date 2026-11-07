@@ -972,7 +972,11 @@ async function applyFaceToWatch(){
   const selected=FACE_STYLE_BY_KEY[faceProject.style]||FACE_STYLE_BY_KEY.classic;
   const styleSent=await sendBLECommand("STYLE:"+selected.id);
   if(!styleSent){status.textContent="Colors sent, but style command failed";button.disabled=false;return}
-  status.textContent="Sending "+selected.name+" renderer to ESP32...";
+  if(faceProject.image){
+    status.textContent=selected.name+" and colors applied. Photo is saved in this browser project only; image transfer to the watch is not implemented yet.";
+  }else{
+    status.textContent=selected.name+" and colors applied to ESP32-C3.";
+  }
   window.setTimeout(()=>{button.disabled=false},2500);
 }
 function chooseFaceStyle(style){
