@@ -282,9 +282,12 @@ bool validateWfsPackage(File& file, size_t expectedFileLength,
         }
     }
 
+    // Release manifest parsing memory before allocating the layout parser
+    // document; both JSON trees are never kept alive at the same time.
+    free(manifestText);
+    manifest.clear();
     const FaceParseResult parseResult =
         parseWatchFaceJson(layoutText, layoutLength, output);
-    free(manifestText);
     free(layoutText);
     if (!parseResult) {
         error = PackageValidationError::LayoutSchema;
