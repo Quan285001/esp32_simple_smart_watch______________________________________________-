@@ -17,4 +17,12 @@ with tempfile.TemporaryDirectory(prefix="wfs-host-test-") as tmp:
     )
     subprocess.run([str(binary)], cwd=ROOT, check=True)
 
-print("WFS protocol codec host tests passed.")
+print("WFS C++ protocol codec host tests passed.")
+
+subprocess.run(
+    ["node", str(ROOT / "tests" / "host" / "web_protocol_codec_test.cjs")],
+    cwd=ROOT,
+    check=True,
+)
+
+print("WFS cross-language golden-frame host tests passed.")
