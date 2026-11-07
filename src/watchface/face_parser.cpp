@@ -141,6 +141,19 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
 
     if (!copyString(source["timeFormat"], target.timeFormat, sizeof(target.timeFormat), false)) return false;
     target.showSeconds = source["showSeconds"] | false;
+    target.showWeatherTemperature = true;
+    target.showWeatherCondition = false;
+    JsonArrayConst weatherFields = source["weatherFields"].as<JsonArrayConst>();
+    if (!weatherFields.isNull()) {
+        target.showWeatherTemperature = false;
+        for (JsonVariantConst field : weatherFields) {
+            if (!field.is<const char*>()) return false;
+            const char* fieldName = field.as<const char*>();
+            if (strcmp(fieldName, "temperature") == 0) target.showWeatherTemperature = true;
+            else if (strcmp(fieldName, "condition") == 0) target.showWeatherCondition = true;
+            else if (strcmp(fieldName, "icon") != 0) return false;
+        }
+    }
 
     if (target.type == FaceElementType::Image) {
         if (!copyString(source["assetId"], target.assetId, sizeof(target.assetId), true)) return false;
