@@ -8,7 +8,6 @@
 #include "../display/display_manager.h"
 
 namespace {
-constexpr uint16_t COLOR_WHITE = 0xFFFF;
 constexpr float PI_F = 3.14159265358979323846f;
 
 void sortObjectIndices(const FaceModel& face, uint8_t* indices) {
@@ -33,6 +32,41 @@ uint8_t textScale(uint16_t fontSize) {
     return static_cast<uint8_t>(scale);
 }
 
+bool isDynamic(FaceElementType type) {
+    return type == FaceElementType::DigitalClock ||
+           type == FaceElementType::AnalogClock ||
+           type == FaceElementType::Date ||
+           type == FaceElementType::Weather;
+}
+
+bool intersects(const FaceObject& object, int x, int y, int w, int h) {
+    const int ox = static_cast<int>(lroundf(object.transform.x));
+    const int oy = static_cast<int>(lroundf(object.transform.y));
+    const int ow = static_cast<int>(lroundf(object.transform.width));
+    const int oh = static_cast<int>(lroundf(object.transform.height));
+    return ox < x + w && ox + ow > x && oy < y + h && oy + oh > y;
+}
+
+FaceRenderStatus preflight(const FaceModel& face) {
+    if (face.objectCount > FACE_MAX_OBJECTS ||
+        face.canvasWidth != 240 || face.canvasHeight != 240) {
+        return FaceRenderStatus::UnsupportedTransform;
+    }
+    for (uint8_t i = 0; i < face.objectCount; ++i) {
+        const FaceObject& object = face.objects[i];
+        if (object.transform.rotation != 0.0f || object.transform.opacity < 0.999f) {
+            return FaceRenderStatus::UnsupportedTransform;
+        }
+        if (object.type == FaceElementType::Image) return FaceRenderStatus::UnsupportedAsset;
+        if (object.fontFamily[0] != '\0' &&
+            strcmp(object.fontFamily, "system-ui") != 0 &&
+            strcmp(object.fontFamily, "sans-serif") != 0) {
+            return FaceRenderStatus::UnsupportedFont;
+        }
+    }
+    return FaceRenderStatus::Ok;
+}
+
 void drawTextInBounds(const char* text, const FaceObject& object, uint16_t color) {
     if (text == nullptr || text[0] == '\0') return;
     const int x = static_cast<int>(lroundf(object.transform.x));
@@ -51,9 +85,7 @@ void drawTextInBounds(const char* text, const FaceObject& object, uint16_t color
     tft.setTextColor(color);
     tft.setTextDatum(TL_DATUM);
     tft.drawString(text, drawX, drawY, 1);
-    if (object.fontWeight >= 600) {
-        tft.drawString(text, drawX + 1, drawY, 1);
-    }
+    if (object.fontWeight >= 600) tft.drawString(text, drawX + 1, drawY, 1);
     tft.setTextSize(1);
 }
 
@@ -69,12 +101,9 @@ void formatTime(char* out, size_t capacity, const FaceObject& object,
     }
     const bool seconds = object.showSeconds ||
                          strstr(object.dataFormat, "ss") != nullptr;
-    if (seconds) {
-        snprintf(out, capacity, "%02d:%02d:%02d%s",
-                 hour, timeInfo.tm_min, timeInfo.tm_sec, suffix);
-    } else {
-        snprintf(out, capacity, "%02d:%02d%s", hour, timeInfo.tm_min, suffix);
-    }
+    if (seconds) snprintf(out, capacity, "%02d:%02d:%02d%s",
+                          hour, timeInfo.tm_min, timeInfo.tm_sec, suffix);
+    else snprintf(out, capacity, "%02d:%02d%s", hour, timeInfo.tm_min, suffix);
 }
 
 void formatDate(char* out, size_t capacity, const FaceObject& object,
@@ -100,21 +129,22 @@ void drawShape(const FaceObject& object) {
     const int y = static_cast<int>(lroundf(object.transform.y));
     const int w = static_cast<int>(lroundf(object.transform.width));
     const int h = static_cast<int>(lroundf(object.transform.height));
+    const bool hasStroke = object.strokeWidth > 0;
     switch (object.shapeKind) {
         case 1:
-            if (object.strokeWidth) tft.drawCircle(x + w / 2, y + h / 2, min(w, h) / 2, object.strokeColor);
-            else tft.fillCircle(x + w / 2, y + h / 2, min(w, h) / 2, object.fillColor);
+            tft.fillCircle(x + w / 2, y + h / 2, min(w, h) / 2, object.fillColor);
+            if (hasStroke) tft.drawCircle(x + w / 2, y + h / 2, min(w, h) / 2, object.strokeColor);
             break;
         case 2:
-            if (object.strokeWidth) tft.drawRoundRect(x, y, w, h, object.cornerRadius, object.strokeColor);
-            else tft.fillRoundRect(x, y, w, h, object.cornerRadius, object.fillColor);
+            tft.fillRoundRect(x, y, w, h, object.cornerRadius, object.fillColor);
+            if (hasStroke) tft.drawRoundRect(x, y, w, h, object.cornerRadius, object.strokeColor);
             break;
         case 3:
-            tft.drawLine(x, y, x + w, y + h, object.strokeWidth ? object.strokeColor : object.fillColor);
+            tft.drawLine(x, y, x + w, y + h, hasStroke ? object.strokeColor : object.fillColor);
             break;
         default:
-            if (object.strokeWidth) tft.drawRect(x, y, w, h, object.strokeColor);
-            else tft.fillRect(x, y, w, h, object.fillColor);
+            tft.fillRect(x, y, w, h, object.fillColor);
+            if (hasStroke) tft.drawRect(x, y, w, h, object.strokeColor);
             break;
     }
 }
@@ -133,8 +163,9 @@ void drawAnalogClock(const FaceObject& object, const struct tm& timeInfo) {
         const float angle = (tick * 30.0f - 90.0f) * PI_F / 180.0f;
         const int outerX = cx + static_cast<int>(cosf(angle) * (radius - 2));
         const int outerY = cy + static_cast<int>(sinf(angle) * (radius - 2));
-        const int innerX = cx + static_cast<int>(cosf(angle) * (radius - (tick % 3 == 0 ? 9 : 5)));
-        const int innerY = cy + static_cast<int>(sinf(angle) * (radius - (tick % 3 == 0 ? 9 : 5)));
+        const int inset = tick % 3 == 0 ? 9 : 5;
+        const int innerX = cx + static_cast<int>(cosf(angle) * (radius - inset));
+        const int innerY = cy + static_cast<int>(sinf(angle) * (radius - inset));
         tft.drawLine(innerX, innerY, outerX, outerY, color);
     }
 
@@ -152,72 +183,86 @@ void drawAnalogClock(const FaceObject& object, const struct tm& timeInfo) {
                  cy + static_cast<int>(sinf(secondAngle) * radius * 0.86f), TFT_RED);
     tft.fillCircle(cx, cy, 3, color);
 }
+
+void drawObject(const FaceObject& object, const struct tm& timeInfo,
+                const WeatherData& weather) {
+    if (!object.visible) return;
+    switch (object.type) {
+        case FaceElementType::Shape:
+            drawShape(object);
+            break;
+        case FaceElementType::AnalogClock:
+            drawAnalogClock(object, timeInfo);
+            break;
+        case FaceElementType::DigitalClock: {
+            char value[FACE_TEXT_CAPACITY] = {};
+            formatTime(value, sizeof(value), object, timeInfo);
+            drawTextInBounds(value, object, object.textColor);
+            break;
+        }
+        case FaceElementType::Date: {
+            char value[FACE_TEXT_CAPACITY] = {};
+            formatDate(value, sizeof(value), object, timeInfo);
+            drawTextInBounds(value, object, object.textColor);
+            break;
+        }
+        case FaceElementType::Weather: {
+            char value[FACE_TEXT_CAPACITY] = {};
+            if (weather.valid) snprintf(value, sizeof(value), "%d C", weather.currentTemp);
+            else snprintf(value, sizeof(value), "%s",
+                          object.text[0] ? object.text : "Weather unavailable");
+            drawTextInBounds(value, object, object.textColor);
+            break;
+        }
+        case FaceElementType::Text:
+            drawTextInBounds(object.text, object, object.textColor);
+            break;
+        case FaceElementType::Image:
+            break;
+    }
+}
 }
 
 FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInfo,
                                  const WeatherData& weather) {
-    if (face.objectCount > FACE_MAX_OBJECTS ||
-        face.canvasWidth != 240 || face.canvasHeight != 240) {
-        return FaceRenderStatus::UnsupportedTransform;
-    }
-
-    // Preflight before touching the panel. Never blank a working face for an
-    // unsupported design feature.
-    for (uint8_t i = 0; i < face.objectCount; ++i) {
-        const FaceObject& object = face.objects[i];
-        if (object.transform.rotation != 0.0f || object.transform.opacity < 0.999f) {
-            return FaceRenderStatus::UnsupportedTransform;
-        }
-        if (object.type == FaceElementType::Image) return FaceRenderStatus::UnsupportedAsset;
-        if (object.fontFamily[0] != '\0' &&
-            strcmp(object.fontFamily, "system-ui") != 0 &&
-            strcmp(object.fontFamily, "sans-serif") != 0) {
-            return FaceRenderStatus::UnsupportedFont;
-        }
-    }
+    const FaceRenderStatus status = preflight(face);
+    if (status != FaceRenderStatus::Ok) return status;
 
     tft.fillScreen(face.backgroundColor);
     uint8_t order[FACE_MAX_OBJECTS] = {};
     sortObjectIndices(face, order);
+    for (uint8_t i = 0; i < face.objectCount; ++i) {
+        drawObject(face.objects[order[i]], timeInfo, weather);
+    }
+    return FaceRenderStatus::Ok;
+}
 
-    for (uint8_t sorted = 0; sorted < face.objectCount; ++sorted) {
-        const FaceObject& object = face.objects[order[sorted]];
-        if (!object.visible) continue;
-        switch (object.type) {
-            case FaceElementType::Shape:
-                drawShape(object);
-                break;
-            case FaceElementType::AnalogClock:
-                drawAnalogClock(object, timeInfo);
-                break;
-            case FaceElementType::DigitalClock: {
-                char value[FACE_TEXT_CAPACITY] = {};
-                formatTime(value, sizeof(value), object, timeInfo);
-                drawTextInBounds(value, object, object.textColor);
-                break;
+FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& timeInfo,
+                                        const WeatherData& weather) {
+    const FaceRenderStatus status = preflight(face);
+    if (status != FaceRenderStatus::Ok) return status;
+
+    uint8_t order[FACE_MAX_OBJECTS] = {};
+    sortObjectIndices(face, order);
+
+    for (uint8_t i = 0; i < face.objectCount; ++i) {
+        const FaceObject& dynamicObject = face.objects[order[i]];
+        if (!dynamicObject.visible || !isDynamic(dynamicObject.type)) continue;
+
+        const int x = static_cast<int>(lroundf(dynamicObject.transform.x));
+        const int y = static_cast<int>(lroundf(dynamicObject.transform.y));
+        const int w = static_cast<int>(lroundf(dynamicObject.transform.width));
+        const int h = static_cast<int>(lroundf(dynamicObject.transform.height));
+        if (w <= 0 || h <= 0) continue;
+
+        // Clear only the dynamic element's bounds, then redraw every layer
+        // intersecting that region in z-order to preserve overlaps.
+        tft.fillRect(x, y, w, h, face.backgroundColor);
+        for (uint8_t j = 0; j < face.objectCount; ++j) {
+            const FaceObject& candidate = face.objects[order[j]];
+            if (candidate.visible && intersects(candidate, x, y, w, h)) {
+                drawObject(candidate, timeInfo, weather);
             }
-            case FaceElementType::Date: {
-                char value[FACE_TEXT_CAPACITY] = {};
-                formatDate(value, sizeof(value), object, timeInfo);
-                drawTextInBounds(value, object, object.textColor);
-                break;
-            }
-            case FaceElementType::Weather: {
-                char value[FACE_TEXT_CAPACITY] = {};
-                if (weather.valid) {
-                    snprintf(value, sizeof(value), "%d C", weather.currentTemp);
-                } else {
-                    snprintf(value, sizeof(value), "%s",
-                             object.text[0] ? object.text : "Weather unavailable");
-                }
-                drawTextInBounds(value, object, object.textColor);
-                break;
-            }
-            case FaceElementType::Text:
-                drawTextInBounds(object.text, object, object.textColor);
-                break;
-            case FaceElementType::Image:
-                return FaceRenderStatus::UnsupportedAsset;
         }
     }
     return FaceRenderStatus::Ok;
