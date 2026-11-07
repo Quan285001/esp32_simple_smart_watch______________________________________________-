@@ -169,6 +169,31 @@ void sendDeviceStatus() {
     }
 }
 
+void sendFaceStatus() {
+    const FaceModel* face = FaceManager::getActiveFace();
+    const TransferManager::Snapshot transfer = TransferManager::snapshot();
+    const size_t fsTotal = SPIFFS.totalBytes();
+    const size_t fsUsed = SPIFFS.usedBytes();
+    const size_t fsFree = fsTotal > fsUsed ? fsTotal - fsUsed : 0;
+    char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
+    const int length = snprintf(payload, sizeof(payload),
+        "{\"faceId\":\"%s\",\"faceName\":\"%.24s\",\"transfer\":\"%s\","
+        "\"rx\":%lu,\"total\":%lu,\"fsUsed\":%lu,\"fsFree\":%lu}",
+        face ? face->designId : "",
+        face ? face->name : "",
+        TransferManager::stateName(transfer.state),
+        static_cast<unsigned long>(transfer.receivedBytes),
+        static_cast<unsigned long>(transfer.totalBytes),
+        static_cast<unsigned long>(fsUsed),
+        static_cast<unsigned long>(fsFree));
+    if (length > 0 && static_cast<size_t>(length) < sizeof(payload)) {
+        sendFrame(controlTx, WfsProtocol::MessageType::FaceStatus,
+                  reinterpret_cast<const uint8_t*>(payload), static_cast<uint16_t>(length));
+    } else {
+        sendError(0x0002, "face_status_payload_too_large");
+    }
+}
+
 uint16_t negotiatedChunkSize() {
     const uint16_t mtu = BLEDevice::getMTU();
     if (mtu <= 27) return 0;
@@ -187,7 +212,7 @@ void sendCapabilities() {
     const int length = snprintf(payload, sizeof(payload),
         "{\"sv\":1,\"pv\":1,\"obj\":%u,\"json\":16384,\"frame\":%u,"
         "\"mtu\":%u,\"chunk\":%u,\"el\":\"text,digital-clock,analog-clock,date,weather,shape,image\","
-        "\"img\":1,\"upload\":%u,\"free\":%lu,\"stage\":%lu,\"heap\":%lu}",
+        "\"img\":1,\"faceStatus\":1,\"upload\":%u,\"free\":%lu,\"stage\":%lu,\"heap\":%lu}",
         FACE_MAX_OBJECTS, static_cast<unsigned int>(frameLimit),
         static_cast<unsigned int>(mtu), static_cast<unsigned int>(chunkLimit),
         chunkLimit >= 16 ? 1U : 0U,
@@ -250,6 +275,10 @@ void handleControlPacket(const WfsPacket& packet) {
             break;
         case WfsProtocol::MessageType::GetStatus:
             sendDeviceStatus();
+            break;
+        case WfsProtocol::MessageType::GetFaceStatus:
+            if (frame.payloadLength != 0) sendError(0x0010, "face_status_payload_not_empty");
+            else sendFaceStatus();
             break;
         case WfsProtocol::MessageType::Command: {
             CommandHandler::Result result{};
