@@ -47,6 +47,9 @@ jobs:
       - name: Check Web app JavaScript syntax
         run: node --check web/app.js
 
+      - name: Run host-side protocol tests
+        run: python scripts/run_host_tests.py
+
       - name: Build ESP32-C3 firmware
         run: pio run -e c3_clock
 
