@@ -5,6 +5,7 @@
 
 #include "ble_service.h"
 #include "weather_service.h"
+#include "wifi_service.h"
 
 extern bool wifiEnabled;
 /**
@@ -123,15 +124,10 @@ static void handleCommand(const String &cmd) {
         if (comma < 1) { sendBLENotification("ERR_WIFI_CONFIG"); return; }
         String ssid = value.substring(0, comma);
         String password = value.substring(comma + 1);
-        Preferences prefs;
-        prefs.begin("watch", false);
-        prefs.putString("ssid", ssid);
-        prefs.putString("pass", password);
-        prefs.end();
-        WiFi.mode(WIFI_STA);
-        wifiEnabled = true;
-        WiFi.setAutoReconnect(true);
-        WiFi.begin(ssid.c_str(), password.c_str());
+        if (!WifiService::configureCredentials(ssid.c_str(), password.c_str())) {
+            sendBLENotification("ERR_WIFI_CONFIG");
+            return;
+        }
         sendBLENotification("WIFI_SAVED");
         return;
     }
