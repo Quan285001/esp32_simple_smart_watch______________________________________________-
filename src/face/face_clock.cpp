@@ -8,6 +8,7 @@
 #include <Preferences.h>
 #include "../services/ble_service.h"
 #include "icons.h"
+#include "face_image.h"
 
 extern TFT_eSPI tft;
 
@@ -134,16 +135,24 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
     int cx = 80;
     int cy = 80;
 
-    sprFace.fillCircle(cx, cy, 78, faceDialColor);
+    const bool hasPhotoBackground = drawFaceImageToSprite(sprFace);
+    if (!hasPhotoBackground) {
+        sprFace.fillCircle(cx, cy, 78, faceDialColor);
+    }
+
+    auto setFaceTextColor = [&](uint16_t color) {
+        if (hasPhotoBackground) sprFace.setTextColor(color);
+        else sprFace.setTextColor(color, faceDialColor);
+    };
 
     sprFace.setTextDatum(MC_DATUM);
-    sprFace.setTextColor(faceAccentColor, faceDialColor);
+    setFaceTextColor(faceAccentColor);
     sprFace.drawString("UTC+7", cx - 40, cy - 10, 1);
     // Show the full local time in 24-hour format, including seconds.
     char localTimeText[9];
     snprintf(localTimeText, sizeof(localTimeText), "%02d:%02d:%02d",
              timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-    sprFace.setTextColor(faceHandColor, faceDialColor);
+    setFaceTextColor(faceHandColor);
     if (faceStudioFlags & 0x01) {
         sprFace.drawString(localTimeText, cx - 40, cy + 6, 1);
     } else {
@@ -156,13 +165,13 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
     if (faceStudioFlags & 0x02) {
         const char* days[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
         int wday = (timeinfo.tm_wday >= 0 && timeinfo.tm_wday < 7) ? timeinfo.tm_wday : 0;
-        sprFace.setTextColor(faceAccentColor, faceDialColor);
+        setFaceTextColor(faceAccentColor);
         sprFace.drawString(days[wday], cx + 40, cy - 10, 1);
         sprFace.setTextColor(faceHandColor, faceDialColor);
         sprFace.drawNumber(timeinfo.tm_mday > 0 ? timeinfo.tm_mday : 1, cx + 40, cy + 6, 2);
     }
 
-    drawSmartWeatherIconSpr(timeinfo.tm_hour, cx, cy + 38);
+    if (!hasPhotoBackground) drawSmartWeatherIconSpr(timeinfo.tm_hour, cx, cy + 38);
 
     // Show active connections only; BLE advertising alone is not connected.
     const bool bluetoothConnected = isBLEConnected();
