@@ -54,8 +54,8 @@ bool rename(const char* from, const char* to) {
     return mounted && from != nullptr && to != nullptr && SPIFFS.rename(from, to);
 }
 
-File open(const char* path, const char* mode) {
-    if (!mounted || path == nullptr || mode == nullptr) return File();
+fs::File open(const char* path, const char* mode) {
+    if (!mounted || path == nullptr || mode == nullptr) return fs::File();
     return SPIFFS.open(path, mode);
 }
 
