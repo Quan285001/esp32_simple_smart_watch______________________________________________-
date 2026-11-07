@@ -1,431 +1,107 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#090d16">
-<title>Smartwatch Control</title>
-<style>
-:root{color-scheme:dark;--bg:#090d16;--panel:#111827;--line:#263244;--text:#edf2f7;--muted:#8b9aaf;--accent:#62a8ff}
-*{box-sizing:border-box}
-body{margin:0;padding:28px 16px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
-main{width:min(100%,460px);margin:auto}
-header{margin:8px 2px 24px}
-h1{font-size:24px;letter-spacing:-.7px;margin:0}
-header p{font-size:13px;color:var(--muted);margin:6px 0 0}
-section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin:12px 0}
-h2{font-size:13px;font-weight:650;color:#c5d0df;margin:0 0 15px}
-#status{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:13px;margin:0 0 14px}
-#status:before{content:"";width:8px;height:8px;border-radius:50%;background:#687589}
-#status.connected{color:#a8d4ff}
-#status.connected:before{background:#62a8ff;box-shadow:0 0 12px #62a8ff66}
-button,input{font:inherit}
-button{width:100%;border:1px solid #385579;background:#203957;color:#eaf3ff;border-radius:11px;padding:12px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s}
-button:hover{background:#29496f;border-color:#527caf}
-button:active{transform:scale(.99)}
-button:disabled{opacity:.45;cursor:default}
-.stack{display:grid;gap:9px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-label{display:block;font-size:12px;color:var(--muted);margin:13px 0 7px}
-input,select{width:100%;border:1px solid var(--line);background:#0b1220;color:var(--text);border-radius:10px;padding:11px 12px;outline:none}
-input:focus,select:focus{border-color:var(--accent)}
-.note{font-size:12px;line-height:1.5;color:var(--muted);margin:10px 1px 0}
-.value{font-size:13px;color:#d7e6f8;margin-top:10px;overflow-wrap:anywhere}
-@media(min-width:520px){body{padding-top:42px}}
-</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b0d12">
+<meta name="description" content="Watch Face Studio — design and preview custom faces for ESP32-C3.">
+<title>Watch Face Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="./web/styles.css">
+<script defer src="./web/app.js"></script>
 </head>
 <body>
-<!-- Main control dashboard -->
-<main>
-<header>
-<h1>Smartwatch</h1>
-<p>ESP32-C3 · BLE Control</p>
+<div class="app-shell">
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">◷</span><span>WATCH FACE STUDIO<small>ESP32-C3 DESIGNER</small></span></div>
+  <div class="top-actions">
+    <button class="btn ghost" id="langBtn" type="button">EN / VI</button>
+    <button class="btn" id="importBtn" type="button">Import</button>
+    <button class="btn" id="exportBtn" type="button">Export JSON</button>
+    <button class="btn primary" id="saveBtn" type="button">Save design</button>
+  </div>
 </header>
-
-<!-- Bluetooth connection -->
-<section>
-<div id="status">Not connected</div>
-<button id="connectBtn" onclick="connectBLE()">Connect Bluetooth</button>
-</section>
-
-<!-- Time and weather synchronization -->
-<section>
-<h2>SYNCHRONIZATION</h2>
-<div class="stack">
-<button onclick="syncTime()">Sync Time</button>
-<button id="weatherBtn" onclick="syncWeather()">Update Weather</button>
-<div id="weatherStatus" class="note">No update requested</div>
+<div class="workspace">
+  <aside class="sidebar">
+    <div class="side-title">Workspace</div>
+    <button class="nav-item active" data-nav="editor"><span class="nav-icon">✳</span> Editor</button>
+    <button class="nav-item" data-nav="templates"><span class="nav-icon">▦</span> Templates</button>
+    <button class="nav-item" data-nav="library"><span class="nav-icon">▣</span> My designs</button>
+    <div class="side-divider"></div>
+    <div class="side-title">Add elements</div>
+    <button class="nav-item" id="addDigital"><span class="nav-icon">◷</span> Digital time</button>
+    <button class="nav-item" id="addAnalog"><span class="nav-icon">◴</span> Analog clock</button>
+    <button class="nav-item" id="addDate"><span class="nav-icon">▦</span> Date</button>
+    <button class="nav-item" id="addWeather"><span class="nav-icon">☀</span> Weather</button>
+    <button class="nav-item" id="addText"><span class="nav-icon">T</span> Text</button>
+    <button class="nav-item" id="addImage"><span class="nav-icon">▧</span> Image</button>
+    <button class="nav-item" id="addShape"><span class="nav-icon">◇</span> Shape</button>
+    <div class="side-divider"></div>
+    <div class="device-card">
+      <div class="device-row"><span>My device</span><span class="pill">C3 · 240</span></div>
+      <p><span class="status-dot" id="deviceDot"></span><span id="deviceStatus">Not connected</span><br>GC9A01 circular display</p>
+      <button class="btn" id="connectBtn" type="button">Connect Bluetooth</button>
+      <p class="muted">Legacy BLE control is available. Custom face transfer will be enabled after firmware protocol integration.</p>
+    </div>
+  </aside>
+  <main class="main">
+    <section data-view="editor">
+      <div class="page-heading">
+        <div><div class="eyebrow">DESIGN WORKSPACE</div><h1>Make it yours.</h1><p id="modeHint">Simple controls · choose a layer and adjust its position, size and color.</p></div>
+        <div class="mode-switch"><button id="beginnerMode" class="active" type="button">Beginner</button><button id="advancedMode" type="button">Advanced</button></div>
+      </div>
+      <div class="editor-layout">
+        <div class="canvas-panel">
+          <div class="canvas-toolbar">
+            <div class="group"><span class="eyebrow">LIVE PREVIEW</span><span class="pill" id="canvasSize">240 × 240</span></div>
+            <div class="group"><button class="tool-btn" id="undoZoom" title="Zoom out" type="button">−</button><button class="tool-btn" id="redoZoom" title="Zoom in" type="button">＋</button></div>
+          </div>
+          <div class="canvas-stage">
+            <div class="watch-canvas" id="watchCanvas"></div>
+            <div class="stage-hint">Select a layer · drag to reposition</div>
+          </div>
+          <div class="canvas-footer"><span id="canvasName">Minimal Digital</span><span>Round display · <span id="canvasSizeFooter">240 × 240</span></span></div>
+        </div>
+      </div>
+    </section>
+    <section data-view="templates" class="hidden">
+      <div class="page-heading"><div><div class="eyebrow">START WITH A STYLE</div><h1>Templates</h1><p>Choose a starting point, then customize every layer.</p></div></div>
+      <div class="template-grid" id="templateGrid"></div>
+    </section>
+    <section data-view="library" class="hidden">
+      <div class="page-heading"><div><div class="eyebrow">YOUR CREATIONS</div><h1>My designs</h1><p>Saved locally in this browser. Export JSON to back up or move a design.</p></div><button class="btn danger small" id="deleteAll" type="button">Clear library</button></div>
+      <div class="library-grid" id="libraryGrid"></div>
+    </section>
+  </main>
+  <aside class="rightbar">
+    <section class="panel-section">
+      <div class="panel-heading"><h3>Design settings</h3><button class="btn small" id="newDesign" type="button">＋ New</button></div>
+      <div class="field"><label for="designName">DESIGN NAME</label><input id="designName" maxlength="80" value="Minimal Digital"></div>
+      <div class="field-row">
+        <div class="field"><label for="bgColor">BACKGROUND</label><input id="bgColor" type="color" value="#080b10"></div>
+        <div class="field"><label>DEVICE PROFILE</label><button class="btn small" id="deviceSettings" type="button">ESP32-C3 · 240</button></div>
+      </div>
+    </section>
+    <section class="panel-section">
+      <div class="panel-heading"><h3>Layers</h3><span class="pill" id="layerCount">0</span></div>
+      <div class="object-list" id="objectList"></div>
+    </section>
+    <section class="panel-section inspector">
+      <div class="panel-heading"><h3>Properties</h3><span class="pill">SELECTED</span></div>
+      <div id="inspector"><div class="empty-state">Select a layer to edit its properties.</div></div>
+      <div id="advancedFields" class="hidden"><div class="side-divider"></div><div class="eyebrow">ADVANCED MODE</div><p class="note">Precise geometry, typography, per-glyph styling and renderer-specific options are being added in the next editor iterations.</p></div>
+    </section>
+    <section class="panel-section">
+      <div class="panel-heading"><h3>Apply to watch</h3><span class="pill">PREVIEW</span></div>
+      <p class="note">Your current design is saved locally. The existing BLE firmware only supports legacy commands; the new package-transfer protocol is not implemented yet.</p>
+      <button class="btn primary" id="transferBtn" type="button" style="width:100%">Prepare for watch</button>
+    </section>
+  </aside>
 </div>
-</section>
-
-<!-- Configurable power management -->
-<section>
-<h2>POWER MANAGEMENT</h2>
-<label for="autoSleepSelect">Automatic Light Sleep · Analog Clock</label>
-<select id="autoSleepSelect">
-<option value="0">Disabled</option>
-<option value="10">10 seconds</option>
-<option value="12">12 seconds</option>
-<option value="15" selected>15 seconds</option>
-<option value="18">18 seconds</option>
-<option value="20">20 seconds</option>
-</select>
-<button id="autoSleepSaveBtn" onclick="saveAutoSleepSetting()">Save Auto Sleep Setting</button>
-<div id="autoSleepStatus" class="note">Connect to the watch to read its current setting.</div>
-<p class="note">Only applies while the analog clock face is active. A connected Bluetooth session prevents automatic sleep.</p>
-</section>
-
-<!-- Device location tracking -->
-<section>
-<h2>LOCATION</h2>
-<button id="locationBtn" onclick="toggleLocation()">Enable Location Updates</button>
-<div id="locationValue" class="value">No location data available</div>
-<p class="note">Get your location from the browser or phone and automatically send it to the watch when connected via BLE. Location permission and HTTPS (or localhost) are required.</p>
-</section>
-
-<!-- Device power controls -->
-<section>
-<h2>DEVICE</h2>
-<button onclick="sleepWatch()">Light Sleep</button>
-<p class="note">Press the physical button on the device to wake the watch.</p>
-</section>
-
-<!-- Wi-Fi discovery and credential configuration -->
-<section>
-<h2>WI-FI</h2>
-<div class="stack">
-<button id="wifiScanBtn" onclick="requestWiFiScan()">Scan Wi-Fi Networks</button>
-<div id="wifiScanStatus" class="note">No networks scanned</div>
-<select id="wifiSelect" onchange="onWifiSelected()"><option value="">Select a Wi-Fi network</option></select>
-<input id="ssid" autocomplete="off" placeholder="Network Name (SSID)">
-<input id="pass" type="password" autocomplete="new-password" placeholder="Password">
-<button onclick="sendWiFiConfig()">Save Wi-Fi Configuration</button>
+<nav class="mobile-tabs"><button data-nav="editor" class="active">✳ Editor</button><button data-nav="templates">▦ Templates</button><button data-nav="library">▣ Designs</button></nav>
 </div>
-</section>
-</main>
-<!-- Web Bluetooth application logic -->
-<script>
-const SERVICE_UUID="4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-const CHARACTERISTIC_UUID="beb5483e-36e1-4688-b7f5-ea07361b26a8";
-let bluetoothDevice=null;
-let bleCharacteristic=null;
-let locationWatchId=null;
-let latestPosition=null;
-let lastSentPosition=null;
-let receivedData="";
-let weatherResponseTimer=null;
-let wifiScanResponseTimer=null;
-let bleWriteQueue=Promise.resolve();
-
-/**
- * @brief Connects to the ESP32 watch over Web Bluetooth, subscribes to notifications, and initializes device synchronization.
- */
-async function connectBLE(){
-  if(!navigator.bluetooth){setStatus("This browser does not support Web Bluetooth",false);return}
-  try{
-    setStatus("Searching for your watch...",false);
-    bluetoothDevice=await navigator.bluetooth.requestDevice({filters:[{namePrefix:"ESP32_Watch"}],optionalServices:[SERVICE_UUID]});
-    bluetoothDevice.addEventListener("gattserverdisconnected",onDisconnected);
-    const server=await bluetoothDevice.gatt.connect();
-    const service=await server.getPrimaryService(SERVICE_UUID);
-    bleCharacteristic=await service.getCharacteristic(CHARACTERISTIC_UUID);
-    await bleCharacteristic.startNotifications();
-    bleCharacteristic.addEventListener("characteristicvaluechanged",handleNotifications);
-    setStatus("Connected",true);
-    document.getElementById("connectBtn").textContent="Connected";
-    if(latestPosition)await sendLatestPosition(true);
-    else await syncTime();
-    await sendBLECommand("GET_AUTO_SLEEP");
-    await requestWiFiScan();
-  }catch(error){console.error(error);setStatus("Connection failed",false)}
-}
-
-/**
- * @brief Clears the active BLE characteristic and updates the connection status after the watch disconnects.
- */
-function onDisconnected(){
-  bleCharacteristic=null;
-  document.getElementById("connectBtn").textContent="Connect Bluetooth";
-  setStatus("Disconnected",false);
-}
-
-/**
- * @brief Queues and sends a command to the watch, returning whether the GATT write succeeded.
- * @param command The command string to send to the watch.
- */
-async function sendBLECommand(command){
-  if(!bleCharacteristic){setStatus("Connect to Bluetooth first",false);return false}
-  const writeOperation=async()=>{
-    if(!bleCharacteristic){setStatus("Bluetooth connection lost",false);return false}
-    try{
-      const bytes=new TextEncoder().encode(command);
-      if(bleCharacteristic.properties.write && bleCharacteristic.writeValueWithResponse){
-        await bleCharacteristic.writeValueWithResponse(bytes);
-      }else if(bleCharacteristic.properties.writeWithoutResponse && bleCharacteristic.writeValueWithoutResponse){
-        await bleCharacteristic.writeValueWithoutResponse(bytes);
-      }else{
-        await bleCharacteristic.writeValue(bytes);
-      }
-      return true;
-    }catch(error){
-      console.error("BLE write failed:",command,error);
-      setStatus("Failed to send command: "+command,false);
-      return false;
-    }
-  };
-  const result=bleWriteQueue.then(writeOperation,writeOperation);
-  bleWriteQueue=result.then(()=>undefined,()=>undefined);
-  return result;
-}
-
-/**
- * @brief Updates the connection status message and its connected-state styling.
- * @param message The status message to display.
- * @param connected Whether the BLE connection is active.
- */
-function setStatus(message,connected){
-  const el=document.getElementById("status");
-  el.textContent=message;
-  el.classList.toggle("connected",connected);
-}
-
-/**
- * @brief Sends the current browser time to the watch as a Unix timestamp.
- */
-async function syncTime(){
-  const epoch=Math.floor(Date.now()/1000);
-  if(await sendBLECommand("SYNC_TIME:"+epoch))setStatus("Time sent",true);
-}
-
-/**
- * @brief Requests a weather refresh and waits for a completion notification or timeout.
- */
-async function syncWeather(){
-  const button=document.getElementById("weatherBtn");
-  const status=document.getElementById("weatherStatus");
-  if(!bleCharacteristic){setStatus("Bluetooth is not connected",false);return}
-  button.disabled=true;
-  status.textContent="Sending request...";
-  if(!await sendBLECommand("SYNC_WEATHER")){
-    button.disabled=false;
-    status.textContent="Failed to send request";
-    return;
-  }
-  status.textContent="Waiting for ESP32...";
-  clearTimeout(weatherResponseTimer);
-  weatherResponseTimer=window.setTimeout(()=>{
-    if(button.disabled){
-      button.disabled=false;
-      status.textContent="No response received · check the connection";
-    }
-  },15000);
-}
-
-/**
- * @brief Starts or stops browser geolocation tracking and forwards position updates to the watch.
- */
-function toggleLocation(){
-  if(locationWatchId!==null){
-    navigator.geolocation.clearWatch(locationWatchId);
-    locationWatchId=null;
-    document.getElementById("locationBtn").textContent="Enable Location Updates";
-    return;
-  }
-  if(!navigator.geolocation){setStatus("This device does not support geolocation",false);return}
-  document.getElementById("locationBtn").textContent="Updating location";
-  locationWatchId=navigator.geolocation.watchPosition(position=>{
-    latestPosition={lat:position.coords.latitude,lon:position.coords.longitude};
-    document.getElementById("locationValue").textContent=latestPosition.lat.toFixed(5)+", "+latestPosition.lon.toFixed(5);
-    sendLatestPosition(false);
-  },error=>{
-    console.error(error);
-    setStatus("Unable to get location · check location permissions",false);
-    navigator.geolocation.clearWatch(locationWatchId);
-    locationWatchId=null;
-    document.getElementById("locationBtn").textContent="Enable Location Updates";
-  },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
-}
-
-/**
- * @brief Sends the latest known coordinates when they have changed enough or a forced sync is requested.
- * @param force Whether to send the position even if it has not changed.
- */
-async function sendLatestPosition(force){
-  if(!latestPosition||!bleCharacteristic)return;
-  const previous=lastSentPosition;
-  if(!force&&previous){
-    const moved=Math.hypot(latestPosition.lat-previous.lat,latestPosition.lon-previous.lon);
-    if(moved<0.0003)return;
-  }
-  const command="GPS:"+latestPosition.lat.toFixed(6)+","+latestPosition.lon.toFixed(6);
-  if(await sendBLECommand(command)){
-    lastSentPosition={...latestPosition};
-
-    // Unix epoch is timezone-independent. Send it after the GPS fix; the ESP32
-    // resolves the destination offset from the next Open-Meteo response.
-    const epoch=Math.floor(Date.now()/1000);
-    const timeSent=await sendBLECommand("SYNC_TIME:"+epoch);
-    setStatus(timeSent?"Location + UTC time synchronized":"Location synchronized; time sync failed",true);
-  }
-}
-
-async function saveAutoSleepSetting(){
-  const seconds=Number(document.getElementById("autoSleepSelect").value);
-  const status=document.getElementById("autoSleepStatus");
-  const button=document.getElementById("autoSleepSaveBtn");
-  button.disabled=true;
-  status.textContent="Sending setting to watch...";
-  const ok=await sendBLECommand("AUTO_SLEEP:"+seconds);
-  if(!ok)status.textContent="Could not send setting · check Bluetooth";
-  else status.textContent="Setting sent · waiting for confirmation...";
-  window.setTimeout(()=>{button.disabled=false},1000);
-}
-
-
-/**
- * @brief Requests Light Sleep mode on the watch.
- */
-async function sleepWatch(){
-  if(await sendBLECommand("SLEEP_ON"))setStatus("Watch is entering Light Sleep",true);
-}
-
-/**
- * @brief Requests a Wi-Fi scan and waits for the watch to return the discovered network list.
- */
-async function requestWiFiScan(){
-  const button=document.getElementById("wifiScanBtn");
-  const status=document.getElementById("wifiScanStatus");
-  if(!bleCharacteristic){status.textContent="Connect to Bluetooth first";return}
-  clearTimeout(wifiScanResponseTimer);
-  receivedData="";
-  button.disabled=true;
-  status.textContent="Sending Wi-Fi scan request...";
-  const sent=await sendBLECommand("SCAN_WIFI");
-  if(!sent){
-    button.disabled=false;
-    status.textContent="Failed to send command · check the Bluetooth connection";
-    return;
-  }
-  status.textContent="Command sent · ESP32 is scanning for networks...";
-  wifiScanResponseTimer=window.setTimeout(()=>{
-    button.disabled=false;
-    status.textContent="Response timed out · try scanning again";
-  },30000);
-}
-
-/**
- * @brief Processes BLE notifications, updates operation statuses, and assembles fragmented Wi-Fi scan results.
- * @param event The BLE characteristic notification event.
- */
-function handleNotifications(event){
-  const chunk=new TextDecoder().decode(event.target.value);
-  if(chunk.startsWith("AUTO_SLEEP:")){
-    const seconds=Number(chunk.split(":")[1]);
-    if(Number.isInteger(seconds)&&[0,10,12,15,18,20].includes(seconds)){
-      document.getElementById("autoSleepSelect").value=String(seconds);
-      document.getElementById("autoSleepStatus").textContent=seconds===0?"Automatic sleep is disabled":"Current setting: "+seconds+" seconds";
-    }
-    return;
-  }
-  if(chunk.startsWith("AUTO_SLEEP_OK:")){
-    const seconds=Number(chunk.split(":")[1]);
-    document.getElementById("autoSleepStatus").textContent=seconds===0?"Saved · automatic sleep disabled":"Saved · automatic sleep after "+seconds+" seconds";
-    return;
-  }
-  if(chunk==="ERR_AUTO_SLEEP"||chunk==="ERR_AUTO_SLEEP_STORAGE"){
-    document.getElementById("autoSleepStatus").textContent="Watch rejected the setting · try again";
-    return;
-  }
-  if(chunk==="WIFI_SCAN_STARTED"){
-    document.getElementById("wifiScanStatus").textContent="ESP32 received the command · scanning for Wi-Fi networks...";
-    return;
-  }
-  if(chunk==="WIFI_SCAN_ERROR"){
-    clearTimeout(wifiScanResponseTimer);
-    document.getElementById("wifiScanBtn").disabled=false;
-    document.getElementById("wifiScanStatus").textContent="ESP32 could not scan for Wi-Fi · check the Serial Monitor";
-    return;
-  }
-  // These short control replies are not fragments of the Wi-Fi JSON payload.
-  if(chunk==="GPS_OK"||chunk==="TIME_OK"){
-    receivedData="";
-    if(chunk==="GPS_OK"&&latestPosition)document.getElementById("locationValue").textContent=latestPosition.lat.toFixed(5)+", "+latestPosition.lon.toFixed(5)+" · saved on watch";
-    return;
-  }
-  if(chunk==="ERR_GPS"||chunk==="ERR_GPS_STORAGE"||chunk==="ERR_TIME"){
-    receivedData="";
-    setStatus("Watch rejected a location/time update",false);
-    return;
-  }
-  const weatherMessages={
-    WEATHER_STARTED:["Loading weather forecast...",true,false],
-    WEATHER_BUSY:["An update is already in progress · please wait",false,true],
-    WEATHER_COOLDOWN:["Recently updated · try again in a few seconds",false,true],
-    WEATHER_OK:["Weather updated successfully",true,true],
-    WEATHER_FAILED:["Update failed · keeping cached data",false,true],
-    ERR_WIFI:["Wi-Fi is not connected",false,true]
-  };
-  if(weatherMessages[chunk]){
-    const [message,ok,finished]=weatherMessages[chunk];
-    clearTimeout(weatherResponseTimer);
-    document.getElementById("weatherStatus").textContent=message;
-    if(finished)document.getElementById("weatherBtn").disabled=false;
-    if(chunk==="WEATHER_STARTED")weatherResponseTimer=window.setTimeout(()=>{
-      const button=document.getElementById("weatherBtn");
-      if(button.disabled){
-        button.disabled=false;
-        document.getElementById("weatherStatus").textContent="Weather update timed out";
-      }
-    },120000);
-    return;
-  }
-
-  receivedData+=chunk;
-  if(receivedData.endsWith("]")){
-    try{
-      const networks=JSON.parse(receivedData);
-      if(Array.isArray(networks)){
-        clearTimeout(wifiScanResponseTimer);
-        populateWifiDropdown(networks);
-        document.getElementById("wifiScanStatus").textContent="Found "+networks.length+" Wi-Fi networks";
-        document.getElementById("wifiScanBtn").disabled=false;
-      }
-      receivedData="";
-    }catch(error){console.error(error);receivedData=""}
-  }else if(receivedData.length>4096){receivedData=""}
-}
-
-/**
- * @brief Rebuilds the Wi-Fi network selector using the networks returned by the watch.
- * @param networks The array of Wi-Fi network names returned by the watch.
- */
-function populateWifiDropdown(networks){
-  const select=document.getElementById("wifiSelect");
-  select.innerHTML='<option value="">Select a Wi-Fi network</option>';
-  networks.forEach(ssid=>{
-    const option=document.createElement("option");
-    option.value=ssid;
-    option.textContent=ssid;
-    select.appendChild(option);
-  });
-}
-
-/**
- * @brief Copies the selected network name into the SSID input field.
- */
-function onWifiSelected(){
-  document.getElementById("ssid").value=document.getElementById("wifiSelect").value;
-}
-
-/**
- * @brief Validates the Wi-Fi name and sends the credentials to the watch for storage and connection.
- */
-async function sendWiFiConfig(){
-  const ssid=document.getElementById("ssid").value.trim();
-  const pass=document.getElementById("pass").value;
-  if(!ssid){setStatus("Enter a Wi-Fi network name",false);return}
-  if(await sendBLECommand("WIFI:"+ssid+","+pass))setStatus("Wi-Fi configuration sent",true);
-}
-</script>
+<input id="imageInput" class="hidden" type="file" accept="image/*">
+<input id="jsonInput" class="hidden" type="file" accept="application/json,.json">
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
