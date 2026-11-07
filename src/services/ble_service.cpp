@@ -10,9 +10,10 @@
 
 static constexpr char SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 static constexpr char CHARACTERISTIC_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-static constexpr UBaseType_t BLE_COMMAND_MAX_LEN = 128;
+static constexpr UBaseType_t BLE_COMMAND_MAX_LEN = BLE_PACKET_MAX_BYTES;
+static constexpr UBaseType_t BLE_COMMAND_QUEUE_LENGTH = 8;
 static volatile uint32_t commandQueueDropCount = 0;
-static constexpr UBaseType_t BLE_COMMAND_QUEUE_LENGTH = 5;
+
 
 static BLEServer *bleServer = nullptr;
 static BLEAdvertising *bleAdvertising = nullptr;
@@ -58,11 +59,12 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
         if (commandQueue == nullptr) return;
 
         std::string value = characteristic->getValue();
-        if (value.empty() || value.size() >= BLE_COMMAND_MAX_LEN) return;
+        if (value.empty() || value.size() > BLE_COMMAND_MAX_LEN) return;
 
-        char buffer[BLE_COMMAND_MAX_LEN] = {};
-        memcpy(buffer, value.data(), value.size());
-        if (xQueueSend(commandQueue, buffer, 0) != pdTRUE) {
+        BLEPacket packet{};
+        packet.length = static_cast<uint16_t>(value.size());
+        memcpy(packet.data, value.data(), value.size());
+        if (xQueueSend(commandQueue, &packet, 0) != pdTRUE) {
             // Count drops without logging or blocking inside the host callback.
             __atomic_fetch_add(&commandQueueDropCount, 1, __ATOMIC_RELAXED);
         }
@@ -80,7 +82,7 @@ void beginBLE() {
     }
 
     if (commandQueue == nullptr) {
-        commandQueue = xQueueCreate(BLE_COMMAND_QUEUE_LENGTH, BLE_COMMAND_MAX_LEN);
+        commandQueue = xQueueCreate(BLE_COMMAND_QUEUE_LENGTH, sizeof(BLEPacket));
     }
 
     if (commandQueue == nullptr) {
@@ -90,6 +92,7 @@ void beginBLE() {
 
     Serial.println("[BLE] Initializing stack once...");
     BLEDevice::init("ESP32_Watch_C3");
+    BLEDevice::setMTU(BLE_PACKET_MAX_BYTES + 3);
     bleStackInitialized = true;
 
     Serial.println("[BLE] Creating server...");
@@ -276,16 +279,10 @@ bool isBLEEnabled() {
  * @brief Reads one pending command from the FreeRTOS queue without blocking.
  * @param command Input or state used by this operation.
  */
-bool readBLECommand(String &command) {
+bool readBLEPacket(BLEPacket& packet) {
     if (commandQueue == nullptr) return false;
-
-    char buffer[BLE_COMMAND_MAX_LEN] = {};
-    if (xQueueReceive(commandQueue, buffer, 0) != pdTRUE) {
-        return false;
-    }
-
-    command = String(buffer);
-    return true;
+    memset(&packet, 0, sizeof(packet));
+    return xQueueReceive(commandQueue, &packet, 0) == pdTRUE;
 }
 
 /**
