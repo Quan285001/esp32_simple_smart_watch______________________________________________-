@@ -34,20 +34,18 @@ class ServerCallbacks final : public BLEServerCallbacks {
      * @param nullptr Input or state used by this operation.
      */
     void onConnect(BLEServer *) override {
-        clientConnected = true;
+        __atomic_store_n(&clientConnected, true, __ATOMIC_RELEASE);
         requestWfsSessionReset();
     }
 
     void onDisconnect(BLEServer *) override {
-        clientConnected = false;
+        __atomic_store_n(&clientConnected, false, __ATOMIC_RELEASE);
         requestWfsSessionReset();
 
         // BLE callbacks run in the host task. Defer advertising API calls
         // to serviceBLE(), which executes in the application loop.
-        if (bleEnabled) {
-            advertisingRestartPending = true;
-            Serial.println("[BLE][TRACE] onDisconnect: advertising restart queued");
-        }
+        __atomic_store_n(&advertisingRestartPending, true, __ATOMIC_RELEASE);
+        Serial.println("[BLE][TRACE] onDisconnect: advertising restart queued");
     }
 };
 
@@ -155,7 +153,7 @@ void beginBLE() {
     // through optionalServices after connecting by device name.
     bleAdvertising->setScanResponse(true);
 
-    advertisingRestartPending = false;
+    __atomic_store_n(&advertisingRestartPending, false, __ATOMIC_RELEASE);
     bleEnabled = true;
     Serial.println("[BLE][TRACE] initial startAdvertising ENTER");
     bleAdvertising->start();
@@ -207,8 +205,8 @@ void toggleBLE() {
 
     // A connected peripheral normally stops advertising. Defer restart until
     // the active client disconnects instead of starting over that connection.
-    if (clientConnected) {
-        advertisingRestartPending = true;
+    if (__atomic_load_n(&clientConnected, __ATOMIC_ACQUIRE)) {
+        __atomic_store_n(&advertisingRestartPending, true, __ATOMIC_RELEASE);
         Serial.println("[BLE] Bluetooth ON; advertising deferred until client disconnects.");
         return;
     }
@@ -233,7 +231,8 @@ void serviceBLE() {
     }
 
     if (!bleStackInitialized || !bleEnabled ||
-        !advertisingRestartPending || clientConnected) {
+        !__atomic_load_n(&advertisingRestartPending, __ATOMIC_ACQUIRE) ||
+        __atomic_load_n(&clientConnected, __ATOMIC_ACQUIRE)) {
         return;
     }
 
@@ -316,7 +315,7 @@ bool readBLECommand(String &command) {
  * @param message Input or state used by this operation.
  */
 void sendBLENotification(const String &message) {
-    if (!clientConnected || commandCharacteristic == nullptr) return;
+    if (!__atomic_load_n(&clientConnected, __ATOMIC_ACQUIRE) || commandCharacteristic == nullptr) return;
 
     // Default ATT MTU carries 20 bytes of notification payload. Reuse one
     // stack buffer instead of allocating a new Arduino String for each chunk.
@@ -339,5 +338,5 @@ void sendBLENotification(const String &message) {
 
  */
 bool isBLEConnected() {
-    return clientConnected;
+    return __atomic_load_n(&clientConnected, __ATOMIC_ACQUIRE);
 }
