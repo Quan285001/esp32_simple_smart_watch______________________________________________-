@@ -87,17 +87,11 @@ bool isSupportedCapability(const char* value) {
            strcmp(value, "clock.analog") == 0 ||
            strcmp(value, "date.basic") == 0 ||
            strcmp(value, "weather.temperature") == 0 ||
-           strcmp(value, "shape.basic") == 0;
+           strcmp(value, "shape.basic") == 0 ||
+           strcmp(value, "image.rgb565") == 0;
 }
 
-bool hasAsset(JsonArrayConst assets, const char* assetId) {
-    if (assetId == nullptr || assetId[0] == '\0') return false;
-    for (JsonObjectConst asset : assets) {
-        const char* id = asset["assetId"] | "";
-        if (strcmp(id, assetId) == 0) return true;
-    }
-    return false;
-}
+
 }
 
 bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
