@@ -22,14 +22,13 @@
   },
   "nominalLimits": {},
   "declaredCapabilities": [
-    "clock.analog.basic",
-    "clock.digital.basic",
+    "clock.analog.fixed-face",
     "date.basic",
-    "text.bitmap-glyphs",
-    "shape.basic",
-    "image.rgb565",
     "weather.current",
     "weather.forecast",
-    "canvas.circular-clip"
+    "connectivity.ble",
+    "connectivity.wifi",
+    "input.boot-button",
+    "power.light-sleep"
   ]
 }
