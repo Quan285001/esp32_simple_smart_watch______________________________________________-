@@ -178,6 +178,7 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
     if ((document["schemaVersion"] | 0) != 1) return {FaceParseError::UnsupportedSchema, 0};
     output.schemaVersion = 1;
     if (!copyString(document["designId"], output.designId, sizeof(output.designId), true) ||
+        !copyString(document["deviceProfileId"], output.deviceProfileId, sizeof(output.deviceProfileId), true) ||
         !copyString(document["name"], output.name, sizeof(output.name), true)) {
         return {FaceParseError::BufferOverflow, 0};
     }
