@@ -48,6 +48,8 @@ void loadFaceStudioConfig() {
     prefs.end();
 }
 
+uint8_t getFaceStyleConfig() { return faceStyleId; }
+
 bool setFaceStyleConfig(uint8_t styleId) {
     // IDs are grouped by renderer family; unknown IDs are rejected.
     const bool valid = styleId <= 12 || (styleId >= 20 && styleId <= 27) ||
