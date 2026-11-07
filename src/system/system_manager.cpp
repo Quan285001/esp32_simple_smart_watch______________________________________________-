@@ -35,6 +35,10 @@ void markWaking() {
     currentPowerState = PowerState::Waking;
 }
 
+void markRestoringServices() {
+    currentPowerState = PowerState::RestoringServices;
+}
+
 void markActive() {
     pendingSleep = false;
     currentPowerState = PowerState::Active;
@@ -50,6 +54,7 @@ const char* powerStateName(PowerState state) {
         case PowerState::PreparingSleep: return "PREPARING_SLEEP";
         case PowerState::Sleeping: return "SLEEPING";
         case PowerState::Waking: return "WAKING";
+        case PowerState::RestoringServices: return "RESTORING_SERVICES";
         default: return "UNKNOWN";
     }
 }
