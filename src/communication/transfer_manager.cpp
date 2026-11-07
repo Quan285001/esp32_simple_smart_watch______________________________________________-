@@ -48,8 +48,7 @@ void clearTransferFields() {
 
 bool begin(uint32_t transferId, uint32_t packageLength,
            const uint8_t expectedPayloadDigestValue[32], const char* designId) {
-    if (currentState == State::Receiving || currentState == State::Verifying ||
-        currentState == State::Applying) {
+    if (isBusyState(currentState)) {
         currentError = Error::Busy;
         return false;
     }
@@ -217,6 +216,10 @@ void abortSession() {
 Snapshot snapshot() {
     return {currentState, currentError, currentTransferId,
             totalLength, receivedLength, chunkSequence.nextIndex()};
+}
+
+bool isBusy() {
+    return isBusyState(currentState);
 }
 
 const char* stateName(State state) {
