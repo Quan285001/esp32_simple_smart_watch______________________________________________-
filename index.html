@@ -477,6 +477,7 @@ let wifiScanResponseTimer=null;
 let bleWriteQueue=Promise.resolve();
 let faceImageTransferRunning=false;
 let faceImageTransferResolver=null;
+let faceImageTransferError=null;
 
 /**
  * @brief Connects to the ESP32 watch over Web Bluetooth, subscribes to notifications, and initializes device synchronization.
@@ -1026,18 +1027,21 @@ async function transferFaceImageToWatch(){
   faceImageTransferRunning=true;
   if(!faceProject.image?.dataUrl){
     faceSetStatus("Removing the previous photo background…","CLEARING PHOTO");
+    faceImageTransferError=null;
     const resultPromise=faceImageWaitForResult(15000);
-    if(!await sendBLEBytes(new Uint8Array([0xF3])))return {ok:false,error:"Could not send clear-image command"};
+    if(!await sendBLEBytes(new Uint8Array([0xF3]))){if(faceImageTransferResolver)faceImageTransferResolver({ok:false,error:"Could not send clear-image command"});return {ok:false,error:"Could not send clear-image command"}}
     return await resultPromise;
   }
   faceSetStatus("Preparing 160 × 160 photo…","PREPARING PHOTO");
   const pixels=await faceBuildRgb565Image();
   const crc=faceImageCrc32(pixels);
-  const begin=new Uint8Array(13);begin[0]=0xF0;begin[1]=1;begin[2]=160;begin[3]=0;begin[4]=160;begin[5]=0;
+  const begin=new Uint8Array(14);begin[0]=0xF0;begin[1]=1;begin[2]=160;begin[3]=0;begin[4]=160;begin[5]=0;
   const put32=(array,offset,value)=>{array[offset]=value&255;array[offset+1]=(value>>>8)&255;array[offset+2]=(value>>>16)&255;array[offset+3]=(value>>>24)&255};
   put32(begin,6,pixels.length);put32(begin,10,crc);
+  faceImageTransferError=null;
+  const resultPromise=faceImageWaitForResult(120000);
   faceSetStatus("Preparing watch storage…","STARTING TRANSFER");
-  if(!await sendBLEBytes(begin))return {ok:false,error:"Could not start image transfer"};
+  if(!await sendBLEBytes(begin)){if(faceImageTransferResolver)faceImageTransferResolver({ok:false,error:"Could not start image transfer"});return {ok:false,error:"Could not start image transfer"}}
   let chunkSize=176,offset=0,chunkNumber=0;
   while(offset<pixels.length){
     let count=Math.min(chunkSize,pixels.length-offset);
@@ -1048,7 +1052,8 @@ async function transferFaceImageToWatch(){
       const retry=new Uint8Array(5+count);retry[0]=0xF1;put32(retry,1,offset);retry.set(pixels.subarray(offset,offset+count),5);
       sent=await sendBLEBytes(retry);
     }
-    if(!sent)return {ok:false,error:"Bluetooth stopped during photo transfer"};
+    if(!sent){if(faceImageTransferResolver)faceImageTransferResolver({ok:false,error:"Bluetooth stopped during photo transfer"});return {ok:false,error:"Bluetooth stopped during photo transfer"}}
+    if(faceImageTransferError)return {ok:false,error:"Watch rejected photo ("+faceImageTransferError+")"};
     offset+=count;chunkNumber++;
     if(chunkNumber%24===0||offset===pixels.length){
       const percent=Math.round(offset/pixels.length*100);
@@ -1056,8 +1061,7 @@ async function transferFaceImageToWatch(){
     }
   }
   faceSetStatus("Verifying photo on watch…","VERIFYING PHOTO");
-  const resultPromise=faceImageWaitForResult(30000);
-  if(!await sendBLEBytes(new Uint8Array([0xF2])))return {ok:false,error:"Could not finalize image transfer"};
+  if(!await sendBLEBytes(new Uint8Array([0xF2]))){if(faceImageTransferResolver)faceImageTransferResolver({ok:false,error:"Could not finalize image transfer"});return {ok:false,error:"Could not finalize image transfer"}}
   return await resultPromise;
 }
 function chooseFaceStyle(style){
@@ -1236,12 +1240,14 @@ function handleNotifications(event){
   const chunk=new TextDecoder().decode(event.target.value);
   if(chunk==="IMG_READY"){faceSetStatus("Watch storage ready · sending photo…","TRANSFERRING PHOTO");return}
   if(chunk==="IMG_OK"||chunk==="IMG_CLEARED"){
+    faceImageTransferError=null;
     if(faceImageTransferResolver)faceImageTransferResolver({ok:true});
     else faceSetStatus(chunk==="IMG_OK"?"Photo background installed":"Photo background cleared");
     return;
   }
   if(chunk.startsWith("IMG_ERR:")){
     const reason=chunk.substring(8);
+    faceImageTransferError=reason;
     if(faceImageTransferResolver)faceImageTransferResolver({ok:false,error:"Watch rejected photo ("+reason+")"});
     else faceSetStatus("Photo transfer failed · "+reason);
     return;
