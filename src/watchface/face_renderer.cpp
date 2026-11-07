@@ -404,15 +404,29 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
         const int h = static_cast<int>(lroundf(dynamicObject.transform.height));
         if (w <= 0 || h <= 0) continue;
 
-        // Clear only the dynamic element's bounds, then redraw every layer
-        // intersecting that region in z-order to preserve overlaps.
+        // Clear only the dynamic element's bounds. A TFT viewport clips
+        // every intersecting layer to that same region; without this, a large
+        // lower-z image/shape could overwrite unrelated objects outside it.
+        const int clipLeft = x < 0 ? 0 : x;
+        const int clipTop = y < 0 ? 0 : y;
+        const int clipRight = x + w > 240 ? 240 : x + w;
+        const int clipBottom = y + h > 240 ? 240 : y + h;
+        if (clipRight <= clipLeft || clipBottom <= clipTop) continue;
+
+        tft.setViewport(clipLeft, clipTop,
+                        clipRight - clipLeft, clipBottom - clipTop, false);
         tft.fillRect(x, y, w, h, face.backgroundColor);
+        bool drawOk = true;
         for (uint8_t j = 0; j < face.objectCount; ++j) {
             const FaceObject& candidate = face.objects[order[j]];
-            if (candidate.visible && intersects(candidate, x, y, w, h)) {
-                if (!drawObject(face, candidate, timeInfo, weather)) return FaceRenderStatus::AssetReadFailed;
+            if (candidate.visible && intersects(candidate, x, y, w, h) &&
+                !drawObject(face, candidate, timeInfo, weather)) {
+                drawOk = false;
+                break;
             }
         }
+        tft.resetViewport();
+        if (!drawOk) return FaceRenderStatus::AssetReadFailed;
     }
     return FaceRenderStatus::Ok;
 }
