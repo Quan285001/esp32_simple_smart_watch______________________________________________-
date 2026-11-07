@@ -20,6 +20,7 @@ static uint16_t faceDialColor = 0x18C3;
 static uint16_t faceHandColor = 0xFFFF;
 static uint16_t faceAccentColor = 0xFBE0;
 static uint8_t faceStudioFlags = 0x03; // bit 0: seconds, bit 1: date
+static uint8_t faceStyleId = 0; // Stable Face Studio style ID; 0 = Classic analog
 
 static void writeProfileColor(uint8_t* bytes, uint8_t offset, uint16_t color) {
     bytes[offset] = static_cast<uint8_t>(color & 0xFF);
@@ -43,7 +44,25 @@ void loadFaceStudioConfig() {
         faceAccentColor = readProfileColor(profile, 6);
         faceStudioFlags = profile[8] & 0x03;
     }
+    faceStyleId = prefs.getUChar("style", 0);
     prefs.end();
+}
+
+bool setFaceStyleConfig(uint8_t styleId) {
+    // IDs are grouped by renderer family; unknown IDs are rejected.
+    const bool valid = styleId <= 12 || (styleId >= 20 && styleId <= 27) ||
+                       (styleId >= 40 && styleId <= 44) ||
+                       (styleId >= 60 && styleId <= 62);
+    if (!valid) return false;
+    Preferences prefs;
+    if (!prefs.begin("face", false)) return false;
+    const size_t written = prefs.putUChar("style", styleId);
+    const uint8_t verify = prefs.getUChar("style", 0xFF);
+    prefs.end();
+    if (written != sizeof(uint8_t) || verify != styleId) return false;
+    faceStyleId = styleId;
+    Serial.printf("[FACE] Style %u saved and applied.\\n", styleId);
+    return true;
 }
 
 bool setFaceStudioConfig(uint16_t background, uint16_t dial, uint16_t hand,
@@ -136,6 +155,38 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
 
     sprFace.fillCircle(cx, cy, 78, faceDialColor);
 
+    // Analog families share the same timebase but use distinct dial treatments.
+    if (faceStyleId == 2) {
+        static const char* roman[] = {"XII","I","II","III","IV","V","VI","VII","VIII","IX","X","XI"};
+        sprFace.setTextDatum(MC_DATUM);
+        sprFace.setTextColor(faceHandColor, faceDialColor);
+        for (int i = 0; i < 12; ++i) {
+            const float a = i * PI / 6.0f - PI / 2.0f;
+            sprFace.drawString(roman[i], cx + (int)(58*cos(a)), cy + (int)(58*sin(a)), 1);
+        }
+    } else if (faceStyleId == 5 || faceStyleId == 7 || faceStyleId == 11) {
+        sprFace.drawCircle(cx, cy, 73, faceAccentColor);
+        sprFace.drawCircle(cx, cy, 70, faceAccentColor);
+    } else if (faceStyleId == 3 || faceStyleId == 4 || faceStyleId == 9 ||
+               faceStyleId == 10 || faceStyleId == 12) {
+        for (int i = 0; i < 60; ++i) {
+            const float a = i * PI / 30.0f - PI / 2.0f;
+            const bool major = (i % 5) == 0;
+            const int outer = (faceStyleId == 4 ? 72 : 74);
+            const int inner = outer - (major ? 9 : 4);
+            sprFace.drawLine(cx + (int)(inner*cos(a)), cy + (int)(inner*sin(a)),
+                             cx + (int)(outer*cos(a)), cy + (int)(outer*sin(a)),
+                             major ? faceAccentColor : faceHandColor);
+        }
+    } else if (faceStyleId == 1 || faceStyleId == 6 || faceStyleId == 8) {
+        for (int i = 0; i < 12; ++i) {
+            const float a = i * PI / 6.0f - PI / 2.0f;
+            const int r = (i % 3 == 0) ? 72 : 74;
+            sprFace.fillCircle(cx + (int)(r*cos(a)), cy + (int)(r*sin(a)),
+                               (i % 3 == 0) ? 2 : 1, faceAccentColor);
+        }
+    }
+
     sprFace.setTextDatum(MC_DATUM);
     sprFace.setTextColor(faceAccentColor, faceDialColor);
     sprFace.drawString("UTC+7", cx - 40, cy - 10, 1);
@@ -177,6 +228,64 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue, int heartRate, int
     }
     sprFace.setTextColor(faceAccentColor, faceDialColor);
     sprFace.drawString(connectionLabel, cx, cy + 50, 1);
+
+    // Digital and typography renderers are exclusive: they return before any
+    // analog hand-angle calculation or hand drawing can run.
+    if ((faceStyleId >= 20 && faceStyleId <= 27) ||
+        (faceStyleId >= 40 && faceStyleId <= 44)) {
+        char timeText[9];
+        snprintf(timeText, sizeof(timeText), "%02d:%02d:%02d",
+                 timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+        sprFace.setTextDatum(MC_DATUM);
+        if (faceStyleId >= 40) {
+            static const char* hours[] = {"TWELVE","ONE","TWO","THREE","FOUR","FIVE",
+                "SIX","SEVEN","EIGHT","NINE","TEN","ELEVEN"};
+            static const char* minutes[] = {"O'CLOCK","FIVE","TEN","FIFTEEN","TWENTY",
+                "TWENTY FIVE","THIRTY","THIRTY FIVE","FORTY","FORTY FIVE","FIFTY","FIFTY FIVE"};
+            const uint8_t h = static_cast<uint8_t>((timeinfo.tm_hour % 12 + 12) % 12);
+            const uint8_t m = static_cast<uint8_t>(((timeinfo.tm_min + 2) / 5) % 12);
+            sprFace.setTextColor(faceAccentColor, faceDialColor);
+            sprFace.drawString(faceStyleId == 44 ? "THE TIME IS" : "IT IS", cx, cy - 29, 1);
+            sprFace.setTextColor(faceHandColor, faceDialColor);
+            sprFace.drawString(hours[h], cx, cy - 3, faceStyleId == 43 ? 4 : 2);
+            sprFace.setTextColor(faceAccentColor, faceDialColor);
+            sprFace.drawString(minutes[m], cx, cy + 25, faceStyleId == 43 ? 2 : 1);
+        } else {
+            const bool compact = faceStyleId == 21 || faceStyleId == 22;
+            const bool seconds = (faceStudioFlags & 0x01) != 0;
+            const bool stacked = faceStyleId == 23 || faceStyleId == 24 || faceStyleId == 25;
+            const bool led = faceStyleId == 26 || faceStyleId == 27;
+            sprFace.setTextColor(faceAccentColor, faceDialColor);
+            sprFace.drawString(led ? "DIGITAL TIME" : "LOCAL TIME", cx, cy - 31, 1);
+            sprFace.setTextColor(faceHandColor, faceDialColor);
+            if (stacked) {
+                char shortTime[6];
+                snprintf(shortTime, sizeof(shortTime), "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
+                sprFace.drawString(shortTime, cx, cy - 2, faceStyleId == 25 ? 7 : 4);
+                if (seconds) {
+                    char secText[3]; snprintf(secText, sizeof(secText), "%02d", timeinfo.tm_sec);
+                    sprFace.setTextColor(faceAccentColor, faceDialColor);
+                    sprFace.drawString(secText, cx, cy + 29, 2);
+                }
+            } else {
+                char displayTime[9];
+                if (seconds) snprintf(displayTime, sizeof(displayTime), "%s", timeText);
+                else snprintf(displayTime, sizeof(displayTime), "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
+                sprFace.drawString(displayTime, cx, cy + (compact ? 0 : 5), faceStyleId == 22 ? 4 : 2);
+            }
+        }
+        if (faceStudioFlags & 0x02) {
+            char dateText[20];
+            snprintf(dateText, sizeof(dateText), "%02d %s", timeinfo.tm_mday,
+                (timeinfo.tm_mon >= 0 && timeinfo.tm_mon < 12)
+                    ? (const char*[]){"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"}[timeinfo.tm_mon]
+                    : "MON");
+            sprFace.setTextColor(faceAccentColor, faceDialColor);
+            sprFace.drawString(dateText, cx, cy + 57, 1);
+        }
+        sprFace.pushSprite(40, 40);
+        return;
+    }
 
     float exactSeconds = timeinfo.tm_sec + (millisValue / 1000.0f);
     float exactMinutes = timeinfo.tm_min + (exactSeconds / 60.0f);
