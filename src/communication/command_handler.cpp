@@ -81,13 +81,13 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
     }
 
     if (strcmp(name, "TIME_SET") == 0) {
-        const int64_t epoch = request["unixEpoch"] | 0LL;
+        const int64_t epoch = request["unixEpoch"].as<int64_t>();
         if (epoch < 1700000000LL || epoch > 4102444800LL) {
             setResult(result, false, 0x0010, "invalid_unix_epoch");
             return false;
         }
         const char* timezone = request["timezone"] | "";
-        const long utcOffset = request["utcOffsetSeconds"] | LONG_MIN;
+        const long utcOffset = request["utcOffsetSeconds"].isNull() ? LONG_MIN : request["utcOffsetSeconds"].as<long>();
         if ((timezone[0] != '\0' || utcOffset != LONG_MIN) &&
             (timezone[0] == '\0' || utcOffset < -43200L || utcOffset > 50400L)) {
             setResult(result, false, 0x0010, "invalid_timezone");
@@ -115,8 +115,8 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
     }
 
     if (strcmp(name, "LOCATION_SET") == 0) {
-        const double latitude = request["latitude"] | 999.0;
-        const double longitude = request["longitude"] | 999.0;
+        const double latitude = request["latitude"].isNull() ? 999.0 : request["latitude"].as<double>();
+        const double longitude = request["longitude"].isNull() ? 999.0 : request["longitude"].as<double>();
         if (!isfinite(latitude) || !isfinite(longitude) ||
             latitude < -90.0 || latitude > 90.0 ||
             longitude < -180.0 || longitude > 180.0) {
@@ -175,7 +175,7 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
     }
 
     if (strcmp(name, "AUTO_SLEEP_SET") == 0) {
-        const int seconds = request["seconds"] | -1;
+        const int seconds = request["seconds"].isNull() ? -1 : request["seconds"].as<int>();
         if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
               seconds == 15 || seconds == 18 || seconds == 20)) {
             setResult(result, false, 0x0010, "invalid_auto_sleep_value");
