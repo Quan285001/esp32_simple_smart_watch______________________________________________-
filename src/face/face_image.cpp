@@ -12,7 +12,7 @@ constexpr uint16_t IMAGE_WIDTH = 160;
 constexpr uint16_t IMAGE_HEIGHT = 160;
 constexpr uint32_t IMAGE_BYTES = IMAGE_WIDTH * IMAGE_HEIGHT * 2U;
 constexpr uint32_t SLOT_BYTES = 0x10000;
-constexpr uint32_t HEADER_BYTES = 20;
+constexpr uint32_t HEADER_BYTES = 32;
 constexpr uint32_t IMAGE_MAGIC = 0x474D4946; // "FIMG"
 constexpr uint8_t PROTOCOL_VERSION = 1;
 constexpr uint8_t PACKET_BEGIN = 0xF0;
@@ -129,8 +129,8 @@ bool beginTransfer(const uint8_t* packet, size_t length) {
     stagingPartition = findSlot(stagingSlot);
     if (stagingPartition == nullptr ||
         stagingPartition->size < HEADER_BYTES + IMAGE_BYTES ||
-        (stagingPartition->address % SPI_FLASH_SEC_SIZE) != 0 ||
-        (stagingPartition->size % SPI_FLASH_SEC_SIZE) != 0) {
+        (stagingPartition->address % 4096U) != 0 ||
+        (stagingPartition->size % 4096U) != 0) {
         abortTransfer("PARTITION");
         return false;
     }
@@ -166,7 +166,8 @@ bool writeChunk(const uint8_t* packet, size_t length) {
 
     const uint32_t offset = readU32(packet + 1);
     const uint32_t payloadLength = static_cast<uint32_t>(length - 5);
-    if (offset != receivedBytes || payloadLength > IMAGE_BYTES - receivedBytes) {
+    if ((offset & 0x03U) != 0 || (payloadLength & 0x03U) != 0 ||
+        offset != receivedBytes || payloadLength > IMAGE_BYTES - receivedBytes) {
         abortTransfer("SEQUENCE");
         return false;
     }
