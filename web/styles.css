@@ -81,3 +81,30 @@ body[data-view="settings"] .main{max-width:1200px;margin:0 auto;width:100%}
 :root[data-theme="light"] .design-card .design-card{color:#17202c}
 :root[data-theme="light"] .panel-heading h3 .panel-heading h3{color:#17202c}
 :root[data-theme="light"] .canvas-footer .canvas-footer{color:#657184}
+
+/* Device controls live on their own page; keep the Studio canvas focused. */
+body[data-view="device"] .rightbar,
+body[data-view="templates"] .rightbar,
+body[data-view="library"] .rightbar,
+body[data-view="settings"] .rightbar{display:none}
+body[data-view="device"] .workspace,
+body[data-view="templates"] .workspace,
+body[data-view="library"] .workspace{grid-template-columns:240px minmax(0,1fr)}
+.device-page-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:1000px}
+.device-page-grid .settings-card{align-self:start}
+.device-overview .btn{margin-top:8px}
+.device-control-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0}
+.device-control-grid .btn{min-height:38px}
+@media(max-width:1050px){
+ body[data-view="device"] .workspace,
+ body[data-view="templates"] .workspace,
+ body[data-view="library"] .workspace{grid-template-columns:205px minmax(0,1fr)}
+}
+@media(max-width:700px){
+ body[data-view="device"] .workspace,
+ body[data-view="templates"] .workspace,
+ body[data-view="library"] .workspace{display:block}
+ .device-page-grid{grid-template-columns:1fr}
+ .device-control-grid{grid-template-columns:1fr 1fr}
+ .mobile-tabs{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
