@@ -110,7 +110,7 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
         currentError = Error::WrongSequence;
         return false;
     }
-    if (bytes == nullptr || length == 0 || length > 224 ||
+    if (bytes == nullptr || length == 0 || length > 216 ||
         static_cast<uint64_t>(receivedLength) + length > totalLength) {
         currentError = Error::ChunkInvalid;
         return false;
