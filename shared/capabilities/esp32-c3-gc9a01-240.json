@@ -1,0 +1,40 @@
+{
+  "profileVersion": 1,
+  "id": "esp32-c3-gc9a01-240",
+  "name": "ESP32-C3 · GC9A01 240×240",
+  "manufacturer": "Custom",
+  "deviceModel": "ESP32-C3 watch prototype",
+  "display": {
+    "width": 240,
+    "height": 240,
+    "shape": "circle",
+    "driver": "GC9A01",
+    "colorFormat": "RGB565",
+    "rotation": 0,
+    "centerX": 120,
+    "centerY": 120,
+    "safeArea": {
+      "top": 12,
+      "right": 12,
+      "bottom": 12,
+      "left": 12
+    }
+  },
+  "nominalLimits": {},
+  "declaredCapabilities": [
+    "clock.analog.basic",
+    "clock.digital.basic",
+    "date.basic",
+    "text.bitmap-glyphs",
+    "shape.basic",
+    "image.rgb565",
+    "weather.current",
+    "weather.forecast",
+    "canvas.circular-clip"
+  ],
+  "_notes": {
+    "status": "initial-static-profile-not-runtime-capability-proof",
+    "limits": "Maximum package size, bitmap dimensions, object count, font effects and storage limits must be learned from firmware runtime capability negotiation. Do not infer them from this profile.",
+    "verification": "Display dimensions and GC9A01 target are based on the current repository configuration. Verify physical panel rotation and safe-area margins on the actual hardware."
+  }
+}
