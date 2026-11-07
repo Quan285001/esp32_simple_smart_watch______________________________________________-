@@ -121,6 +121,7 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
     }
 
     JsonObjectConst binding = source["dataBinding"].as<JsonObjectConst>();
+    if (source.containsKey("dataBinding") && binding.isNull()) return false;
     if (!binding.isNull()) {
         if (hasNonEmptyString(binding["timezone"]) ||
             hasNonEmptyString(binding["fallbackText"]) ||
@@ -202,6 +203,7 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     target.transform.zIndex = static_cast<int16_t>(zIndex);
 
     JsonObjectConst textStyle = source["textStyle"].as<JsonObjectConst>();
+    if (source.containsKey("textStyle") && textStyle.isNull()) return false;
     target.fontSize = textStyle["fontSize"] | 16;
     target.fontWeight = textStyle["fontWeight"] | 400;
     target.letterSpacing = textStyle["letterSpacing"] | 0;
@@ -229,6 +231,7 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     }
 
     JsonObjectConst style = source["style"].as<JsonObjectConst>();
+    if (source.containsKey("style") && style.isNull()) return false;
     if (!readColor(style["fill"], target.fillColor, 0xFFFF) ||
         !readColor(style["stroke"], target.strokeColor, 0x0000)) return false;
     const float strokeWidth = style["strokeWidth"] | 0.0f;
@@ -266,6 +269,15 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     }
     if ((target.type == FaceElementType::DigitalClock || target.type == FaceElementType::Date ||
          target.type == FaceElementType::Weather) && target.dataSource[0] == '\0') return false;
+    if (target.dataSource[0] != '\0') {
+        if ((target.type == FaceElementType::DigitalClock && strcmp(target.dataSource, "time") != 0) ||
+            (target.type == FaceElementType::Date && strcmp(target.dataSource, "date") != 0) ||
+            (target.type == FaceElementType::Weather && strcmp(target.dataSource, "temperature") != 0) ||
+            (target.type != FaceElementType::DigitalClock && target.type != FaceElementType::Date &&
+             target.type != FaceElementType::Weather)) return false;
+    }
+    if (target.timeFormat[0] != '\0' &&
+        strcmp(target.timeFormat, "12h") != 0 && strcmp(target.timeFormat, "24h") != 0) return false;
     return true;
 }
 }
