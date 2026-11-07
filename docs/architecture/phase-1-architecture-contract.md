@@ -189,7 +189,7 @@ Command responses must include requestId, ok, stable error code and safe message
 - ACK identifies transferId, highest contiguous accepted chunk index, bytes written and status.
 - A duplicate of the immediately previous accepted chunk with identical bytes must be idempotently ACKed; a duplicate with different bytes is rejected. Out-of-order chunks are rejected with expected index.
 - Web retries the same chunk/index a bounded number of times after timeout; it must not increment sequence or chunk index as if a lost ACK meant the chunk was not written.
-- Transfer cancellation closes and removes only the inactive staging file. The active slot is untouched.
+- Transfer cancellation closes and removes only the inactive staging file. The active slot is untouched. A failed transfer remains cancellable so an explicit cancel or BLE session loss can reclaim its partial staging file; the active-slot guard remains the final safety boundary.
 - TRANSFER_END triggers file digest, package header, manifest, layout, asset and capability validation.
 - APPLY is allowed only after successful verification. Device switches the active pointer only after the candidate is fully valid and preserves the previous slot for rollback.
 - Web reports success only after a matching successful APPLY_RESULT and a refreshed device status.
