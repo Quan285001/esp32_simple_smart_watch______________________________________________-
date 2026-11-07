@@ -15,6 +15,7 @@
 <header class="topbar">
   <div class="brand"><span class="brand-mark">◷</span><span>WATCH FACE STUDIO<small>ESP32-C3 DESIGNER</small></span></div>
   <div class="top-actions">
+    <button class="btn ghost" id="settingsTopBtn" type="button">⚙ Settings</button>
     <button class="btn ghost" id="langBtn" type="button">EN / VI</button>
     <button class="btn" id="importBtn" type="button">Import</button>
     <button class="btn" id="exportBtn" type="button">Export JSON</button>
@@ -27,6 +28,7 @@
     <button class="nav-item active" data-nav="editor"><span class="nav-icon">✳</span> Editor</button>
     <button class="nav-item" data-nav="templates"><span class="nav-icon">▦</span> Templates</button>
     <button class="nav-item" data-nav="library"><span class="nav-icon">▣</span> My designs</button>
+    <button class="nav-item" data-nav="settings"><span class="nav-icon">⚙</span> Settings</button>
     <div class="side-divider"></div>
     <div class="side-title">Add elements</div>
     <button class="nav-item" id="addDigital"><span class="nav-icon">◷</span> Digital time</button>
@@ -73,6 +75,24 @@
       <div class="page-heading"><div><div class="eyebrow">YOUR CREATIONS</div><h1>My designs</h1><p>Saved locally in this browser. Export JSON to back up or move a design.</p></div><button class="btn danger small" id="deleteAll" type="button">Clear library</button></div>
       <div class="library-grid" id="libraryGrid"></div>
     </section>
+    <section data-view="settings" class="hidden">
+      <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>Settings</h1><p>Customize the Watch Face Studio application. These preferences do not change your watch-face design.</p></div></div>
+      <div class="settings-grid">
+        <section class="settings-card"><div class="eyebrow">APPEARANCE</div><h2>Application theme</h2><p>Choose how the editor looks. System follows your device preference.</p>
+          <div class="theme-options" role="group" aria-label="Application theme">
+            <button class="theme-option" id="themeLight" type="button"><span class="theme-swatch light-swatch"></span><strong>Light</strong><small>Bright workspace</small></button>
+            <button class="theme-option" id="themeDark" type="button"><span class="theme-swatch dark-swatch"></span><strong>Dark</strong><small>Low-light workspace</small></button>
+            <button class="theme-option" id="themeSystem" type="button"><span class="theme-swatch system-swatch"></span><strong>System</strong><small>Follow device</small></button>
+          </div><p class="settings-status" id="themeStatus" aria-live="polite"></p>
+        </section>
+        <section class="settings-card"><div class="eyebrow">LANGUAGE</div><h2>Interface language</h2><p>Choose your preferred language for application labels.</p>
+          <label class="settings-label" for="languageSelect">LANGUAGE</label><select id="languageSelect" class="settings-select"><option value="en">English</option><option value="vi">Tiếng Việt</option></select>
+          <p class="settings-status">Language preference is stored in this browser. Full application-wide translation is being introduced progressively.</p>
+        </section>
+        <section class="settings-card"><div class="eyebrow">EDITOR</div><h2>Editing preferences</h2><label class="settings-check"><input id="autoSaveToggle" type="checkbox" checked> Automatically save the current draft</label><p class="settings-status">Drafts are stored locally in this browser. Export a JSON backup before clearing browser data.</p></section>
+        <section class="settings-card"><div class="eyebrow">ABOUT</div><h2>Watch Face Studio</h2><p>Target profile: ESP32-C3 · GC9A01 · 240 × 240 circular display.</p><p class="settings-status">Custom face transfer is not available until the matching firmware protocol and receiver are implemented and verified.</p></section>
+      </div>
+    </section>
   </main>
   <aside class="rightbar">
     <section class="panel-section">
@@ -118,7 +138,7 @@
     </section>
   </aside>
 </div>
-<nav class="mobile-tabs"><button data-nav="editor" class="active">✳ Editor</button><button data-nav="templates">▦ Templates</button><button data-nav="library">▣ Designs</button></nav>
+<nav class="mobile-tabs"><button data-nav="editor" class="active">✳ Editor</button><button data-nav="templates">▦ Templates</button><button data-nav="library">▣ Designs</button><button data-nav="settings">⚙ Settings</button></nav>
 </div>
 <input id="imageInput" class="hidden" type="file" accept="image/*">
 <input id="jsonInput" class="hidden" type="file" accept="application/json,.json">
