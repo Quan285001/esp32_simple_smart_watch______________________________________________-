@@ -21,12 +21,25 @@ extern void setAutoSleepTimeoutSeconds(uint8_t seconds);
 extern uint8_t getAutoSleepTimeoutSeconds();
 extern bool setFaceStudioConfig(uint16_t background, uint16_t dial, uint16_t hand,
                                 uint16_t accent, uint8_t flags);
+extern bool setFaceStyleConfig(uint8_t styleId);
 
 /**
  * @brief Parses and executes one BLE command.
  * @param cmd Input or state used by this operation.
  */
 static void handleCommand(const String &cmd) {
+    if (cmd.startsWith("STYLE:")) {
+        const String value = cmd.substring(6);
+        const int styleId = value.toInt();
+        const bool numeric = value.length() > 0 && value == String(styleId);
+        if (!numeric || styleId < 0 || styleId > 255 ||
+            !setFaceStyleConfig(static_cast<uint8_t>(styleId))) {
+            sendBLENotification("ERR_STYLE");
+            return;
+        }
+        sendBLENotification(String("STYLE_OK:") + String(styleId));
+        return;
+    }
     if (cmd.startsWith("FS:")) {
         // FS:<bg RGB565><dial RGB565><hand RGB565><accent RGB565><flags>
         // 20 ASCII bytes total: safe for the default 23-byte ATT MTU.
