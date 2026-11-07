@@ -15,6 +15,7 @@
 #include "services/time_service.h"
 #include "services/weather_service.h"
 #include "services/ble_service.h"
+#include "system/diagnostics.h"
 
 extern void handleBLECommands();
 
@@ -98,7 +99,6 @@ static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
 static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
-static uint32_t lastLoopHeartbeatMs = 0;
 static bool lightSleepRequested = false;
 static uint8_t autoSleepTimeoutSeconds = 15; // 0 disables automatic sleep.
 static uint32_t lastUserActivityMs = 0;
@@ -149,7 +149,7 @@ static void enterLightSleep() {
     gpio_wakeup_enable(static_cast<gpio_num_t>(BUTTON_PIN), GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
 
-    Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT sleeping.");
+    Serial.println("[POWER] Light sleep: Wi-Fi OFF, BLE deinitialized, TFT panel blanked.");
     esp_light_sleep_start();
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
 
@@ -559,10 +559,7 @@ void setup() {
 
     Serial.println("\n[BOOT] ESP32-C3 Smart Watch");
     Serial.printf("[BOOT] Reset reason: %d\n", static_cast<int>(esp_reset_reason()));
-    Serial.printf("[BOOT] Heap: free=%u, largest_block=%u, min_free=%u bytes\n",
-                  static_cast<unsigned int>(ESP.getFreeHeap()),
-                  static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
-                  static_cast<unsigned int>(heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)));
+    SystemDiagnostics::begin();
 
     beginButtonManager();
     tft.init();
@@ -641,13 +638,7 @@ void loop() {
             if (isBLEEnabled()) {
                 toggleBLE();
             }
-            Serial.printf(
-                "[MEM] After BLE init: free=%u, largest_block=%u, min_free=%u bytes\n",
-                (unsigned int)ESP.getFreeHeap(),
-                (unsigned int)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-                (unsigned int)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT)
-            );
-
+            SystemDiagnostics::logMemory("after BLE init");
             WiFi.disconnect(false, false);
             WiFi.mode(WIFI_OFF);
             wifiEnabled = false;
@@ -674,17 +665,8 @@ void loop() {
 
     const uint32_t now = millis();
 
-    // Diagnostic heartbeat: if this line stops during a freeze, loop() is
-    // blocked or the scheduler/system is no longer making progress.
-    if (now - lastLoopHeartbeatMs >= 1000UL) {
-        lastLoopHeartbeatMs = now;
-        Serial.printf(
-            "[LOOP] Alive: uptime=%lu ms, free_heap=%u, largest_block=%u bytes\n",
-            static_cast<unsigned long>(now),
-            static_cast<unsigned int>(ESP.getFreeHeap()),
-            static_cast<unsigned int>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT))
-        );
-    }
+    // Bounded diagnostics cadence avoids serial flooding in the UI loop.
+    SystemDiagnostics::service();
 
     serviceTimePersistence();
 
