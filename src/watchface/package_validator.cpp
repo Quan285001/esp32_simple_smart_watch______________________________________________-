@@ -290,7 +290,8 @@ bool validateWfsPackage(File& file, size_t expectedFileLength,
         error = PackageValidationError::LayoutSchema;
         return false;
     }
-    if (strcmp(output.designId, designId) != 0) {
+    if (strcmp(output.designId, designId) != 0 ||
+        strcmp(output.deviceProfileId, "esp32-c3-gc9a01-240") != 0) {
         error = PackageValidationError::DesignIdMismatch;
         return false;
     }
