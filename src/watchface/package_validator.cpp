@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <mbedtls/sha256.h>
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 #include "face_parser.h"
@@ -225,6 +226,8 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     }
 
     uint32_t expectedAssetOffset = 0;
+    FaceAsset parsedAssets[FACE_MAX_ASSETS] = {};
+    uint8_t parsedAssetCount = 0;
     for (JsonObjectConst asset : assets) {
         const char* assetId = asset["assetId"] | "";
         const char* encoding = asset["encoding"] | "";
@@ -247,6 +250,22 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
             error = PackageValidationError::AssetManifest;
             return false;
         }
+
+        for (uint8_t previous = 0; previous < parsedAssetCount; ++previous) {
+            if (strcmp(parsedAssets[previous].id, assetId) == 0) {
+                free(manifestText);
+                free(layoutText);
+                error = PackageValidationError::AssetManifest;
+                return false;
+            }
+        }
+        FaceAsset& parsedAsset = parsedAssets[parsedAssetCount];
+        strncpy(parsedAsset.id, assetId, sizeof(parsedAsset.id) - 1);
+        parsedAsset.width = static_cast<uint16_t>(width);
+        parsedAsset.height = static_cast<uint16_t>(height);
+        parsedAsset.packageOffset = static_cast<uint32_t>(WFS_HEADER_SIZE + manifestLength + layoutLength + offset);
+        parsedAsset.byteLength = byteLength;
+        ++parsedAssetCount;
 
         const size_t absoluteOffset = WFS_HEADER_SIZE + manifestLength + layoutLength + offset;
         if (!digestFileRange(file, absoluteOffset, byteLength, actualAssetDigest) ||
@@ -299,20 +318,41 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         return false;
     }
 
-    if (validateFaceModelForRenderer(output) != FaceRenderStatus::Ok) {
-        error = PackageValidationError::UnsupportedCapability;
-        return false;
-    }
+    output.assetCount = parsedAssetCount;
+    for (uint8_t i = 0; i < parsedAssetCount; ++i) output.assets[i] = parsedAssets[i];
 
-    // Image objects are recognized by the model/parser, but the current
-    // renderer does not yet advertise or install image assets.
+    bool referenced[FACE_MAX_ASSETS] = {};
     for (uint8_t i = 0; i < output.objectCount; ++i) {
-        if (output.objects[i].type == FaceElementType::Image) {
-            error = PackageValidationError::UnsupportedCapability;
+        const FaceObject& object = output.objects[i];
+        if (object.type != FaceElementType::Image) continue;
+        bool found = false;
+        for (uint8_t a = 0; a < output.assetCount; ++a) {
+            const FaceAsset& asset = output.assets[a];
+            if (strcmp(asset.id, object.assetId) == 0) {
+                const uint16_t objectWidth = static_cast<uint16_t>(lroundf(object.transform.width));
+                const uint16_t objectHeight = static_cast<uint16_t>(lroundf(object.transform.height));
+                if (asset.width != objectWidth || asset.height != objectHeight) {
+                    error = PackageValidationError::AssetManifest;
+                    return false;
+                }
+                referenced[a] = true;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            error = PackageValidationError::AssetManifest;
             return false;
         }
     }
-    if (assetCount != 0) {
+    for (uint8_t a = 0; a < output.assetCount; ++a) {
+        if (!referenced[a]) {
+            error = PackageValidationError::AssetManifest;
+            return false;
+        }
+    }
+
+    if (validateFaceModelForRenderer(output) != FaceRenderStatus::Ok) {
         error = PackageValidationError::UnsupportedCapability;
         return false;
     }
