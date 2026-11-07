@@ -147,6 +147,7 @@ static void enterLightSleep() {
     esp_light_sleep_start();
     gpio_wakeup_disable(static_cast<gpio_num_t>(BUTTON_PIN));
     SystemManager::markWaking();
+    SystemManager::markRestoringServices();
 
     const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
     Serial.printf("[POWER] Wake cause: %d\\n", static_cast<int>(wakeCause));
