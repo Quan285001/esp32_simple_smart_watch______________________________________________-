@@ -28,7 +28,8 @@ enum class Error : uint8_t {
     WriteFailed,
     LengthMismatch,
     PackageInvalid,
-    ApplyFailed
+    ApplyFailed,
+    SessionLost
 };
 
 struct Snapshot {
@@ -47,6 +48,7 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
 bool finish(uint32_t transferId);
 bool apply(uint32_t transferId);
 void cancel(uint32_t transferId);
+void abortSession();
 Snapshot snapshot();
 const char* stateName(State state);
 const char* errorName(Error error);
