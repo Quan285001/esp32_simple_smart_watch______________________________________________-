@@ -175,6 +175,22 @@ void drawTextInBounds(const char* text, const FaceObject& object, uint16_t color
     tft.endWrite();
 }
 
+void appendText(char* output, size_t capacity, const char* value) {
+    if (output == nullptr || value == nullptr || capacity == 0) return;
+    const size_t used = strlen(output);
+    if (used >= capacity - 1) return;
+    size_t count = strlen(value);
+    if (count > capacity - 1 - used) count = capacity - 1 - used;
+    memcpy(output + used, value, count);
+    output[used + count] = '\0';
+}
+
+void appendNumber(char* output, size_t capacity, int value, const char* format) {
+    char buffer[12] = {};
+    snprintf(buffer, sizeof(buffer), format, value);
+    appendText(output, capacity, buffer);
+}
+
 void formatTime(char* out, size_t capacity, const FaceObject& object,
                 const struct tm& timeInfo) {
     const bool twelveHour = strcmp(object.timeFormat, "12h") == 0;
@@ -185,11 +201,26 @@ void formatTime(char* out, size_t capacity, const FaceObject& object,
         hour %= 12;
         if (hour == 0) hour = 12;
     }
-    const bool seconds = object.showSeconds ||
-                         strstr(object.dataFormat, "ss") != nullptr;
-    if (seconds) snprintf(out, capacity, "%02d:%02d:%02d%s",
-                          hour, timeInfo.tm_min, timeInfo.tm_sec, suffix);
-    else snprintf(out, capacity, "%02d:%02d%s", hour, timeInfo.tm_min, suffix);
+    const char* format = object.dataFormat[0] ? object.dataFormat : "HH:mm";
+    const bool formatHasSeconds = strstr(format, "ss") != nullptr;
+    out[0] = '\0';
+    for (const char* cursor = format; *cursor != '\0';) {
+        if (strncmp(cursor, "HH", 2) == 0) {
+            appendNumber(out, capacity, hour, "%02d"); cursor += 2;
+        } else if (strncmp(cursor, "mm", 2) == 0) {
+            appendNumber(out, capacity, timeInfo.tm_min, "%02d"); cursor += 2;
+        } else if (strncmp(cursor, "ss", 2) == 0) {
+            appendNumber(out, capacity, timeInfo.tm_sec, "%02d"); cursor += 2;
+        } else {
+            char literal[2] = {*cursor++, '\0'};
+            appendText(out, capacity, literal);
+        }
+    }
+    if (object.showSeconds && !formatHasSeconds) {
+        appendText(out, capacity, ":");
+        appendNumber(out, capacity, timeInfo.tm_sec, "%02d");
+    }
+    if (twelveHour) appendText(out, capacity, suffix);
 }
 
 void formatDate(char* out, size_t capacity, const FaceObject& object,
@@ -199,14 +230,23 @@ void formatDate(char* out, size_t capacity, const FaceObject& object,
                                          "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
     const int weekday = (timeInfo.tm_wday >= 0 && timeInfo.tm_wday < 7) ? timeInfo.tm_wday : 0;
     const int month = (timeInfo.tm_mon >= 0 && timeInfo.tm_mon < 12) ? timeInfo.tm_mon : 0;
-    if (strstr(object.dataFormat, "YYYY") != nullptr) {
-        snprintf(out, capacity, "%04d-%02d-%02d",
-                 timeInfo.tm_year + 1900, month + 1, timeInfo.tm_mday);
-    } else if (strstr(object.dataFormat, "ddd") != nullptr) {
-        snprintf(out, capacity, "%s - %02d %s",
-                 weekdays[weekday], timeInfo.tm_mday, months[month]);
-    } else {
-        snprintf(out, capacity, "%02d %s", timeInfo.tm_mday, months[month]);
+    const char* format = object.dataFormat[0] ? object.dataFormat : "ddd, DD MMM";
+    out[0] = '\0';
+    for (const char* cursor = format; *cursor != '\0';) {
+        if (strncmp(cursor, "YYYY", 4) == 0) {
+            appendNumber(out, capacity, timeInfo.tm_year + 1900, "%04d"); cursor += 4;
+        } else if (strncmp(cursor, "ddd", 3) == 0) {
+            appendText(out, capacity, weekdays[weekday]); cursor += 3;
+        } else if (strncmp(cursor, "MMM", 3) == 0) {
+            appendText(out, capacity, months[month]); cursor += 3;
+        } else if (strncmp(cursor, "MM", 2) == 0) {
+            appendNumber(out, capacity, month + 1, "%02d"); cursor += 2;
+        } else if (strncmp(cursor, "DD", 2) == 0) {
+            appendNumber(out, capacity, timeInfo.tm_mday, "%02d"); cursor += 2;
+        } else {
+            char literal[2] = {*cursor++, '\0'};
+            appendText(out, capacity, literal);
+        }
     }
 }
 
