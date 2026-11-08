@@ -129,6 +129,18 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
     'SHA-256', payload.slice(manifestLength, manifestLength + layoutLength)));
   assert.equal(manifest.layoutSha256, hex(layoutDigest));
 
+  const unsupportedWeatherDesign = structuredClone(design);
+  unsupportedWeatherDesign.objects.push({
+    id: 'wind_1',
+    type: 'weather',
+    name: 'Wind',
+    transform: { x: 10, y: 10, width: 80, height: 20, anchor: 'top-left', zIndex: 1 },
+    dataBinding: { source: 'temperature' },
+    weatherFields: ['wind-speed'],
+  });
+  await assert.rejects(buildPackage(unsupportedWeatherDesign), /only temperature and condition weather fields/,
+    'package builder must run shared device compatibility checks before packaging');
+
   const invalidDesign = structuredClone(design);
   invalidDesign.objects[0].textStyle.unknownVisualEffect = true;
   await assert.rejects(buildPackage(invalidDesign), /Schema validation failed/,
