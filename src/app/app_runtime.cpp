@@ -229,7 +229,7 @@ void loop() {
                 // Emit only slow frames so normal one-second updates do not
                 // flood Serial or perturb the UI loop being measured.
                 if (renderDurationUs >= 8000UL) {
-                    Serial.printf("[PERF] Watch Face render=%lu us\\n",
+                    Serial.printf("[PERF] Watch Face render=%lu us\n",
                                   static_cast<unsigned long>(renderDurationUs));
                 }
                 if (status == FaceRenderStatus::Ok) {
