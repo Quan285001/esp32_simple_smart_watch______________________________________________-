@@ -73,6 +73,27 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
     }
 };
 
+namespace {
+void rollbackBleInitialization(const char* reason) {
+    Serial.printf("[BLE] Initialization aborted: %s\\n",
+                  reason != nullptr ? reason : "unknown");
+
+    if (bleAdvertising != nullptr) {
+        bleAdvertising->stop();
+    }
+    BLEDevice::deinit(false);
+    shutdownWfsGatt();
+
+    bleAdvertising = nullptr;
+    commandCharacteristic = nullptr;
+    bleServer = nullptr;
+    __atomic_store_n(&clientConnected, false, __ATOMIC_RELEASE);
+    __atomic_store_n(&bleEnabled, false, __ATOMIC_RELEASE);
+    __atomic_store_n(&advertisingRestartPending, false, __ATOMIC_RELEASE);
+    bleStackInitialized = false;
+}
+} // namespace
+
 /**
  * @brief Initializes the BLE server, GATT service, characteristic, and advertising.
 
@@ -102,19 +123,17 @@ void beginBLE() {
         bleSecurity->setCapability(ESP_IO_CAP_NONE);
         bleSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
     }
-    bleStackInitialized = true;
-
     Serial.println("[BLE] Creating server...");
     bleServer = BLEDevice::createServer();
     if (bleServer == nullptr) {
-        Serial.println("[BLE] Server creation failed.");
+        rollbackBleInitialization("server_creation_failed");
         return;
     }
     bleServer->setCallbacks(new ServerCallbacks());
 
     BLEService *service = bleServer->createService(SERVICE_UUID);
     if (service == nullptr) {
-        Serial.println("[BLE] Service creation failed.");
+        rollbackBleInitialization("service_creation_failed");
         return;
     }
 
@@ -127,7 +146,7 @@ void beginBLE() {
     );
 
     if (commandCharacteristic == nullptr) {
-        Serial.println("[BLE] Characteristic creation failed.");
+        rollbackBleInitialization("characteristic_creation_failed");
         return;
     }
 
@@ -144,7 +163,7 @@ void beginBLE() {
 
     bleAdvertising = BLEDevice::getAdvertising();
     if (bleAdvertising == nullptr) {
-        Serial.println("[BLE] Advertising instance unavailable.");
+        rollbackBleInitialization("advertising_unavailable");
         return;
     }
 
@@ -153,6 +172,9 @@ void beginBLE() {
     // through optionalServices after connecting by device name.
     bleAdvertising->setScanResponse(true);
 
+    // Publish initialized state only after every required legacy GATT resource
+    // and the advertising controller have been acquired successfully.
+    bleStackInitialized = true;
     __atomic_store_n(&advertisingRestartPending, false, __ATOMIC_RELEASE);
     bleEnabled = true;
     Serial.println("[BLE][TRACE] initial startAdvertising ENTER");
