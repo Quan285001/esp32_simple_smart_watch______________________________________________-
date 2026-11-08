@@ -162,10 +162,8 @@
       if (transform.rotation !== undefined && transform.rotation !== 0) {
         result.push(name + ': rotation is not supported yet');
       }
-      if (transform.opacity !== undefined &&
-          (!finiteNumber(transform.opacity) || transform.opacity < 0.999 ||
-           transform.opacity > 1)) {
-        result.push(name + ': opacity must be numeric and fully opaque on this firmware');
+      if (transform.opacity !== undefined && transform.opacity < 0.999) {
+        result.push(name + ': partial opacity is not supported yet');
       }
       if (transform.anchor !== undefined && transform.anchor !== 'top-left') {
         result.push(name + ': only top-left object anchoring is supported');
@@ -195,12 +193,11 @@
         result.push(name + ': font size is outside the device range');
       }
       if (textStyle.fontWeight !== undefined &&
-          (!finiteNumber(textStyle.fontWeight) || ![400, 600].includes(textStyle.fontWeight))) {
-        result.push(name + ': fontWeight must be numeric; this firmware supports 400 and 600 only');
+          ![400, 600].includes(Number(textStyle.fontWeight))) {
+        result.push(name + ': this firmware currently supports regular and semibold weights only');
       }
-      if (textStyle.letterSpacing !== undefined &&
-          (!finiteNumber(textStyle.letterSpacing) || textStyle.letterSpacing !== 0)) {
-        result.push(name + ': letterSpacing must be numeric zero; nonzero spacing is not supported yet');
+      if (textStyle.letterSpacing !== undefined && Number(textStyle.letterSpacing) !== 0) {
+        result.push(name + ': letter spacing is not supported yet');
       }
       if (textStyle.scaleX !== undefined &&
           (!finiteNumber(textStyle.scaleX) || textStyle.scaleX < 0.1 || textStyle.scaleX > 8)) {
@@ -213,24 +210,18 @@
       if (['fontId', 'width', 'height'].some(key => hasOwn(textStyle, key))) {
         result.push(name + ': custom glyph font metrics are not supported yet');
       }
-      const glyphNumericDefaults = [
-        ['strokeWidth', 0], ['backgroundRadius', 0], ['opacity', 1],
-        ['rotation', 0], ['zIndex', 0]
-      ];
-      const invalidGlyphNumeric = glyphNumericDefaults.some(([key, expected]) =>
-        hasOwn(textStyle, key) &&
-        (!finiteNumber(textStyle[key]) || textStyle[key] !== expected));
       if ((textStyle.stroke && textStyle.stroke !== 'none') ||
-          invalidGlyphNumeric || textStyle.backgroundColor ||
+          (Number(textStyle.strokeWidth) || 0) > 0 || textStyle.backgroundColor ||
           (textStyle.backgroundShape && textStyle.backgroundShape !== 'none') ||
-          textStyle.visible === false) {
+          (Number(textStyle.backgroundRadius) || 0) > 0 ||
+          Number(textStyle.opacity ?? 1) < 0.999 || (Number(textStyle.rotation) || 0) !== 0 ||
+          textStyle.visible === false || (Number(textStyle.zIndex) || 0) !== 0) {
         result.push(name + ': advanced glyph styling is not supported yet');
       }
       if (style.backgroundColor ||
-          (style.strokeWidth !== undefined &&
-           (!finiteNumber(style.strokeWidth) ||
-            (style.strokeWidth !== 0 && style.strokeWidth !== 1)))) {
-        result.push(name + ': strokeWidth must be numeric zero or one; separate background fill is not supported');
+          (style.strokeWidth !== undefined && Number(style.strokeWidth) !== 0 &&
+           Number(style.strokeWidth) !== 1)) {
+        result.push(name + ': this device supports only a one-pixel shape outline and no separate background fill');
       }
 
       if (type === 'digital-clock' && binding.source !== 'time') {

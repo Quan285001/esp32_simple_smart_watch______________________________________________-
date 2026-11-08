@@ -58,6 +58,22 @@ for key in ("pid", "cw", "ch", "cs", "bw", "bh", "obj", "assets", "json", "img",
     if key != "chunk" and f"caps?.{key}" not in WEB_SOURCE and f"caps.{key}" not in WEB_SOURCE:
         raise AssertionError(f"Web compatibility preflight does not consume {key!r}")
 
+# The package manifest's declared capabilities must cover the profile's
+# implemented Watch Face feature set, including the optional weather condition.
+PACKAGE_VALIDATOR = (ROOT / "src/watchface/package_validator.cpp").read_text(encoding="utf-8")
+PACKAGE_CAPABILITIES = (
+    "text.basic", "clock.digital", "clock.analog", "date.basic",
+    "weather.temperature", "weather.condition", "shape.basic", "image.rgb565",
+)
+declared = set(PROFILE.get("declaredCapabilities", []))
+for capability in PACKAGE_CAPABILITIES:
+    if capability not in declared:
+        raise AssertionError(f"Shared profile does not declare {capability!r}")
+    if f'"{capability}"' not in PACKAGE_VALIDATOR:
+        raise AssertionError(f"Firmware package validator does not recognize {capability!r}")
+if "required.push('weather.condition')" not in WEB_SOURCE:
+    raise AssertionError("Web package builder does not declare weather.condition when used")
+
 protocol_header = (ROOT / "src/communication/protocol.h").read_text(encoding="utf-8")
 payload_limit_match = re.search(r"MAX_CONTROL_PAYLOAD = (\d+)", protocol_header)
 if not payload_limit_match:

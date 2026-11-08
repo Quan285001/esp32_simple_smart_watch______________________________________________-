@@ -1,7 +1,7 @@
 # Firmware Rebuild — Implementation Status
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
-**Last source audit:** `ff53541`  
+**Last source audit:** `cdf9985`  
 **Scope:** ESP32-C3 firmware, WFS BLE v1, Watch Face renderer, shared Web editor contract.
 
 This document records implementation state. It is not a declaration that the full rebuild prompt is complete.
@@ -36,6 +36,8 @@ This document records implementation state. It is not a declaration that the ful
 - Radio arbitration is applied to both the legacy BLE command path and WFS structured commands: Wi-Fi credential changes and location updates are rejected while startup/weather network work is active; location updates are also rejected during Wi-Fi scanning.
 - WFS capability exchange advertises the active profile ID, canvas size/shape, bitmap limits, object/asset limits, JSON size, image support, upload availability, chunk size and current staging capacity.
 - Web preflight consumes the negotiated profile and resource limits. Older WFS v1 firmware that omits the newer fields retains conservative ESP32-C3 defaults.
+- Web preflight now rejects numeric fields with coercible-but-invalid string/null types and values outside the firmware renderer's supported opacity, font-weight and glyph-spacing contract.
+- WFS package manifests now declare optional weather-condition support when used, and firmware package validation verifies that every element's required capability is declared before accepting the package.
 - Portable `.wfsproject.json` files bundle the design and its referenced source images.
 - The project envelope has a shared schema and a golden fixture. Legacy raw Watch Face JSON remains importable when referenced images already exist in the browser's IndexedDB.
 
@@ -73,6 +75,8 @@ This document records implementation state. It is not a declaration that the ful
 - Commit `11af28a`: PlatformIO Build and Pages deployment completed successfully after rolling back optional WFS GATT setup failures and releasing the unused RX queue while retaining legacy BLE.
 - Commit `47aa20b`: PlatformIO Build and Pages deployment completed successfully after closing the boot-network worker handoff window; the boot coordinator guard verifies the worker logs before signalling completion and yields a tick before BLE initialization.
 - Commit `ff53541`: PlatformIO Build and Pages deployment completed successfully after keeping the weather worker marked active through its exit memory snapshot, preventing service/auto-sleep logic from treating the worker as finished while it is still logging.
+- Commit `21efdf3`: PlatformIO Build and Pages deployment completed successfully after tightening Web preflight numeric type/range checks; regression cases cover out-of-range opacity and string/null numeric values.
+- Commit `cdf9985`: PlatformIO Build and Pages deployment completed successfully after aligning package manifest capability declarations with the actual Watch Face elements, including `weather.condition`; firmware now rejects manifests that omit capabilities required by the parsed design.
 - No physical ESP32-C3 test is claimed. The user performs board flashing and hardware regression.
 
 ## Migration constraints
