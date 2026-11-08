@@ -111,10 +111,6 @@ uint8_t getAutoSleepTimeoutSeconds() {
 void requestLightSleep() { SystemManager::requestSleep(); }
 
 /**
- * @brief Powers down Wi-Fi, Bluetooth, and the display before entering Light Sleep; restores the display and input after wake-up.
- */
-
-/**
  * @brief Converts a Wi-Fi connection state into a readable diagnostic label.
  * @param status Input or state used by this operation.
  */
@@ -625,7 +621,7 @@ void loop() {
 
     updateButtonManager();
 
-    // Count real physical button activity, not periodic UI redraws.
+    // SystemManager consumes physical button activity for the auto-sleep idle timer.
 
     handleBLECommands();
     serviceBLE();
