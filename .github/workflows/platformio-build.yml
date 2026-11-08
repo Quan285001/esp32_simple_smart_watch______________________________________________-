@@ -47,6 +47,9 @@ jobs:
       - name: Validate Watch Face display backend boundary
         run: python scripts/validate_canvas_boundary.py
 
+      - name: Compile backend-neutral canvas contract on host
+        run: python scripts/run_display_canvas_tests.py
+
       - name: Validate firmware display profile contract
         run: python scripts/validate_display_profile.py
 
