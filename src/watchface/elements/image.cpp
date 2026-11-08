@@ -3,7 +3,7 @@
 #include <math.h>
 #include <string.h>
 
-#include "../../display/display_manager.h"
+#include "../../display/display_canvas.h"
 #include "../../storage/face_storage.h"
 
 bool drawImageElement(const FaceModel& face, const FaceObject& object) {

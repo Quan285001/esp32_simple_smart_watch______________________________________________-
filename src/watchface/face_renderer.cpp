@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../display/display_manager.h"
+#include "../display/display_canvas.h"
 #include "elements/image.h"
 
 namespace {
@@ -332,7 +332,7 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
         if (clipRight <= clipLeft || clipBottom <= clipTop) continue;
 
         getDisplayCanvas().setClipRect(clipLeft, clipTop,
-                        clipRight - clipLeft, clipBottom - clipTop, false);
+                        clipRight - clipLeft, clipBottom - clipTop);
         getDisplayCanvas().fillRect(x, y, w, h, face.backgroundColor);
         bool drawOk = true;
         for (uint8_t j = 0; j < face.objectCount; ++j) {
