@@ -509,9 +509,7 @@ void loop() {
             WiFi.disconnect(false, false);
             WiFi.mode(WIFI_OFF);
             wifiEnabled = false;
-            previousWifiConnected = false;
-            lastWifiRetryMs = millis();
-            lastWifiStatusLogMs = 0;
+            WifiService::resetConnectionMonitor(millis());
 
             bootTerminalLog("[OK] Bluetooth initialized; radios idle", TFT_GREEN);
             bootTerminalLog("[BOOT] Startup complete", TFT_GREEN);
@@ -578,7 +576,7 @@ void loop() {
 
     if (wifiLink.justConnected) {
         Serial.printf(
-            "[WIFI] Connected. IP: %s, RSSI: %d dBm\\n",
+            "[WIFI] Connected. IP: %s, RSSI: %d dBm\n",
             WiFi.localIP().toString().c_str(),
             WiFi.RSSI()
         );
@@ -729,7 +727,7 @@ void loop() {
                 if (status == FaceRenderStatus::Ok) {
                     lastCustomFaceSecond = cachedTime.tm_sec;
                 } else {
-                    Serial.printf("[FACE] Custom renderer rejected frame (%u); reverting to built-in face.\\n",
+                    Serial.printf("[FACE] Custom renderer rejected frame (%u); reverting to built-in face.\n",
                                   static_cast<unsigned int>(status));
                     FaceManager::disableActive();
                     drawAnalogClockFace(cachedTime, static_cast<int>(elapsed), 0, 0);

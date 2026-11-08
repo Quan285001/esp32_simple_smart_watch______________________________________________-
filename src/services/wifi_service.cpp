@@ -142,13 +142,13 @@ ConnectionSnapshot serviceConnectionMonitor(uint32_t nowMs, bool enabled, bool b
 
     if (!scanRunning && status != WL_CONNECTED) {
         if (nowMs - lastWifiRetryMs >= WIFI_RETRY_MS) {
-            Serial.printf("[WIFI] Still not connected (status=%s, code=%d); retrying.\\n",
+            Serial.printf("[WIFI] Still not connected (status=%s, code=%d); retrying.\n",
                           wifiStatusName(status), static_cast<int>(status));
             WiFi.reconnect();
             lastWifiRetryMs = nowMs;
         }
         if (lastWifiStatusLogMs == 0 || nowMs - lastWifiStatusLogMs >= WIFI_STATUS_LOG_MS) {
-            Serial.printf("[WIFI] Status: %s (code=%d).\\n",
+            Serial.printf("[WIFI] Status: %s (code=%d).\n",
                           wifiStatusName(status), static_cast<int>(status));
             lastWifiStatusLogMs = nowMs;
         }
