@@ -14,7 +14,7 @@ This change aligns the Web preflight and committed golden fixture with the firmw
 2. The old fixture supplied a timezone override, but the current firmware parser deliberately rejects non-empty binding timezone values. The fixture now uses the device's configured local time.
 3. The old fixture selected font weight 700, while \`validateFaceModelForRenderer()\` accepts only 400 and 600. The fixture now selects 600.
 4. The device profile previously had empty nominal limits and advertised a separate legacy capability vocabulary. It now declares the implemented WFS element capabilities and explicit static object/bitmap limits. Dynamic staging capacity remains a runtime capability and is intentionally not duplicated as a fixed profile limit.
-5. Web preflight previously checked a hard-coded set of types and a subset of properties. It now uses a pure, host-testable compatibility module that checks the device's advertised element set, 240×240 circular canvas, object/JSON limits, transform/parser ranges, image availability/size, typography restrictions, binding formats, weather fields, and unsupported glyph/hand/render options before package creation.
+5. Web preflight previously checked a hard-coded set of types and a subset of properties. It now uses a pure, host-testable compatibility module that checks the device's compact advertised element set (el), the weather-condition capability bit (wc), 240×240 circular canvas, object/JSON limits, transform/parser ranges, image availability/size, typography restrictions, binding formats, weather fields, and unsupported glyph/hand/render options before package creation.
 6. The compatibility module is invoked by the actual `buildWfsPackage()` path, not only by a standalone diagnostics panel. A schema-valid design requesting unsupported weather fields is rejected before package serialization.
 7. Shape styling that the firmware ignores is rejected before upload: `style.fill` cannot act as a fallback text color, `style.stroke` cannot create a browser-only border, and `style.cornerRadius` must be an integer from 0–255 and is only valid for `shape: rounded-rect`.
 8. Web shape previews now draw rect, rounded-rect, circle, and line primitives using SVG geometry that follows the firmware's fill/stroke/radius rules. Text previews clip glyphs to object bounds and use the same alignment/scaling contract; weather previews distinguish temperature-only, condition-only, and combined rows.
@@ -30,7 +30,7 @@ The WFS capability response remains authoritative for the connected device. The 
 | \`clock.digital\` | HH/mm/ss tokens; 12h/24h mode |
 | \`clock.analog\` | Built-in analog face style |
 | \`date.basic\` | YYYY, ddd, MMM, MM, DD tokens |
-| \`weather.temperature\` | Temperature and condition text only |
+| \`weather.temperature\` | Temperature text; `wc=1` separately advertises condition text support |
 | \`shape.basic\` | Rect, rounded rect, circle, line; no arc |
 | \`image.rgb565\` | RGB565 little-endian assets, at most 240×240 |
 

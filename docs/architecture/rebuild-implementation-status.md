@@ -34,7 +34,7 @@ This document records implementation state. It is not a declaration that the ful
 - WFS session epochs invalidate packets queued before connect/disconnect transitions. Session reset clears protocol sequencing and aborts any cancellable in-progress transfer. Explicit cancel commands now return a rejection when the transfer ID/state is not cancellable, rather than emitting a false cancellation event.
 - BLE shutdown deinitializes the host/controller before deleting the WFS and legacy command queues, preventing queue handles from outliving their callback producer.
 - Radio arbitration is applied to both the legacy BLE command path and WFS structured commands: Wi-Fi credential changes and location updates are rejected while startup/weather network work is active; location updates are also rejected during Wi-Fi scanning.
-- WFS capability exchange advertises the active profile ID, canvas size/shape, bitmap limits, object/asset limits, JSON size, image support, upload availability, chunk size and current staging capacity.
+- WFS capability exchange advertises the active profile ID, canvas size/shape, bitmap limits, object/asset limits, JSON size, image support, the compact supported-element set (el), weather-condition support (wc), upload availability, chunk size and current staging capacity. Web preflight decodes these negotiated fields and rejects unsupported element/condition combinations before package transfer.
 - Web preflight consumes the negotiated profile and resource limits. Older WFS v1 firmware that omits the newer fields retains conservative ESP32-C3 defaults.
 - Web preflight now rejects numeric fields with coercible-but-invalid string/null types and values outside the firmware renderer's supported opacity, font-weight and glyph-spacing contract.
 - Web preflight and the firmware parser now require rounded-rectangle corner radii to be integral pixels in the `uint8_t` range (0–255), and reject nonzero radii on non-rounded-shape elements so CSS preview styling cannot silently disappear on-device.
@@ -60,6 +60,8 @@ This document records implementation state. It is not a declaration that the ful
 7. **Hardware regression:** execute the step-by-step [ESP32-C3 hardware regression checklist](hardware-regression-checklist.md), including BLE MTU/notifications, repeated connect/disconnect, package retry/cancel/apply, screen rendering, Wi-Fi/weather concurrency, sleep/wake and recovery. CI cannot substitute for this.
 
 ## Verification record
+
+- Commit `bc745ee`: PlatformIO Build and Pages deployment completed successfully after adding negotiated element and weather-condition capabilities to WFS CAPABILITIES; host compatibility tests verify compact element-code decoding and rejection when weather-condition support is absent.
 
 - Commit `fad0ba2`: PlatformIO Build and Pages deployment completed successfully after adding WFS receive, verification and apply timing plus heap snapshots; firmware artifact upload and parser/host tests passed.
 
