@@ -40,23 +40,9 @@ bool begin() {
         }
         Serial.printf("[FACE] Active package rejected: %s.\\n",
                       packageValidationErrorName(packageError));
-        const uint8_t fallbackSlot = slot == 0 ? 1 : 0;
-        fs::File fallbackFile = FaceStorage::openSlot(fallbackSlot, "r");
-        if (fallbackFile) {
-            memset(&candidateFace, 0, sizeof(candidateFace));
-            PackageValidationError fallbackError = PackageValidationError::None;
-            const bool fallbackValid = validateWfsPackage(
-                fallbackFile, fallbackFile.size(), nullptr, nullptr,
-                candidateFace, fallbackError);
-            fallbackFile.close();
-            if (fallbackValid && FaceStorage::activateSlot(fallbackSlot)) {
-                activeFace = candidateFace;
-                activeFaceValid = true;
-                activeFaceNeedsFullRender = true;
-                Serial.printf("[FACE] Recovered previous package from slot %u.\\n", fallbackSlot);
-                return true;
-            }
-        }
+        // Do not promote the other slot here. It may contain a package
+        // whose transfer completed but whose apply/commit step never did.
+        // The persisted active-slot pointer is the sole commit authority.
     }
 
     if (StorageManager::exists("/face.json")) {
