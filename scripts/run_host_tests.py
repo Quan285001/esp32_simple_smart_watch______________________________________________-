@@ -55,6 +55,20 @@ with tempfile.TemporaryDirectory(prefix="wfs-lifecycle-test-") as tmp:
 
 print("WFS transfer lifecycle policy host tests passed.")
 
+STORAGE_POLICY_TEST = ROOT / "tests" / "host" / "face_storage_policy_test.cpp"
+
+with tempfile.TemporaryDirectory(prefix="wfs-storage-policy-test-") as tmp:
+    binary = Path(tmp) / "face_storage_policy_test"
+    subprocess.run(
+        ["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+         str(STORAGE_POLICY_TEST), "-o", str(binary)],
+        cwd=ROOT,
+        check=True,
+    )
+    subprocess.run([str(binary)], cwd=ROOT, check=True)
+
+print("WFS dual-slot storage recovery policy host tests passed.")
+
 subprocess.run(
     ["node", str(ROOT / "tests" / "host" / "device_compatibility_test.cjs")],
     cwd=ROOT,
@@ -62,4 +76,3 @@ subprocess.run(
 )
 
 print("WFS device compatibility preflight host tests passed.")
-
