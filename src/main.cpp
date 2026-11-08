@@ -1,7 +1,6 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <Preferences.h>
 #include <esp_system.h>
 #include <TFT_eSPI.h>
 #include "config.h"
@@ -168,38 +167,7 @@ void setup() {
     beginDisplay(0);
 
     showBootTerminal();
-    StorageManager::begin();
-    FaceStorage::begin();
-    FaceManager::begin();
-    bootTerminalLog("[BOOT] Restoring saved state", TFT_YELLOW);
-
-    Preferences prefs;
-    float savedLat = NAN;
-    float savedLon = NAN;
-    if (prefs.begin("watch", true)) {
-        savedLat = prefs.getFloat("lat", NAN);
-        savedLon = prefs.getFloat("lon", NAN);
-        const uint8_t savedAutoSleep = prefs.getUChar("autoSleepSec", 15);
-        prefs.end();
-        setAutoSleepTimeoutSeconds(savedAutoSleep);
-    }
-    if (isfinite(savedLat) && isfinite(savedLon)) {
-        setWeatherCoordinates(savedLat, savedLon);
-    }
-
-    const bool timeRestored = restoreTimeFromNvs();
-    bootTerminalLog(timeRestored
-        ? "[OK] Saved clock restored"
-        : "[INFO] Waiting for time sync", timeRestored ? TFT_GREEN : TFT_YELLOW);
-
-    const bool cacheLoaded = loadWeatherCache();
-    weatherDataValid = cacheLoaded;
-    WeatherCoordinator::begin();
-    bootTerminalLog(cacheLoaded
-        ? "[OK] Weather cache restored"
-        : "[INFO] No weather cache", cacheLoaded ? TFT_GREEN : TFT_YELLOW);
-
-    // Keep the terminal visible until all startup stages have finished.
+    BootCoordinator::restorePersistentState();
     bootTerminalLog("[BOOT] Starting startup services", TFT_GREEN);
 
     BootCoordinator::begin();
