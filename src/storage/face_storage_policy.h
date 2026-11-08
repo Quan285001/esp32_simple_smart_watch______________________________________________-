@@ -6,17 +6,11 @@ namespace FaceStoragePolicy {
 
 constexpr uint8_t INVALID_SLOT = 0xFF;
 
-// Never infer that an uncommitted slot is active. This is essential when the
-// device loses power while receiving the very first package.
+// The NVS pointer is the commit record. Never fall back to the other file:
+// it may be an incomplete package left by an interrupted first transfer.
 inline uint8_t selectBootSlot(uint8_t committedSlot, bool slotAExists, bool slotBExists) {
-    if (committedSlot == 0) {
-        if (slotAExists) return 0;
-        return slotBExists ? 1 : INVALID_SLOT;
-    }
-    if (committedSlot == 1) {
-        if (slotBExists) return 1;
-        return slotAExists ? 0 : INVALID_SLOT;
-    }
+    if (committedSlot == 0 && slotAExists) return 0;
+    if (committedSlot == 1 && slotBExists) return 1;
     return INVALID_SLOT;
 }
 

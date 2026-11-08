@@ -15,7 +15,6 @@ uint8_t currentActiveSlot = INVALID_SLOT;
 }
 
 bool begin() {
-    currentActiveSlot = INVALID_SLOT;
     if (!StorageManager::isReady()) return false;
 
     Preferences prefs;

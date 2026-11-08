@@ -10,15 +10,16 @@ int main() {
     using FaceStoragePolicy::mayRemoveSlot;
     using FaceStoragePolicy::selectBootSlot;
 
-    // A committed slot remains authoritative even if an inactive file exists.
+    // Only the persisted NVS commit pointer determines the active package.
     assert(selectBootSlot(0, true, true) == 0);
     assert(selectBootSlot(1, true, true) == 1);
+    assert(selectBootSlot(0, true, false) == 0);
+    assert(selectBootSlot(1, false, true) == 1);
 
-    // A missing committed target may recover from the other slot.
-    assert(selectBootSlot(0, false, true) == 1);
-    assert(selectBootSlot(1, true, false) == 0);
-
-    // An unset/invalid pointer must never promote an uncommitted transfer.
+    // Never promote the other slot when the committed target is missing:
+    // it may be a partial package left by power loss during transfer.
+    assert(selectBootSlot(0, false, true) == INVALID_SLOT);
+    assert(selectBootSlot(1, true, false) == INVALID_SLOT);
     assert(selectBootSlot(INVALID_SLOT, true, false) == INVALID_SLOT);
     assert(selectBootSlot(INVALID_SLOT, false, true) == INVALID_SLOT);
     assert(selectBootSlot(7, true, true) == INVALID_SLOT);
