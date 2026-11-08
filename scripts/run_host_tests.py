@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,6 +69,13 @@ with tempfile.TemporaryDirectory(prefix="wfs-storage-policy-test-") as tmp:
     subprocess.run([str(binary)], cwd=ROOT, check=True)
 
 print("WFS dual-slot storage recovery policy host tests passed.")
+
+subprocess.run(
+    [sys.executable, str(ROOT / "tests" / "host" / "face_storage_recovery_guard_test.py")],
+    cwd=ROOT,
+    check=True,
+)
+
 
 subprocess.run(
     ["node", str(ROOT / "tests" / "host" / "device_compatibility_test.cjs")],
