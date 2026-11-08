@@ -38,6 +38,7 @@
     "connectivity.ble.wfs-v1",
     "connectivity.wifi",
     "input.boot-button",
-    "power.light-sleep"
+    "power.light-sleep",
+    "weather.condition"
   ]
 }
