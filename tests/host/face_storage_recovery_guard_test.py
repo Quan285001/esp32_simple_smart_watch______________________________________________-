@@ -37,7 +37,7 @@ assert finish.index("currentState = State::Verified") > finish.index("if (!valid
 
 # Apply is gated by the verified state, and a failed RAM activation attempts
 # to restore the previous NVS commit pointer.
-apply_end = transfer_manager.index("void cancel(", apply_start)
+apply_end = transfer_manager.index("bool cancel(", apply_start)
 apply = transfer_manager[apply_start:apply_end]
 assert "currentState != State::Verified" in apply
 assert "FaceStorage::activateSlot(stagingSlot)" in apply
