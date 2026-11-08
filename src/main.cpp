@@ -268,6 +268,10 @@ uint8_t requestWifiScan() {
         TransferManager::isBusy());
 }
 
+bool isWifiScanBusy() {
+    return WifiService::isScanBusy();
+}
+
 static void serviceWeatherNotification() {
     const int8_t result = weatherNotifyPending;
     if (result < 0) return;
