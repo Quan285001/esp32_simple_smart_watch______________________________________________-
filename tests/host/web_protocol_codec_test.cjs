@@ -7,6 +7,7 @@ const { TextEncoder, TextDecoder } = require('node:util');
 
 const root = path.resolve(__dirname, '../..');
 const appSource = fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
+const compatibilitySource = fs.readFileSync(path.join(root, 'web/device-compatibility.js'), 'utf8');
 const sandbox = {
   document: {
     querySelector: () => null,
@@ -21,6 +22,7 @@ const sandbox = {
   TextDecoder,
   structuredClone,
 };
+vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
   appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, crc32: wfsCrc32, hex: wfsHex };',
   sandbox,
@@ -85,7 +87,7 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
       textStyle: { fontSize: 16, fontWeight: 400, fill: '#ffffff', scaleX: 1.4, scaleY: 0.8 },
     }],
   };
-  state.wfsCapabilities = { obj: 16, json: 16384, stage: 32768, img: 1 };
+  state.wfsCapabilities = { upload: 1, obj: 16, json: 16384, stage: 32768, img: 1, el: 'text,digital-clock,analog-clock,date,weather,shape,image' };
   const packageResult = await buildPackage(design);
   const packageBytes = new Uint8Array(await packageResult.blob.arrayBuffer());
   const headerView = new DataView(packageBytes.buffer, packageBytes.byteOffset, 64);
