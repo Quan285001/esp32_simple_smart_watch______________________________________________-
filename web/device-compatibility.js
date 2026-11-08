@@ -232,6 +232,12 @@
             (style.strokeWidth !== 0 && style.strokeWidth !== 1)))) {
         result.push(name + ': strokeWidth must be numeric zero or one; separate background fill is not supported');
       }
+      if (type !== 'shape' && style.fill && !textStyle.fill) {
+        result.push(name + ': style.fill is only rendered for shape elements; use textStyle.fill for text color');
+      }
+      if (type !== 'shape' && style.stroke) {
+        result.push(name + ': style.stroke is only rendered for shape elements');
+      }
 
       if (type === 'digital-clock' && binding.source !== 'time') {
         result.push(name + ': digital clock requires the time binding');

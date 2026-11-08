@@ -94,6 +94,15 @@ assert.ok(errorsFor(withObjectField('weatherFields', ['temperature'])).some(erro
 assert.ok(errorsFor(withObjectField('showSeconds', true)).some(error => error.includes('only valid on digital clocks')) === false,
   'showSeconds remains valid on digital clocks');
 
+const legacyTextFill = structuredClone(fixture);
+delete legacyTextFill.objects[0].textStyle.fill;
+legacyTextFill.objects[0].style = { fill: '#ff0000' };
+assert.ok(errorsFor(legacyTextFill).some(error => error.includes('use textStyle.fill')),
+  'text preview color fallbacks must not silently diverge from firmware text color');
+const unsupportedTextStroke = withObjectField('style', { stroke: '#ff0000', strokeWidth: 1 });
+assert.ok(errorsFor(unsupportedTextStroke).some(error => error.includes('only rendered for shape elements')),
+  'non-shape borders must be rejected because the firmware renderer ignores them');
+
 const analogFace = structuredClone(fixture);
 analogFace.objects[0].type = 'analog-clock';
 delete analogFace.objects[0].dataBinding;
