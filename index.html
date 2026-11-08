@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b0d12">
+<meta name="description" content="Watch Face Studio — design and preview custom faces for ESP32-C3.">
+<title>Watch Face Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="./web/styles.css">
+<script defer src="./web/device-compatibility.js"></script>
+<script defer src="./web/app.js"></script>
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">◷</span><span>WATCH FACE STUDIO<small>ESP32-C3 DESIGNER</small></span></div>
+  <div class="top-actions">
+    <button class="btn ghost" id="settingsTopBtn" type="button">⚙ Settings</button>
+    <button class="btn ghost" id="undoBtn" type="button" title="Undo (Ctrl+Z)">↶ Undo</button>
+    <button class="btn ghost" id="redoBtn" type="button" title="Redo (Ctrl+Y)">↷ Redo</button>
+    <button class="btn ghost" id="langBtn" type="button">EN / VI</button>
+    <button class="btn" id="importBtn" type="button">Import</button>
+    <button class="btn" id="exportBtn" type="button">Export project</button>
+    <button class="btn primary" id="saveBtn" type="button">Save design</button>
+  </div>
+</header>
+<div class="workspace">
+  <aside class="sidebar">
+    <div class="side-title">Workspace</div>
+    <button class="nav-item active" data-nav="editor"><span class="nav-icon">✳</span> Editor</button>
+    <button class="nav-item" data-nav="templates"><span class="nav-icon">▦</span> Templates</button>
+    <button class="nav-item" data-nav="library"><span class="nav-icon">▣</span> My designs</button>
+    <button class="nav-item" data-nav="device"><span class="nav-icon">⌚</span> Device</button>
+    <button class="nav-item" data-nav="settings"><span class="nav-icon">⚙</span> Settings</button>
+    <div data-editor-tools>
+    <div class="side-divider"></div>
+    <div class="side-title">Add elements</div>
+    <button class="nav-item" id="addDigital"><span class="nav-icon">◷</span> Digital time</button>
+    <button class="nav-item" id="addAnalog"><span class="nav-icon">◴</span> Analog clock</button>
+    <button class="nav-item" id="addDate"><span class="nav-icon">▦</span> Date</button>
+    <button class="nav-item" id="addWeather"><span class="nav-icon">☀</span> Weather</button>
+    <button class="nav-item" id="addText"><span class="nav-icon">T</span> Text</button>
+    <button class="nav-item" id="addImage"><span class="nav-icon">▧</span> Image</button>
+    <button class="nav-item" id="addShape"><span class="nav-icon">◇</span> Shape</button>
+    <div class="side-divider"></div>
+    </div>
+  </aside>
+  <main class="main">
+    <section data-view="editor">
+      <div class="page-heading">
+        <div><div class="eyebrow">DESIGN WORKSPACE</div><h1>Make it yours.</h1><p id="modeHint">Simple controls · choose a layer and adjust its position, size and color.</p></div>
+        <div class="mode-switch"><button id="beginnerMode" class="active" type="button">Beginner</button><button id="advancedMode" type="button">Advanced</button></div>
+      </div>
+      <div class="editor-layout">
+        <div class="canvas-panel">
+          <div class="canvas-toolbar">
+            <div class="group"><span class="eyebrow">LIVE PREVIEW</span><span class="pill" id="canvasSize">240 × 240</span></div>
+            <div class="group"><button class="tool-btn" id="undoZoom" title="Zoom out" type="button">−</button><button class="tool-btn" id="redoZoom" title="Zoom in" type="button">＋</button></div>
+          </div>
+          <div class="canvas-stage">
+            <div class="watch-canvas" id="watchCanvas"></div>
+            <div class="stage-hint">Select a layer · drag to reposition</div>
+          </div>
+          <div class="canvas-footer"><div class="canvas-footer-meta"><span id="canvasName">Minimal Digital</span><span>Round display · <span id="canvasSizeFooter">240 × 240</span></span></div><button class="btn primary small upload-watch-btn" id="transferBtn" type="button" title="Send the current design to the connected watch">↑ Upload to watch</button></div>
+          <div class="mobile-add-tools"><select id="quickAddSelect"><option value="digital-clock">Digital time</option><option value="analog-clock">Analog clock</option><option value="date">Date</option><option value="weather">Weather</option><option value="text">Text</option><option value="shape">Shape</option><option value="image">Image</option></select><button class="btn primary small" id="quickAddBtn" type="button">＋ Add</button></div>
+        </div>
+      </div>
+    </section>
+    <section data-view="templates" class="hidden">
+      <div class="page-heading"><div><div class="eyebrow">START WITH A STYLE</div><h1>Templates</h1><p>Choose a starting point, then customize every layer.</p></div></div>
+      <div class="template-grid" id="templateGrid"></div>
+    </section>
+    <section data-view="library" class="hidden">
+      <div class="page-heading"><div><div class="eyebrow">YOUR CREATIONS</div><h1>My designs</h1><p>Saved locally in this browser. Export a portable project to back up or move a design, including its images.</p></div><button class="btn danger small" id="deleteAll" type="button">Clear library</button></div>
+      <div class="library-grid" id="libraryGrid"></div>
+    </section>
+    <section data-view="settings" class="hidden">
+      <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>Settings</h1><p>Customize the Watch Face Studio application. These preferences do not change your watch-face design.</p></div></div>
+      <div class="settings-grid">
+        <section class="settings-card"><div class="eyebrow">APPEARANCE</div><h2>Application theme</h2><p>Choose how the editor looks. System follows your device preference.</p>
+          <div class="theme-options" role="group" aria-label="Application theme">
+            <button class="theme-option" id="themeLight" type="button"><span class="theme-swatch light-swatch"></span><strong>Light</strong><small>Bright workspace</small></button>
+            <button class="theme-option" id="themeDark" type="button"><span class="theme-swatch dark-swatch"></span><strong>Dark</strong><small>Low-light workspace</small></button>
+            <button class="theme-option" id="themeSystem" type="button"><span class="theme-swatch system-swatch"></span><strong>System</strong><small>Follow device</small></button>
+          </div><p class="settings-status" id="themeStatus" aria-live="polite"></p>
+        </section>
+        <section class="settings-card"><div class="eyebrow">LANGUAGE</div><h2>Interface language</h2><p>Choose your preferred language for application labels.</p>
+          <label class="settings-label" for="languageSelect">LANGUAGE</label><select id="languageSelect" class="settings-select"><option value="en">English</option><option value="vi">Tiếng Việt</option></select>
+          <p class="settings-status">Language preference is stored in this browser. Full application-wide translation is being introduced progressively.</p>
+        </section>
+        <section class="settings-card"><div class="eyebrow">EDITOR</div><h2>Editing preferences</h2><label class="settings-check"><input id="autoSaveToggle" type="checkbox" checked> Automatically save the current draft</label><p class="settings-status">Drafts are stored locally in this browser. Export a portable project before clearing browser data; the file includes referenced images.</p></section>
+        <section class="settings-card"><div class="eyebrow">ABOUT</div><h2>Watch Face Studio</h2><p>Target profile: ESP32-C3 · GC9A01 · 240 × 240 circular display.</p><p class="settings-status">Custom face transfer is not available until the matching firmware protocol and receiver are implemented and verified.</p></section>
+      </div>
+    </section>
+    <section data-view="device" class="hidden">
+      <div class="page-heading"><div><div class="eyebrow">DEVICE MANAGEMENT</div><h1>My device</h1><p>Connect to your ESP32-C3 and manage the existing firmware features.</p></div></div>
+      <div class="device-page-grid">
+        <section class="settings-card device-overview">
+          <div class="eyebrow">CONNECTION</div><h2>ESP32-C3 · GC9A01</h2>
+          <p><span class="status-dot" id="deviceDot"></span><strong id="deviceStatus">Not connected</strong></p>
+          <p>Connect to the watch to use time sync, weather sync, sleep, location and Wi-Fi controls.</p>
+          <button class="btn primary" id="connectBtn" type="button">Connect Bluetooth</button>
+        </section>
+        <section class="settings-card">
+          <div class="eyebrow">LEGACY FIRMWARE</div><h2>Legacy device controls</h2>
+          <p id="legacyStatus">Connect to use the existing firmware commands.</p>
+          <div class="device-control-grid">
+            <button class="btn" id="syncTimeBtn" type="button">Sync time</button>
+            <button class="btn" id="syncWeatherBtn" type="button">Sync weather</button>
+            <button class="btn" id="sleepWatchBtn" type="button">Light Sleep</button>
+            <button class="btn" id="sendLocationBtn" type="button">Send phone location</button>
+            <button class="btn" id="scanWifiBtn" type="button">Scan Wi-Fi</button>
+          </div>
+          <div class="field"><label for="autoSleepSelect">AUTOMATIC LIGHT SLEEP</label><select id="autoSleepSelect"><option value="0">Disabled</option><option value="10">10 seconds</option><option value="12">12 seconds</option><option value="15" selected>15 seconds</option><option value="18">18 seconds</option><option value="20">20 seconds</option></select></div>
+          <button class="btn small" id="saveAutoSleepBtn" type="button">Save auto-sleep setting</button>
+        </section>
+        <section class="settings-card">
+          <div class="eyebrow">NETWORK</div><h2>Wi-Fi configuration</h2>
+          <div class="field"><label for="wifiSelect">AVAILABLE WI-FI NETWORKS</label><select id="wifiSelect"><option value="">Scan for networks first</option></select></div>
+          <div class="field"><label for="wifiSsid">WI-FI NAME (SSID)</label><input id="wifiSsid" autocomplete="off" placeholder="Network name"></div>
+          <div class="field"><label for="wifiPassword">WI-FI PASSWORD</label><input id="wifiPassword" type="password" autocomplete="new-password" placeholder="Password"></div>
+          <button class="btn" id="saveWifiBtn" type="button">Send Wi-Fi configuration</button>
+        </section>
+        
+      </div>
+    </section>
+  </main>
+  <aside class="rightbar">
+    <section class="panel-section">
+      <div class="panel-heading"><h3>Design settings</h3><button class="btn small" id="newDesign" type="button">＋ New</button></div>
+      <div class="field"><label for="designName">DESIGN NAME</label><input id="designName" maxlength="80" value="Minimal Digital"></div>
+      <div class="field-row">
+        <div class="field"><label for="bgColor">BACKGROUND</label><input id="bgColor" type="color" value="#080b10"></div>
+        <div class="field"><label>DEVICE PROFILE</label><button class="btn small" id="deviceSettings" type="button">ESP32-C3 · 240</button></div>
+      </div>
+    </section>
+    <section class="panel-section">
+      <div class="panel-heading"><h3>Layers</h3><span class="pill" id="layerCount">0</span></div>
+      <div class="object-list" id="objectList"></div>
+    </section>
+    <section class="panel-section inspector">
+      <div class="panel-heading"><h3>Properties</h3><span class="pill">SELECTED</span></div>
+      <div id="inspector"><div class="empty-state">Select a layer to edit its properties.</div></div>
+      <div id="advancedFields" class="hidden"><div class="side-divider"></div><div class="eyebrow">ADVANCED MODE</div><p class="note">Precise geometry, typography, per-glyph styling and renderer-specific options are being added in the next editor iterations.</p></div>
+    </section>
+  </aside>
+</div>
+<nav class="mobile-tabs"><button data-nav="editor" class="active">✳ Editor</button><button data-nav="templates">▦ Templates</button><button data-nav="library">▣ Designs</button><button data-nav="device">⌚ Device</button><button data-nav="settings">⚙ Settings</button></nav>
+</div>
+<input id="imageInput" class="hidden" type="file" accept="image/*">
+<input id="jsonInput" class="hidden" type="file" accept="application/json,.json">
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

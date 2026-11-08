@@ -1,0 +1,43 @@
+# Phase 1 — Web/Firmware Compatibility Alignment
+
+**Target branch:** \`rebuild/watch-face-studio-v2\`  
+**Contract:** Watch Face schema v1 + WFS1 package v1  
+**Device profile:** \`esp32-c3-gc9a01-240\`
+
+## Scope
+
+This change aligns the Web preflight and committed golden fixture with the firmware's currently implemented parser and renderer. It does not claim that every schema-valid design can be rendered by the ESP32-C3.
+
+## Findings corrected
+
+1. The old \`minimal-watch-face-v1.json\` fixture included a \`background\` object. The schema permits it, but \`FaceElementType\` and \`parseType()\` do not. The canvas background color already provides the same base fill, so the fixture now uses only a digital-clock element.
+2. The old fixture supplied a timezone override, but the current firmware parser deliberately rejects non-empty binding timezone values. The fixture now uses the device's configured local time.
+3. The old fixture selected font weight 700, while \`validateFaceModelForRenderer()\` accepts only 400 and 600. The fixture now selects 600.
+4. The device profile previously had empty nominal limits and advertised a separate legacy capability vocabulary. It now declares the implemented WFS element capabilities and explicit static object/bitmap limits. Dynamic staging capacity remains a runtime capability and is intentionally not duplicated as a fixed profile limit.
+5. Web preflight previously checked a hard-coded set of types and a subset of properties. It now uses a pure, host-testable compatibility module that checks the device's compact advertised element set (el), the weather-condition capability bit (wc), 240×240 circular canvas, object/JSON limits, transform/parser ranges, image availability/size, typography restrictions, binding formats, weather fields, and unsupported glyph/hand/render options before package creation.
+6. The compatibility module is invoked by the actual `buildWfsPackage()` path, not only by a standalone diagnostics panel. A schema-valid design requesting unsupported weather fields is rejected before package serialization.
+7. Shape styling that the firmware ignores is rejected before upload: `style.fill` cannot act as a fallback text color, `style.stroke` cannot create a browser-only border, and `style.cornerRadius` must be an integer from 0–255 and is only valid for `shape: rounded-rect`.
+8. Web shape previews now draw rect, rounded-rect, circle, and line primitives using SVG geometry that follows the firmware's fill/stroke/radius rules. Text previews clip glyphs to object bounds and use the same alignment/scaling contract; weather previews distinguish temperature-only, condition-only, and combined rows.
+9. The analog-clock preview now computes hour, minute, and second hands from the current time and scales dial/tick geometry from the object's actual bounds using the firmware's radius and hand-length ratios.
+10. Object opacity must be exactly 1.0: neither the browser preview nor the GC9A01 backend has alpha blending. Web compatibility preflight and firmware renderer preflight now reject near-opaque values instead of silently rendering them fully opaque.
+
+## Runtime capability contract
+
+The WFS capability response remains authoritative for the connected device. The static device profile is descriptive metadata and a conservative baseline; it must not override runtime values such as free storage, staging capacity, negotiated MTU, or upload availability.
+
+| Capability | Firmware behavior |
+|---|---|
+| \`text.basic\` | ASCII text, bitmap glyph renderer |
+| \`clock.digital\` | HH/mm/ss tokens; 12h/24h mode |
+| \`clock.analog\` | Built-in analog face style |
+| \`date.basic\` | YYYY, ddd, MMM, MM, DD tokens |
+| \`weather.temperature\` | Temperature text; `wc=1` separately advertises condition text support |
+| \`shape.basic\` | Rect, rounded rect, circle, line; no arc |
+| \`image.rgb565\` | RGB565 little-endian assets, at most 240×240 |
+
+## Verification
+
+The Node host test loads the actual committed golden fixture and device profile, then exercises the same compatibility module called by the browser package builder. It verifies acceptance of the supported fixture and rejection of schema-valid but firmware-unsupported element types, weather fields, font weights, missing images, oversized object counts, non-device canvas dimensions, invalid corner-radius ranges/fractional values, corner radii on unsupported element types, and devices without upload capability. The C++ parser host test independently verifies that malformed corner radii are rejected and valid rounded rectangles are retained.
+The Web protocol host suite also invokes `buildWfsPackage()` with unsupported weather fields and verifies rejection before package creation. Renderer-contract tests cover SVG line/circle/rounded-rectangle geometry, glyph clipping/alignment, and the split weather preview. These are host-side DOM-contract tests; they do not establish pixel-identical browser and TFT font rasterization.
+
+This test is a compatibility preflight test. It does not replace the C++ JSON parser, package validator, SPIFFS integration tests, PlatformIO build, or physical Web-BLE-device integration test.
