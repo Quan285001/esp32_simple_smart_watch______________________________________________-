@@ -1,6 +1,5 @@
 #include "image.h"
 
-#include <TFT_eSPI.h>
 #include <math.h>
 #include <string.h>
 
@@ -36,7 +35,7 @@ bool drawImageElement(const FaceModel& face, const FaceObject& object) {
             file.close();
             return false;
         }
-        tft.pushImage(x, y + rowIndex, asset->width, 1, row);
+        getDisplayCanvas().pushRgb565Row(x, y + rowIndex, asset->width, row);
     }
     file.close();
     return true;
