@@ -219,7 +219,7 @@ void sendCapabilities() {
     const int length = snprintf(payload, sizeof(payload),
         "{\"sv\":1,\"pv\":1,\"pid\":\"%s\",\"cw\":%u,\"ch\":%u,"
         "\"cs\":\"%s\",\"bw\":%u,\"bh\":%u,\"obj\":%u,"
-        "\"assets\":%u,\"json\":16384,\"img\":1,\"upload\":%u,"
+        "\"assets\":%u,\"json\":16384,\"img\":1,\"el\":\"t,dc,ac,d,w,s,i\",\"wc\":1,\"upload\":%u,"
         "\"chunk\":%u,\"stage\":%lu}",
         DisplayProfileConfig::ID,
         static_cast<unsigned>(DisplayProfileConfig::WIDTH),

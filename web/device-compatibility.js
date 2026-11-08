@@ -15,6 +15,10 @@
     image: ['image', 'image.rgb565']
   });
   const SUPPORTED_TYPES = new Set(Object.keys(TYPE_CAPABILITY));
+  const ELEMENT_CODES = Object.freeze({
+    t: 'text', dc: 'digital-clock', ac: 'analog-clock',
+    d: 'date', w: 'weather', s: 'shape', i: 'image'
+  });
   const SAFE_FONTS = new Set(['system-ui', 'sans-serif', 'inherit']);
   const SUPPORTED_FORMAT_TOKENS = Object.freeze({
     'digital-clock': ['HH', 'mm', 'ss'],
@@ -52,7 +56,10 @@
     const assetIds = availableAssetIds instanceof Set
       ? availableAssetIds : new Set(availableAssetIds || []);
     const advertisedElements = typeof caps.el === 'string'
-      ? new Set(caps.el.split(',').map(value => value.trim()).filter(Boolean))
+      ? new Set(caps.el.split(',').map(value => {
+          const code = value.trim();
+          return ELEMENT_CODES[code] || code;
+        }).filter(Boolean))
       : null;
 
     if (!design || typeof design !== 'object' || Array.isArray(design)) {
@@ -275,6 +282,10 @@
       if (Array.isArray(object.weatherFields) &&
           object.weatherFields.some(field => !['temperature', 'condition'].includes(field))) {
         result.push(name + ': only temperature and condition weather fields are supported');
+      }
+      if (type === 'weather' && Array.isArray(object.weatherFields) &&
+          object.weatherFields.includes('condition') && caps.wc !== 1) {
+        result.push(name + ': device does not advertise weather-condition rendering');
       }
       if (type === 'shape' && !['rect', 'circle', 'rounded-rect', 'line'].includes(object.shape || 'rect')) {
         result.push(name + ': unsupported shape kind');

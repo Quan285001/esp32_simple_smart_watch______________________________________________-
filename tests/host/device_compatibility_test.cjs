@@ -25,7 +25,8 @@ const capabilities = {
   json: 16384,
   stage: 128 * 1024,
   img: 1,
-  el: 'text,digital-clock,analog-clock,date,weather,shape,image'
+  el: 't,dc,ac,d,w,s,i',
+  wc: 1
 };
 
 function errorsFor(design, assetIds = []) {
@@ -57,6 +58,20 @@ unsupportedWeather.objects.push({
 });
 assert.ok(errorsFor(unsupportedWeather).some(error => error.includes('weather fields')),
   'unsupported weather fields must be rejected before packaging');
+
+const conditionWithoutCapability = structuredClone(fixture);
+conditionWithoutCapability.objects[0].type = 'weather';
+conditionWithoutCapability.objects[0].dataBinding = { source: 'temperature' };
+conditionWithoutCapability.objects[0].weatherFields = ['condition'];
+delete conditionWithoutCapability.objects[0].clockMode;
+delete conditionWithoutCapability.objects[0].timeFormat;
+delete conditionWithoutCapability.objects[0].showSeconds;
+delete conditionWithoutCapability.objects[0].showAmPm;
+assert.ok(compatibility.errors(conditionWithoutCapability, { ...capabilities, wc: 0 }, [])
+  .some(error => error.includes('weather-condition rendering')),
+  'condition weather fields must be rejected when the device does not advertise them');
+assert.ok(errorsFor(conditionWithoutCapability).length === 0,
+  'condition weather fields must be accepted when the device advertises support');
 
 const unsupportedWeight = structuredClone(fixture);
 unsupportedWeight.objects[0].textStyle.fontWeight = 700;
