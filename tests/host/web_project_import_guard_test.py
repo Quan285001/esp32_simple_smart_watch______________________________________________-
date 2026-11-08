@@ -22,7 +22,7 @@ if not all(checks.values()):
     raise SystemExit(1)
 
 load_start = APP.index("function loadDesign(d)")
-load_end = APP.index("\\nfunction addObject", load_start)
+load_end = APP.index("\nfunction addObject", load_start)
 load_design = APP[load_start:load_end]
 if not load_design.rstrip().endswith("saveDraft()}"):
     raise SystemExit("FAIL: loading/importing a design must update the autosaved draft")
