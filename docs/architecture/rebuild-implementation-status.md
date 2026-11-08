@@ -1,7 +1,7 @@
 # Firmware Rebuild — Implementation Status
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
-**Last source audit:** `70da942`  
+**Last source audit:** `47aa20b`  
 **Scope:** ESP32-C3 firmware, WFS BLE v1, Watch Face renderer, shared Web editor contract.
 
 This document records implementation state. It is not a declaration that the full rebuild prompt is complete.
@@ -69,6 +69,9 @@ This document records implementation state. It is not a declaration that the ful
 - Commit `caa1b50`: PlatformIO Build and Pages deployment completed successfully after adding WFS session-generation and queue-teardown guard tests.
 - Commit `509ad06`: PlatformIO Build and Pages deployment completed successfully after correcting ESP-IDF stack high-water units and adding worker-task memory snapshots. Static build usage was 103,476 / 327,680 bytes RAM (31.6%) and 1,802,826 / 3,145,728 bytes flash (57.3%). These are link-time image metrics, not runtime free-heap measurements.
 - Commit `70da942`: PlatformIO Build and Pages deployment completed successfully after making transfer cancellation return an explicit result; host BLE/session, transfer transaction, worker diagnostics and parser tests passed, and the firmware artifact was uploaded.
+- Commit `484cd61`: PlatformIO Build and Pages deployment completed successfully after adding the physical-board regression checklist and clarifying BLE advertising-toggle test cases.
+- Commit `11af28a`: PlatformIO Build and Pages deployment completed successfully after rolling back optional WFS GATT setup failures and releasing the unused RX queue while retaining legacy BLE.
+- Commit `47aa20b`: PlatformIO Build and Pages deployment completed successfully after closing the boot-network worker handoff window; the boot coordinator guard verifies the worker logs before signalling completion and yields a tick before BLE initialization.
 - No physical ESP32-C3 test is claimed. The user performs board flashing and hardware regression.
 
 ## Migration constraints
