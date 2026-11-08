@@ -299,6 +299,13 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   transparentBottom.objects = [transparentBottom.objects[0]];
   transparentBottom.objects[0].transform.zIndex = 5;
   await buildPackage(transparentBottom);
+  const transparentImageWithDistantUnderlay = structuredClone(transparentBottom);
+  transparentImageWithDistantUnderlay.objects.unshift({
+    id: 'distant_underlay', type: 'shape', name: 'Distant underlay', shape: 'rect',
+    transform: { x: 100, y: 100, width: 10, height: 10, anchor: 'top-left', zIndex: -1 },
+    style: { fill: '#ffffff' },
+  });
+  await buildPackage(transparentImageWithDistantUnderlay);
   const transparentOverlay = structuredClone(transparentBottom);
   transparentOverlay.objects.unshift({
     id: 'underlay', type: 'shape', name: 'Underlay', shape: 'rect',
