@@ -23,7 +23,9 @@ bool begin() {
     if (!StorageManager::isReady()) return false;
 
     Preferences prefs;
-    if (!prefs.begin(NVS_NAMESPACE, true)) return false;
+    // Open read-write so the namespace is created on a first boot with no
+    // committed face yet. No key is written unless a transfer is applied.
+    if (!prefs.begin(NVS_NAMESPACE, false)) return false;
     const uint8_t stored = prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT);
     prefs.end();
     storageInitialized = true;
