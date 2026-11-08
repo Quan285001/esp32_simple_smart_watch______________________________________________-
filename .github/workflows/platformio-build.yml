@@ -67,6 +67,8 @@ jobs:
 
       - name: Run Watch Face parser host tests
         run: python scripts/run_face_parser_tests.py
+      - name: Run Watch Face renderer host tests
+        run: python scripts/run_face_renderer_tests.py
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4

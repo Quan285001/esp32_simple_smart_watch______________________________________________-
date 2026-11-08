@@ -201,7 +201,7 @@ void drawAnalogClock(const FaceObject& object, const struct tm& timeInfo) {
     const int h = static_cast<int>(lroundf(object.transform.height));
     const int cx = static_cast<int>(lroundf(object.transform.x)) + w / 2;
     const int cy = static_cast<int>(lroundf(object.transform.y)) + h / 2;
-    const int radius = min(w, h) / 2 - 2;
+    const int radius = (w < h ? w : h) / 2 - 2;
     if (radius < 8) return;
 
     const uint16_t color = object.textColor;
