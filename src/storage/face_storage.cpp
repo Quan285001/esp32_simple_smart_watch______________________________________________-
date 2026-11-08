@@ -113,7 +113,10 @@ bool restoreActiveSlot(uint8_t slot) {
     if (restored) {
         currentActiveSlot = slot;
     } else {
-        Serial.println("[FACE_STORAGE] WARNING: failed to restore active-slot commit record.");
+        // Do not permit another transfer while the NVS pointer is ambiguous.
+        currentActiveSlot = INVALID_SLOT;
+        storageInitialized = false;
+        Serial.println("[FACE_STORAGE] WARNING: rollback could not be verified; storage disabled until reinitialization.");
     }
     return restored;
 }
@@ -142,7 +145,11 @@ bool activateSlot(uint8_t slot) {
         prefs.end();
 
         if (restored != previousSlot) {
-            Serial.println("[FACE_STORAGE] WARNING: failed to restore active-slot commit record.");
+            // The persisted commit target is now unknown. Fail closed until
+            // reboot/reinitialization rather than risk deleting the real active slot.
+            currentActiveSlot = INVALID_SLOT;
+            storageInitialized = false;
+            Serial.println("[FACE_STORAGE] WARNING: rollback could not be verified; storage disabled until reinitialization.");
         }
         return false;
     }
