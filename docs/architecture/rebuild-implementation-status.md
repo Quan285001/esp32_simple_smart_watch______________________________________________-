@@ -1,7 +1,7 @@
 # Firmware Rebuild — Implementation Status
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
-**Last source audit:** `d161ef4`  
+**Last source audit:** `fda3881`  
 **Scope:** ESP32-C3 firmware, WFS BLE v1, Watch Face renderer, shared Web editor contract.
 
 This document records implementation state. It is not a declaration that the full rebuild prompt is complete.
@@ -28,6 +28,8 @@ This document records implementation state. It is not a declaration that the ful
 - `WifiService` owns station credential persistence/configuration, saved-credential enable, station disable, asynchronous scan start/poll/result handling, reconnect retry/log cadence, and connected/disconnected transition tracking. `main.cpp` retains UI-level arbitration and reacts to connection transitions to refresh time/weather.
 - `WeatherCoordinator` owns the single-flight background fetch task, manual cooldown, location-refresh pending/retry behavior, periodic refresh policy, boot-fetch lifecycle and BLE completion notifications.
 - `BootCoordinator` owns persistent-state restoration (storage, location, clock checkpoint, Auto Sleep and weather cache), ordered Wi-Fi/NTP/weather/lunar startup, and the handoff signal for BLE initialization. Its state transitions are protected by a FreeRTOS critical section.
+- `AppRuntime` now owns the Arduino `loop()` entry point, startup-to-UI handoff, button/BLE servicing, periodic service scheduling and screen animation/render cadence. `main.cpp` retains `setup()` and compatibility service wrappers.
+- BLE initialization now publishes `bleStackInitialized` only after the legacy GATT server, service, characteristic and advertising instance are available. Partial failures deinitialize the stack, clear WFS state and permit a later retry instead of leaving a false-ready flag.
 - Radio arbitration is applied to both the legacy BLE command path and WFS structured commands: Wi-Fi credential changes and location updates are rejected while startup/weather network work is active; location updates are also rejected during Wi-Fi scanning.
 - WFS capability exchange now advertises the active profile ID, canvas size/shape, bitmap limits, object/asset limits, JSON size, image support, upload availability, chunk size and current staging capacity.
 - Web preflight consumes the negotiated profile and resource limits. Older WFS v1 firmware that omits the newer fields retains conservative ESP32-C3 defaults.
@@ -42,7 +44,7 @@ This document records implementation state. It is not a declaration that the ful
 
 ## Remaining work
 
-1. **Application orchestration:** the major weather, boot-network, persistent-restoration and Wi-Fi lifecycle responsibilities now live in dedicated modules. `main.cpp` still owns the top-level UI loop, screen animation cadence, boot-terminal handoff, button/BLE servicing and some cross-service arbitration. Extract the remaining runtime loop incrementally without duplicating ownership of the TFT instance or UI state.
+1. **Application orchestration:** the Arduino loop and major weather, boot-network, persistent-restoration and Wi-Fi lifecycle responsibilities now live in dedicated modules. `main.cpp` is approximately 175 lines and retains hardware setup plus compatibility wrappers. Remaining work is to narrow those wrappers and make service/resource arbitration explicit without duplicating ownership of the TFT instance or UI state.
 2. **Display backend completion:** only the GC9A01/TFT_eSPI backend exists. The active profile is compile-time selected; runtime profile selection and alternative backends (ST7789, OLED, monochrome/e-paper, RGB888) are not implemented.
 3. **Legacy UI migration:** built-in clock, weather, menu and boot-terminal renderers still use the transitional global `tft` handle.
 4. **Renderer parity:** browser and firmware fonts are not pixel-identical; advanced schema elements and weather bindings remain unsupported. Keep Web preflight aligned with parser/renderer capabilities.
@@ -58,6 +60,8 @@ This document records implementation state. It is not a declaration that the ful
 - Commit `3a7e0b7`: PlatformIO Build completed successfully after moving Wi-Fi reconnect monitoring and connection transition tracking into `WifiService`.
 - Commit `4a3348e`: PlatformIO Build and Pages deployment completed successfully after adding radio-arbitration guards to WFS and legacy BLE location/network commands.
 - Commit `d161ef4`: PlatformIO Build and Pages deployment completed successfully after moving persistent-state restoration into `BootCoordinator`; schema, compatibility, canvas/profile, Web asset/JS, host protocol, firmware build, parser tests and firmware artifact upload all passed.
+- Commit `83e8235`: PlatformIO Build and Pages deployment completed successfully after extracting the Arduino `loop()` into `AppRuntime`.
+- Commit `fda3881`: PlatformIO Build and Pages deployment completed successfully after adding BLE partial-initialization rollback; the expanded host guard suite, firmware build, parser tests and firmware artifact upload all passed.
 - Commit `217dfee`: earlier documentation-only follow-up; retained as historical verification context.
 - No physical ESP32-C3 test is claimed. The user performs board flashing and hardware regression.
 

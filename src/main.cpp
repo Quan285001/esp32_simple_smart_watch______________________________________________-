@@ -10,39 +10,16 @@
 #include "app/app_runtime.h"
 #include "input/button_manager.h"
 #include "services/time_service.h"
-#include "services/weather_service.h"
 #include "services/weather_coordinator.h"
 #include "services/wifi_service.h"
-#include "services/ble_service.h"
 #include "system/diagnostics.h"
 #include "display/display_manager.h"
-#include "watchface/face_manager.h"
 #include "communication/transfer_manager.h"
 #include "system/system_manager.h"
 
-extern void handleBLECommands();
-
-
-extern void drawAnalogClockFace(
-    struct tm timeinfo,
-    int millisValue,
-    int heartRate,
-    int steps
-);
-
 extern void showBootTerminal();
-extern void stopBootTerminalDisplay();
 extern void bootTerminalLog(const char* msg, uint16_t color);
 
-extern void drawMenuScreen(
-    int selectedIndex,
-    MenuLevel level,
-    bool wifiStatus,
-    bool wifiConnected
-);
-
-extern void drawWeatherFaceData(const WeatherData& w);
-extern void updateWeatherFaceAnimation(const WeatherData& w);
 
 
 // Prevent a new bulk face transfer from overlapping TLS/weather/Wi-Fi scan work.
@@ -165,10 +142,3 @@ void setup() {
     BootCoordinator::begin();
 }
 
-// =====================================================
-// MAIN LOOP
-// =====================================================
-
-/**
- * @brief Implements the loop operation.
- */
