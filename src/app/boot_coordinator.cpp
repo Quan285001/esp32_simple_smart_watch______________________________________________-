@@ -125,8 +125,8 @@ void networkStartupTask(void* parameter) {
     // BLE is initialized by loop() after this task exits, so its allocation
     // cannot overlap either HTTPS/TLS request.
     bootTerminalLog("[OK] Network startup stage complete", TFT_GREEN);
-    setState(State::BlePending);
     SystemDiagnostics::logMemory("bootNetwork task exit");
+    setState(State::BlePending);
     vTaskDelete(nullptr);
 }
 
@@ -201,6 +201,11 @@ bool takeBleInitRequest() {
     const bool pending = state == State::BlePending;
     if (pending) state = State::Complete;
     portEXIT_CRITICAL(&stateMux);
+    if (pending) {
+        // Let the network worker execute its self-delete and give the idle
+        // task a tick to reclaim its stack before BLE allocates its buffers.
+        vTaskDelay(1);
+    }
     return pending;
 }
 

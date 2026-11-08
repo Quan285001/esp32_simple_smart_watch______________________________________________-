@@ -23,4 +23,16 @@ for required in (
 ):
     assert required in boot, required
 
-print("BootCoordinator persistent-state restoration guard tests passed.")
+exit_log = boot.index('SystemDiagnostics::logMemory("bootNetwork task exit");')
+ble_pending = boot.index("setState(State::BlePending);")
+task_delete = boot.index("vTaskDelete(nullptr);", ble_pending)
+assert exit_log < ble_pending < task_delete
+
+take_start = boot.index("bool takeBleInitRequest()")
+take = boot[take_start:]
+critical_exit = take.index("portEXIT_CRITICAL(&stateMux);")
+scheduler_yield = take.index("vTaskDelay(1);")
+return_pending = take.index("return pending;")
+assert critical_exit < scheduler_yield < return_pending
+
+print("BootCoordinator persistent-state restoration and worker handoff guard tests passed.")
