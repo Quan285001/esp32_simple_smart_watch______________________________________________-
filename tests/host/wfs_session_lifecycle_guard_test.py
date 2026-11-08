@@ -3,6 +3,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ble = (ROOT / "src/communication/ble_manager.cpp").read_text()
 legacy = (ROOT / "src/services/ble_service.cpp").read_text()
+transfer = (ROOT / "src/communication/transfer_manager.cpp").read_text()
+transfer_header = (ROOT / "src/communication/transfer_manager.h").read_text()
 
 # GATT callbacks must remain bounded: copy into a queue, never parse a frame,
 # touch SPIFFS, or mutate transfer state from the Bluetooth host task.
@@ -51,4 +53,14 @@ assert sleep.index("BLEDevice::deinit(false)") < sleep.index("shutdownWfsGatt()"
 assert sleep.index("shutdownWfsGatt()") < sleep.index("vQueueDelete(commandQueue)")
 assert "commandQueue = nullptr" in sleep
 
-print("WFS BLE session-generation and teardown guard tests passed.")
+cancel_start = transfer.index("bool cancel(uint32_t transferId)")
+cancel_end = transfer.index("\\nvoid abortSession()", cancel_start)
+cancel = transfer[cancel_start:cancel_end]
+assert "return false;" in cancel
+assert "return true;" in cancel
+assert "!FaceStorage::removeSlot(stagingSlot)" in cancel
+assert "bool cancel(uint32_t transferId);" in transfer_header
+assert "if (!TransferManager::cancel(transferId))" in ble
+assert "transfer_not_cancellable" in ble
+
+print("WFS BLE session-generation, teardown and cancel-result guard tests passed.")

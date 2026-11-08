@@ -195,21 +195,36 @@ bool apply(uint32_t transferId) {
     return true;
 }
 
-void cancel(uint32_t transferId) {
-    if (transferId != currentTransferId || !canCancel(currentState)) return;
+bool cancel(uint32_t transferId) {
+    if (transferId != currentTransferId) {
+        currentError = Error::WrongTransfer;
+        return false;
+    }
+    if (!canCancel(currentState)) {
+        currentError = Error::Busy;
+        return false;
+    }
     if (stagingFile) {
         stagingFile.close();
     }
-    if (stagingSlot <= 1) FaceStorage::removeSlot(stagingSlot);
+    if (stagingSlot <= 1 && !FaceStorage::removeSlot(stagingSlot)) {
+        currentState = State::Failed;
+        currentError = Error::FileOpenFailed;
+        return false;
+    }
     currentState = State::Cancelled;
     currentError = Error::None;
+    return true;
 }
 
 void abortSession() {
     if (!canCancel(currentState)) return;
     const uint32_t transferId = currentTransferId;
-    cancel(transferId);
-    currentState = State::Cancelled;
+    if (!cancel(transferId)) {
+        // A disconnect must release the transfer lock even if cleanup failed.
+        // Leave the slot inactive; the next begin() retries its removal.
+        currentState = State::Failed;
+    }
     currentError = Error::SessionLost;
 }
 

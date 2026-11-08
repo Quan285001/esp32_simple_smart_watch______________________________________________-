@@ -58,7 +58,7 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
                 const uint8_t* bytes, size_t length);
 bool finish(uint32_t transferId);
 bool apply(uint32_t transferId);
-void cancel(uint32_t transferId);
+bool cancel(uint32_t transferId);
 void abortSession();
 Snapshot snapshot();
 bool isBusy();
