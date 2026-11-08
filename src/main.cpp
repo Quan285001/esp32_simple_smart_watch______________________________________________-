@@ -82,14 +82,14 @@ void requestLightSleep() { SystemManager::requestSleep(); }
 uint8_t requestWeatherFetch() {
     return WeatherCoordinator::requestManual(
         wifiEnabled, WiFi.status() == WL_CONNECTED,
-        WifiService::isScanBusy(), bootNetworkRunning || bootNetworkNeedsBle,
+        WifiService::isScanBusy(), BootCoordinator::isBusy(),
         TransferManager::isBusy());
 }
 
 uint8_t requestWeatherFetchForLocation() {
     return WeatherCoordinator::requestForLocation(
         wifiEnabled, WiFi.status() == WL_CONNECTED,
-        WifiService::isScanBusy(), bootNetworkRunning || bootNetworkNeedsBle,
+        WifiService::isScanBusy(), BootCoordinator::isBusy(),
         TransferManager::isBusy());
 }
 
@@ -102,7 +102,7 @@ uint8_t requestWeatherFetchForLocation() {
 uint8_t requestWifiScan() {
     return WifiService::requestScan(
         WeatherCoordinator::isFetchRunning(),
-        bootNetworkRunning || bootNetworkNeedsBle,
+        BootCoordinator::isBusy(),
         TransferManager::isBusy());
 }
 
@@ -293,7 +293,7 @@ void loop() {
     // Automatic sleep is deliberately disabled during an active BLE session.
     // Manual Sleep from the menu still bypasses this connection guard.
     const bool backgroundWorkActive =
-        bootNetworkRunning || bootNetworkNeedsBle || WeatherCoordinator::isFetchRunning() || WifiService::isScanBusy();
+        BootCoordinator::isBusy() || WeatherCoordinator::isFetchRunning() || WifiService::isScanBusy();
     SystemManager::serviceAutoSleep(
         now, getLastButtonActivityMs(), isBLEConnected(),
         backgroundWorkActive, currentScreen == SCREEN_CLOCK);
@@ -314,7 +314,7 @@ void loop() {
 
     const WifiService::ConnectionSnapshot wifiLink =
         WifiService::serviceConnectionMonitor(
-            now, wifiEnabled, bootNetworkRunning || bootNetworkNeedsBle);
+            now, wifiEnabled, BootCoordinator::isBusy());
     const bool wifiConnected = wifiLink.connected;
 
     if (wifiLink.justConnected) {
@@ -337,7 +337,7 @@ void loop() {
     const bool hasWeatherData = weatherDataValid;
     WeatherCoordinator::service(
         now, wifiEnabled, wifiConnected, hasWeatherData,
-        WifiService::isScanBusy(), bootNetworkRunning || bootNetworkNeedsBle,
+        WifiService::isScanBusy(), BootCoordinator::isBusy(),
         TransferManager::isBusy());
 
     // -------------------------------------------------
