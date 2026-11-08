@@ -196,12 +196,8 @@ bool apply(uint32_t transferId) {
 }
 
 bool cancel(uint32_t transferId) {
-    if (transferId != currentTransferId) {
-        currentError = Error::WrongTransfer;
-        return false;
-    }
-    if (!canCancel(currentState)) {
-        currentError = Error::Busy;
+    if (transferId != currentTransferId || !canCancel(currentState)) {
+        // A rejected cancel must not overwrite the active transfer's error.
         return false;
     }
     if (stagingFile) {
