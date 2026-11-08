@@ -13,6 +13,7 @@ checks = {
     "surface user cancellation": "reader.onabort=" in importer,
     "reset file input after import attempt": "finally{resetInput()}" in importer,
     "validate project envelope before writing assets": importer.index("validateJsonSchema(projectSchema,parsed)") < importer.index("await saveAssets(assets)"),
+    "reject conflicting local image asset IDs before writing": importer.index("existing.data!==asset.data") < importer.index("await saveAssets(assets)"),
     "validate design and image references before writing assets": importer.index("validateDesign(d)") < importer.index("await saveAssets(assets)"),
     "bound bundled asset payload": "total+a.data.length" in importer and ">8000000" in importer,
 }
