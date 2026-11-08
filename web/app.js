@@ -189,7 +189,7 @@ function designCompatibilityErrors(design,caps){
   }
   if(o.type==='shape'&&!['rect','circle','rounded-rect','line'].includes(o.shape||'rect'))errors.push(name+': selected shape is not supported by this firmware');
   if(t.rotation&&Math.abs(t.rotation)>0.001)errors.push(name+': rotation is not supported yet');
-  if(t.opacity!==undefined&&t.opacity<0.999)errors.push(name+': partial opacity is not supported yet');
+  if(t.opacity!==undefined&&t.opacity<1)errors.push(name+': partial opacity is not supported yet');
   const font=s.fontFamily;
   if(font&&font!=='system-ui'&&font!=='sans-serif'&&font!=='inherit')errors.push(name+': font '+font+' is not available on the device yet');
   if(s.fontSize!==undefined&&(s.fontSize<=0||s.fontSize>256))errors.push(name+': font size is outside the device range');

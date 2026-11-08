@@ -164,6 +164,15 @@ stringOpacity.objects[0].transform.opacity = '1';
 assert.ok(errorsFor(stringOpacity).some(error => error.includes('opacity must be numeric')),
   'string opacity must not be coerced into a number');
 
+const nearlyOpaque = structuredClone(fixture);
+nearlyOpaque.objects[0].transform.opacity = 0.9995;
+assert.ok(errorsFor(nearlyOpaque).some(error => error.includes('fully opaque')),
+  'opacity below one must be rejected because the firmware renderer has no alpha blending');
+
+const rendererSource = fs.readFileSync(path.join(root, 'src/watchface/face_renderer.cpp'), 'utf8');
+assert.match(rendererSource, /object\.transform\.opacity < 1\.0f/,
+  'firmware renderer preflight must enforce the same fully opaque contract');
+
 const stringWeight = structuredClone(fixture);
 stringWeight.objects[0].textStyle.fontWeight = '400';
 assert.ok(errorsFor(stringWeight).some(error => error.includes('fontWeight must be numeric')),

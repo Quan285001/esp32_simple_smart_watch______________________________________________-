@@ -52,7 +52,7 @@ FaceRenderStatus preflight(const FaceModel& face) {
     }
     for (uint8_t i = 0; i < face.objectCount; ++i) {
         const FaceObject& object = face.objects[i];
-        if (object.transform.rotation != 0.0f || object.transform.opacity < 0.999f ||
+        if (object.transform.rotation != 0.0f || object.transform.opacity < 1.0f ||
             object.letterSpacing != 0 || (object.fontWeight != 400 && object.fontWeight != 600) ||
             !isfinite(object.fontSize) || object.fontSize <= 0.0f || object.fontSize > 256.0f ||
             !isfinite(object.glyphScaleX) || !isfinite(object.glyphScaleY) ||

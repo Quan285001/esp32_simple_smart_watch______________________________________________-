@@ -170,7 +170,7 @@
         result.push(name + ': rotation is not supported yet');
       }
       if (transform.opacity !== undefined &&
-          (!finiteNumber(transform.opacity) || transform.opacity < 0.999 ||
+          (!finiteNumber(transform.opacity) || transform.opacity < 1 ||
            transform.opacity > 1)) {
         result.push(name + ': opacity must be numeric and fully opaque on this firmware');
       }
