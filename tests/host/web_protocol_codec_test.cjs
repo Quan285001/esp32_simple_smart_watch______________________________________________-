@@ -94,7 +94,7 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   assert.equal(lineSvg.children[0].tagName, 'line');
   assert.equal(lineSvg.children[0].attributes.stroke, '#ff0000',
     'line preview must use the same fill-color fallback as firmware');
-  assert.equal(lineSvg.children[0].attributes.stroke-width, '1');
+  assert.equal(lineSvg.children[0].attributes['stroke-width'], '1');
 
   const circlePreview = new FakeElement('div');
   renderShapePreview(circlePreview, { shape: 'circle', transform: { width: 80, height: 40 } },
