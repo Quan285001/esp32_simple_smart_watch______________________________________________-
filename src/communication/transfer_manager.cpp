@@ -8,6 +8,7 @@
 #include "../storage/face_storage.h"
 #include "../watchface/face_manager.h"
 #include "../watchface/package_validator.h"
+#include "../system/diagnostics.h"
 
 namespace TransferManager {
 namespace {
@@ -24,6 +25,8 @@ uint8_t previousActiveSlot = FaceStorage::INVALID_SLOT;
 uint8_t expectedDigest[32] = {};
 char expectedDesignId[FACE_ID_CAPACITY] = {};
 FaceModel verifiedFace{};
+uint32_t transferStartedAtMs = 0;
+MemoryMonitor::Snapshot transferStartMemory{};
 
 void fail(Error error) {
     if (stagingFile) {
@@ -97,6 +100,9 @@ bool begin(uint32_t transferId, uint32_t packageLength,
     strncpy(expectedDesignId, designId, sizeof(expectedDesignId) - 1);
     currentState = State::Receiving;
     currentError = Error::None;
+    transferStartedAtMs = millis();
+    transferStartMemory = SystemDiagnostics::captureMemory();
+    SystemDiagnostics::logMemory("WFS receive begin");
     return true;
 }
 
@@ -151,6 +157,7 @@ bool finish(uint32_t transferId) {
     }
 
     currentState = State::Verifying;
+    const uint32_t verifyStartedAtMs = millis();
     stagingFile.flush();
     stagingFile.close();
 
@@ -160,6 +167,23 @@ bool finish(uint32_t transferId) {
         validateWfsPackage(packageFile, totalLength, expectedDigest,
                            expectedDesignId, verifiedFace, validationError);
     if (packageFile) packageFile.close();
+
+    const uint32_t verifyDurationMs = millis() - verifyStartedAtMs;
+    const uint32_t receiveDurationMs = verifyStartedAtMs - transferStartedAtMs;
+    const MemoryMonitor::Snapshot memoryAfterVerify = SystemDiagnostics::captureMemory();
+    const uint32_t minHeapDrop = transferStartMemory.minimumFreeHeap > memoryAfterVerify.minimumFreeHeap
+        ? transferStartMemory.minimumFreeHeap - memoryAfterVerify.minimumFreeHeap
+        : 0;
+    Serial.printf(
+        "[PERF] WFS receive=%lu ms verify=%lu ms bytes=%lu heap_start=%lu heap_after=%lu min_heap_drop=%lu\n",
+        static_cast<unsigned long>(receiveDurationMs),
+        static_cast<unsigned long>(verifyDurationMs),
+        static_cast<unsigned long>(totalLength),
+        static_cast<unsigned long>(transferStartMemory.freeHeap),
+        static_cast<unsigned long>(memoryAfterVerify.freeHeap),
+        static_cast<unsigned long>(minHeapDrop));
+    SystemDiagnostics::logMemory(valid ? "WFS verified" : "WFS verify failed");
+
     if (!valid) {
         Serial.printf("[TRANSFER] Package validation failed: %s.\n",
                       packageValidationErrorName(validationError));
@@ -180,11 +204,17 @@ bool apply(uint32_t transferId) {
     }
 
     currentState = State::Applying;
-    if (!FaceStorage::activateSlot(stagingSlot) ||
-        !FaceManager::setActiveModel(verifiedFace)) {
+    const uint32_t applyStartedAtMs = millis();
+    const bool activated = FaceStorage::activateSlot(stagingSlot);
+    const bool modelInstalled = activated && FaceManager::setActiveModel(verifiedFace);
+    const uint32_t applyDurationMs = millis() - applyStartedAtMs;
+    if (!modelInstalled) {
         // Restore the exact previous commit state. On a first install that
         // means removing the active pointer, not leaving the new slot committed.
         FaceStorage::restoreActiveSlot(previousActiveSlot);
+        Serial.printf("[PERF] WFS apply failed after %lu ms.\n",
+                      static_cast<unsigned long>(applyDurationMs));
+        SystemDiagnostics::logMemory("WFS apply failed");
         currentState = State::Failed;
         currentError = Error::ApplyFailed;
         return false;
@@ -194,6 +224,10 @@ bool apply(uint32_t transferId) {
     currentError = Error::None;
     Serial.printf("[TRANSFER] Active face installed: %s (%lu bytes).\n",
                   verifiedFace.name, static_cast<unsigned long>(totalLength));
+    Serial.printf("[PERF] WFS apply=%lu ms total=%lu ms.\n",
+                  static_cast<unsigned long>(applyDurationMs),
+                  static_cast<unsigned long>(millis() - transferStartedAtMs));
+    SystemDiagnostics::logMemory("WFS apply complete");
     return true;
 }
 
