@@ -17,6 +17,7 @@
 #include "../storage/storage_manager.h"
 #include "../storage/face_storage.h"
 #include "../watchface/face_model.h"
+#include "../display/display_profile.h"
 #include "../app/app_state.h"
 #include "../system/system_manager.h"
 #include "../services/weather_service.h"
@@ -213,21 +214,24 @@ uint16_t negotiatedChunkSize() {
 void sendCapabilities() {
     const size_t inactiveBytes = FaceStorage::slotSize(FaceStorage::inactiveSlot());
     const size_t stageCapacity = StorageManager::freeBytes() + inactiveBytes;
-    const uint16_t mtu = BLEDevice::getMTU();
-    uint16_t frameLimit = mtu > 3 ? static_cast<uint16_t>(mtu - 3) : 0;
-    if (frameLimit > WfsProtocol::MAX_DATA_FRAME_BYTES) frameLimit = WfsProtocol::MAX_DATA_FRAME_BYTES;
     const uint16_t chunkLimit = negotiatedChunkSize();
     char payload[WfsProtocol::MAX_CONTROL_PAYLOAD + 1] = {};
     const int length = snprintf(payload, sizeof(payload),
-        "{\"sv\":1,\"pv\":1,\"obj\":%u,\"json\":16384,\"frame\":%u,"
-        "\"mtu\":%u,\"chunk\":%u,\"el\":\"text,digital-clock,analog-clock,date,weather,shape,image\","
-        "\"img\":1,\"faceStatus\":1,\"upload\":%u,\"free\":%lu,\"stage\":%lu,\"heap\":%lu}",
-        FACE_MAX_OBJECTS, static_cast<unsigned int>(frameLimit),
-        static_cast<unsigned int>(mtu), static_cast<unsigned int>(chunkLimit),
+        "{\"sv\":1,\"pv\":1,\"pid\":\"%s\",\"cw\":%u,\"ch\":%u,"
+        "\"cs\":\"%s\",\"bw\":%u,\"bh\":%u,\"obj\":%u,"
+        "\"assets\":%u,\"json\":16384,\"img\":1,\"upload\":%u,"
+        "\"chunk\":%u,\"stage\":%lu}",
+        DisplayProfileConfig::ID,
+        static_cast<unsigned>(DisplayProfileConfig::WIDTH),
+        static_cast<unsigned>(DisplayProfileConfig::HEIGHT),
+        DisplayProfileConfig::IS_CIRCULAR ? "circle" : "rectangle",
+        static_cast<unsigned>(DisplayProfileConfig::MAX_BITMAP_WIDTH),
+        static_cast<unsigned>(DisplayProfileConfig::MAX_BITMAP_HEIGHT),
+        static_cast<unsigned>(DisplayProfileConfig::MAX_OBJECTS),
+        static_cast<unsigned>(DisplayProfileConfig::MAX_ASSETS),
         chunkLimit >= 16 ? 1U : 0U,
-        static_cast<unsigned long>(StorageManager::freeBytes()),
-        static_cast<unsigned long>(stageCapacity),
-        static_cast<unsigned long>(ESP.getFreeHeap()));
+        static_cast<unsigned>(chunkLimit),
+        static_cast<unsigned long>(stageCapacity));
     if (length > 0 && static_cast<size_t>(length) < sizeof(payload)) {
         sendFrame(controlTx, WfsProtocol::MessageType::Capabilities,
                   reinterpret_cast<const uint8_t*>(payload), static_cast<uint16_t>(length));
