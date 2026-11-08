@@ -11,9 +11,35 @@ face_storage_header = (ROOT / "src/storage/face_storage.h").read_text()
 assert "FaceStorage::activateSlot(" not in face_manager
 assert "fallbackSlot" not in face_manager
 
+# No other firmware module may commit a slot pointer. Keep activation
+# centralized in the transfer transaction, including its rollback path.
+for source in (ROOT / "src").rglob("*.cpp"):
+    if source == ROOT / "src/communication/transfer_manager.cpp":
+        continue
+    assert "FaceStorage::activateSlot(" not in source.read_text(), source
+
 # A transfer must not infer slot 0 as inactive when NVS metadata could not load.
 assert "FaceStorage::isReady()" in transfer_manager
 assert "bool isReady();" in face_storage_header
 assert "if (!storageInitialized" in face_storage
+assert "prefs.begin(NVS_NAMESPACE, false)" in face_storage
 
-print("WFS committed-slot recovery guard tests passed.")
+# The transfer must close the staging writer before reopening the file for
+# validation. The state cannot become Verified until validation has succeeded.
+finish_start = transfer_manager.index("bool finish(")
+apply_start = transfer_manager.index("bool apply(", finish_start)
+finish = transfer_manager[finish_start:apply_start]
+assert finish.index("stagingFile.flush()") < finish.index("stagingFile.close()")
+assert finish.index('FaceStorage::openSlot(stagingSlot, "r")') > finish.index("stagingFile.close()")
+assert finish.index("validateWfsPackage(") > finish.index('FaceStorage::openSlot(stagingSlot, "r")')
+assert finish.index("currentState = State::Verified") > finish.index("if (!valid)")
+
+# Apply is gated by the verified state, and a failed RAM activation attempts
+# to restore the previous NVS commit pointer.
+apply_end = transfer_manager.index("void cancel(", apply_start)
+apply = transfer_manager[apply_start:apply_end]
+assert "currentState != State::Verified" in apply
+assert "FaceStorage::activateSlot(stagingSlot)" in apply
+assert "FaceStorage::activateSlot(previousActiveSlot)" in apply
+
+print("WFS committed-slot recovery and transfer transaction guard tests passed.")
