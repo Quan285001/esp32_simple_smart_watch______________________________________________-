@@ -20,4 +20,10 @@ assert "uxTaskGetStackHighWaterMark(nullptr)" in memory
 assert "* sizeof(StackType_t)" not in memory
 assert "static_cast<uint32_t>(stackHighWaterBytes)" in memory
 
+task_start = weather.index("void weatherFetchTask(")
+task_end = weather.index("bool scheduleFetch(", task_start)
+worker = weather[task_start:task_end]
+assert worker.index('SystemDiagnostics::logMemory("weatherFetch task exit");') < worker.index("fetchRunning = false;")
+assert worker.index("fetchRunning = false;") < worker.index("vTaskDelete(nullptr);")
+
 print("Worker-task stack and heap diagnostic guard tests passed.")

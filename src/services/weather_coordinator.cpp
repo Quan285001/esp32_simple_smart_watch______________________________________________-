@@ -50,8 +50,8 @@ void weatherFetchTask(void* parameter) {
         fetchLunarDetails();
     }
 
-    fetchRunning = false;
     SystemDiagnostics::logMemory("weatherFetch task exit");
+    fetchRunning = false;
     vTaskDelete(nullptr);
 }
 
