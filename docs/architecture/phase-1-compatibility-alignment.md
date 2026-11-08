@@ -15,6 +15,9 @@ This change aligns the Web preflight and committed golden fixture with the firmw
 3. The old fixture selected font weight 700, while \`validateFaceModelForRenderer()\` accepts only 400 and 600. The fixture now selects 600.
 4. The device profile previously had empty nominal limits and advertised a separate legacy capability vocabulary. It now declares the implemented WFS element capabilities and explicit static object/bitmap limits. Dynamic staging capacity remains a runtime capability and is intentionally not duplicated as a fixed profile limit.
 5. Web preflight previously checked a hard-coded set of types and a subset of properties. It now uses a pure, host-testable compatibility module that checks the device's advertised element set, 240×240 circular canvas, object/JSON limits, transform/parser ranges, image availability/size, typography restrictions, binding formats, weather fields, and unsupported glyph/hand/render options before package creation.
+6. The compatibility module is invoked by the actual `buildWfsPackage()` path, not only by a standalone diagnostics panel. A schema-valid design requesting unsupported weather fields is rejected before package serialization.
+7. Shape styling that the firmware ignores is rejected for non-shape elements: `style.fill` cannot act as a fallback text color, and `style.stroke` cannot create a browser-only border.
+8. Web shape previews now draw rect, rounded-rect, circle, and line primitives using SVG geometry that follows the firmware's fill/stroke/radius rules. Text previews clip glyphs to object bounds and use the same alignment/scaling contract; weather previews distinguish temperature-only, condition-only, and combined rows.
 
 ## Runtime capability contract
 
@@ -33,5 +36,6 @@ The WFS capability response remains authoritative for the connected device. The 
 ## Verification
 
 The Node host test loads the actual committed golden fixture and device profile, then exercises the same compatibility module called by the browser package builder. It verifies acceptance of the supported fixture and rejection of schema-valid but firmware-unsupported element types, weather fields, font weights, missing images, oversized object counts, non-device canvas dimensions, and devices without upload capability.
+The Web protocol host suite also invokes `buildWfsPackage()` with unsupported weather fields and verifies rejection before package creation. Renderer-contract tests cover SVG line/circle/rounded-rectangle geometry, glyph clipping/alignment, and the split weather preview. These are host-side DOM-contract tests; they do not establish pixel-identical browser and TFT font rasterization.
 
 This test is a compatibility preflight test. It does not replace the C++ JSON parser, package validator, SPIFFS integration tests, PlatformIO build, or physical Web-BLE-device integration test.
