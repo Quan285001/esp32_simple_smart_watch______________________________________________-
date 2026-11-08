@@ -54,7 +54,7 @@ assert sleep.index("shutdownWfsGatt()") < sleep.index("vQueueDelete(commandQueue
 assert "commandQueue = nullptr" in sleep
 
 cancel_start = transfer.index("bool cancel(uint32_t transferId)")
-cancel_end = transfer.index("\\nvoid abortSession()", cancel_start)
+cancel_end = transfer.index("\nvoid abortSession()", cancel_start)
 cancel = transfer[cancel_start:cancel_end]
 assert "return false;" in cancel
 assert "return true;" in cancel
