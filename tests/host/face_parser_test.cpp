@@ -56,13 +56,14 @@ int main(int argc, char** argv) {
     assert(model.objects[0].type == FaceElementType::DigitalClock);
     assert(model.canvasWidth == 240 && model.canvasHeight == 240);
 
-    assert(!parse(replaceOnce(fixture, "\\"schemaVersion\\": 1",
-                              "\\"schemaVersion\\": 1.5"), model));
-    assert(!parse(replaceOnce(fixture, "\\"width\\": 240",
-                              "\\"width\\": 240.5"), model));
-    assert(!parse(replaceOnce(fixture, "\\"backgroundColor\\": \\"#080B10\\"",
-                              "\\"backgroundColor\\": null"), model));
-    assert(!parse(replaceOnce(fixture, "\\"top\\": 12", "\\"top\\": -1"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("schemaVersion": 1)JSON",
+                              R"JSON("schemaVersion": 1.5)JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("width": 240)JSON",
+                              R"JSON("width": 240.5)JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("backgroundColor": "#080B10")JSON",
+                              R"JSON("backgroundColor": null)JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("top": 12)JSON",
+                              R"JSON("top": -1)JSON"), model));
 
     std::string invalidMetadata = replaceOnce(fixture, "\"objects\":",
         "\"metadata\": \"not-an-object\", \"objects\":");
