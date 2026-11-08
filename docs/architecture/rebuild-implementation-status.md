@@ -46,6 +46,7 @@ This document records implementation state. It is not a declaration that the ful
 
 - Light Sleep entry/wake lifecycle and Auto Sleep idle policy are owned by `SystemManager`, not embedded in the main loop.
 - Runtime diagnostics report free heap, minimum free heap, largest free block, a heap-fragmentation estimate and current-task stack high-water mark. The boot-network and weather-fetch workers also emit exit snapshots so their own stack high-water marks are captured after TLS/network work. ESP-IDF returns this high-water mark in bytes (unlike vanilla FreeRTOS), so the diagnostic stores the value directly without multiplying by the stack word size.
+- WFS transfer instrumentation now captures a memory baseline at receive start, then reports receive duration, package verification duration, package bytes, free-heap change and minimum-heap drop; apply duration and post-apply memory are also logged. This provides real-device measurements for the package upload path without adding a full-package RAM buffer.
 - `main.cpp` is approximately 145 lines; it retains hardware setup and compatibility wrappers while `AppRuntime` owns the main loop.
 
 ## Remaining work
@@ -55,10 +56,12 @@ This document records implementation state. It is not a declaration that the ful
 3. **Legacy UI migration:** built-in clock, weather, menu and boot-terminal renderers still use the transitional global `tft` handle.
 4. **Renderer parity:** browser and firmware fonts are not pixel-identical; advanced schema elements and weather bindings remain unsupported. Web shape, analog-clock, text clipping and weather previews now follow the supported firmware geometry/field contract, but pixel-level font parity still requires device comparison.
 5. **Storage fault coverage:** add host/mock tests for interrupted writes, full storage, corrupt metadata and power loss. Failed apply now restores the prior active-slot pointer, including removing it on a first-install rollback; actual NVS/SPIFFS fault injection is still outstanding. Preserve the two-slot rule: never replace the active package before the candidate verifies.
-6. **Runtime profiling:** capture representative heap/stack snapshots during image rendering, TLS weather fetch, BLE transfer and repeated screen transitions; use measured values to tune JSON/package limits.
+6. **Runtime profiling:** capture representative heap/stack snapshots during image rendering, TLS weather fetch and repeated screen transitions; WFS transfer/verification/apply timing and heap snapshots are now instrumented, but still need measurements from the physical board.
 7. **Hardware regression:** execute the step-by-step [ESP32-C3 hardware regression checklist](hardware-regression-checklist.md), including BLE MTU/notifications, repeated connect/disconnect, package retry/cancel/apply, screen rendering, Wi-Fi/weather concurrency, sleep/wake and recovery. CI cannot substitute for this.
 
 ## Verification record
+
+- Commit `fad0ba2`: PlatformIO Build and Pages deployment completed successfully after adding WFS receive, verification and apply timing plus heap snapshots; firmware artifact upload and parser/host tests passed.
 
 - Commit `f4213b8`: PlatformIO Build and Pages deployment completed successfully after aligning rounded-rectangle corner-radius validation across the browser preflight and firmware parser; compatibility and parser host tests cover fractional, out-of-range, misplaced and valid radii.
 
