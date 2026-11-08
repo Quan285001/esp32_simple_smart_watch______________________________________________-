@@ -88,7 +88,7 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
 
 (async () => {
   const analogPreview = new FakeElement('div');
-  renderAnalogClockPreview(analogPreview, new Date(2026, 0, 1, 3, 15, 30));
+  renderAnalogClockPreview(analogPreview, { transform: { width: 100, height: 100 } }, new Date(2026, 0, 1, 3, 15, 30));
   const analogSvg = analogPreview.children[0];
   const analogLines = analogSvg.children.filter(node => node.tagName === 'line');
   assert.equal(analogLines.length, 15,
