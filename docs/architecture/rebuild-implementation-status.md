@@ -25,6 +25,7 @@ This document records implementation state. It is not a declaration that the ful
 
 ### WFS BLE and Web editor
 
+- Asynchronous Wi-Fi scan start/poll/result handling now lives in `WifiService`; `main.cpp` retains only a compatibility wrapper for existing BLE command callers.
 - WFS capability exchange now advertises the active profile ID, canvas size/shape, bitmap limits, object/asset limits, JSON size, image support, upload availability, chunk size and current staging capacity.
 - Web preflight consumes the negotiated profile and resource limits. Older WFS v1 firmware that omits the newer fields retains conservative ESP32-C3 defaults.
 - Portable `.wfsproject.json` files now bundle the design and its referenced source images.
@@ -38,7 +39,7 @@ This document records implementation state. It is not a declaration that the ful
 
 ## Remaining work
 
-1. **Application orchestration:** `main.cpp` still owns weather fetch scheduling, Wi-Fi scan scheduling, boot network sequencing and several cross-service flags. Extract these into explicit service/coordinator modules with narrow interfaces.
+1. **Application orchestration:** `main.cpp` still owns weather fetch scheduling, boot network sequencing, Wi-Fi reconnect policy and several cross-service flags. Extract these into explicit service/coordinator modules with narrow interfaces.
 2. **Display backend completion:** only the GC9A01/TFT_eSPI backend exists. The active profile is compile-time selected; runtime profile selection and alternative backends (ST7789, OLED, monochrome/e-paper, RGB888) are not implemented.
 3. **Legacy UI migration:** built-in clock, weather, menu and boot-terminal renderers still use the transitional global `tft` handle.
 4. **Renderer parity:** browser and firmware fonts are not pixel-identical; advanced schema elements and weather bindings remain unsupported. Keep Web preflight aligned with parser/renderer capabilities.

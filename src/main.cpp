@@ -1,7 +1,6 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <ArduinoJson.h>
 #include <Preferences.h>
 #include <esp_system.h>
 #include <TFT_eSPI.h>
