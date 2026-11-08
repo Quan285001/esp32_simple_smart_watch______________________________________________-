@@ -53,7 +53,7 @@ This document records implementation state. It is not a declaration that the ful
 4. **Renderer parity:** browser and firmware fonts are not pixel-identical; advanced schema elements and weather bindings remain unsupported. Keep Web preflight aligned with parser/renderer capabilities.
 5. **Storage fault coverage:** add host/mock tests for interrupted writes, full storage, corrupt metadata, rollback and power loss. Preserve the two-slot rule: never replace the active package before the candidate verifies.
 6. **Runtime profiling:** capture representative heap/stack snapshots during image rendering, TLS weather fetch, BLE transfer and repeated screen transitions; use measured values to tune JSON/package limits.
-7. **Hardware regression:** verify BLE MTU/notifications, repeated connect/disconnect, package retry/cancel/apply, screen rendering, Wi-Fi/weather concurrency, sleep/wake and recovery on the physical ESP32-C3. CI cannot substitute for this.
+7. **Hardware regression:** execute the step-by-step [ESP32-C3 hardware regression checklist](hardware-regression-checklist.md), including BLE MTU/notifications, repeated connect/disconnect, package retry/cancel/apply, screen rendering, Wi-Fi/weather concurrency, sleep/wake and recovery. CI cannot substitute for this.
 
 ## Verification record
 
