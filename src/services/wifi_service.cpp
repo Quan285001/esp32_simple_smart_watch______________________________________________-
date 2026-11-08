@@ -12,6 +12,23 @@ namespace WifiService {
 namespace {
 bool scanRunning = false;
 bool scanRestoreOff = false;
+constexpr uint32_t WIFI_RETRY_MS = 15000UL;
+constexpr uint32_t WIFI_STATUS_LOG_MS = 5000UL;
+uint32_t lastWifiRetryMs = 0;
+uint32_t lastWifiStatusLogMs = 0;
+bool previousWifiConnected = false;
+
+const char* wifiStatusName(wl_status_t status) {
+    switch (status) {
+        case WL_CONNECTED: return "CONNECTED";
+        case WL_NO_SSID_AVAIL: return "NO_SSID_AVAILABLE";
+        case WL_CONNECT_FAILED: return "CONNECT_FAILED";
+        case WL_CONNECTION_LOST: return "CONNECTION_LOST";
+        case WL_DISCONNECTED: return "DISCONNECTED";
+        case WL_IDLE_STATUS: return "IDLE";
+        default: return "UNKNOWN";
+    }
+}
 
 bool validCredential(const char* value, size_t maxLength, bool allowEmpty) {
     if (value == nullptr) return allowEmpty;
@@ -43,6 +60,7 @@ bool configureCredentials(const char* ssid, const char* password) {
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     wifiEnabled = true;
+    resetConnectionMonitor(millis());
     WiFi.begin(ssid, password);
     return true;
 }
@@ -102,6 +120,44 @@ void serviceScan() {
     scanRestoreOff = false;
     scanRunning = false;
     sendBLENotification(json);
+}
+
+void resetConnectionMonitor(uint32_t nowMs) {
+    lastWifiRetryMs = nowMs;
+    lastWifiStatusLogMs = 0;
+    previousWifiConnected = false;
+}
+
+ConnectionSnapshot serviceConnectionMonitor(uint32_t nowMs, bool enabled, bool bootNetworkBusy) {
+    const wl_status_t status = WiFi.status();
+    const bool connected = enabled && status == WL_CONNECTED;
+    ConnectionSnapshot snapshot{connected, false, false};
+
+    if (!enabled) {
+        previousWifiConnected = false;
+        return snapshot;
+    }
+
+    if (bootNetworkBusy) return snapshot;
+
+    if (!scanRunning && status != WL_CONNECTED) {
+        if (nowMs - lastWifiRetryMs >= WIFI_RETRY_MS) {
+            Serial.printf("[WIFI] Still not connected (status=%s, code=%d); retrying.\\n",
+                          wifiStatusName(status), static_cast<int>(status));
+            WiFi.reconnect();
+            lastWifiRetryMs = nowMs;
+        }
+        if (lastWifiStatusLogMs == 0 || nowMs - lastWifiStatusLogMs >= WIFI_STATUS_LOG_MS) {
+            Serial.printf("[WIFI] Status: %s (code=%d).\\n",
+                          wifiStatusName(status), static_cast<int>(status));
+            lastWifiStatusLogMs = nowMs;
+        }
+    }
+
+    snapshot.justConnected = connected && !previousWifiConnected;
+    snapshot.justDisconnected = !connected && previousWifiConnected;
+    previousWifiConnected = connected;
+    return snapshot;
 }
 
 bool isConnected() {

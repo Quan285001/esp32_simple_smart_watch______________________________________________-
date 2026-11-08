@@ -38,6 +38,8 @@ def main() -> int:
 
     if "WiFi.scanNetworks" in main or "WiFi.scanComplete" in main:
         errors.append("main.cpp owns asynchronous Wi-Fi scan lifecycle instead of WifiService")
+    if "WiFi.reconnect()" in main or "wifiStatusName(" in main:
+        errors.append("main.cpp owns Wi-Fi reconnect monitoring instead of WifiService")
     if "requestScan(" not in wifi_service or "serviceScan()" not in wifi_service:
         errors.append("WifiService does not own the asynchronous scan lifecycle")
 

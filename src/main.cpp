@@ -53,7 +53,6 @@ static uint32_t lastMenuFrameMs = 0;
 static uint32_t lastWeatherFrameMs = 0;
 
 static volatile bool weatherFaceInitialized = false;
-static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
 static volatile int8_t weatherNotifyPending = -1;
@@ -90,11 +89,7 @@ int32_t getWeatherRefreshCountdownSeconds() {
 
 static constexpr uint32_t WEATHER_RETRY_MS = 15000;
 static constexpr uint32_t WEATHER_MANUAL_COOLDOWN_MS = 10000;
-static constexpr uint32_t WIFI_RETRY_MS = 15000;
-static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
-static uint32_t lastWifiRetryMs = 0;
-static uint32_t lastWifiStatusLogMs = 0;
 void setAutoSleepTimeoutSeconds(uint8_t seconds) {
     SystemManager::setAutoSleepTimeoutSeconds(seconds);
 }
@@ -108,21 +103,6 @@ uint8_t getAutoSleepTimeoutSeconds() {
  */
 void requestLightSleep() { SystemManager::requestSleep(); }
 
-/**
- * @brief Converts a Wi-Fi connection state into a readable diagnostic label.
- * @param status Input or state used by this operation.
- */
-static const char* wifiStatusName(wl_status_t status) {
-    switch (status) {
-        case WL_CONNECTED: return "CONNECTED";
-        case WL_NO_SSID_AVAIL: return "NO_SSID_AVAILABLE";
-        case WL_CONNECT_FAILED: return "CONNECT_FAILED";
-        case WL_CONNECTION_LOST: return "CONNECTION_LOST";
-        case WL_DISCONNECTED: return "DISCONNECTED";
-        case WL_IDLE_STATUS: return "IDLE";
-        default: return "UNKNOWN";
-    }
-}
 
 // =====================================================
 // WEATHER TASK
@@ -298,7 +278,7 @@ void toggleWiFi() {
         WiFi.mode(WIFI_OFF);
 
         wifiEnabled = false;
-        previousWifiConnected = false;
+        WifiService::resetConnectionMonitor(millis());
 
         Serial.println(
             "[WIFI] Disabled; cached weather retained."
@@ -322,8 +302,7 @@ void toggleWiFi() {
         WiFi.setAutoReconnect(true);
         WiFi.begin(savedSsid.c_str(), savedPass.c_str());
 
-        lastWifiRetryMs = millis();
-        lastWifiStatusLogMs = 0;
+        WifiService::resetConnectionMonitor(millis());
         beginTimeService();
         lastWeatherFetchMs = 0;
         lastWeatherAttemptMs = 0;
@@ -592,40 +571,14 @@ void loop() {
     // WIFI CONNECTION MONITOR + DIAGNOSTICS
     // -------------------------------------------------
 
-    const wl_status_t wifiStatus = WiFi.status();
+    const WifiService::ConnectionSnapshot wifiLink =
+        WifiService::serviceConnectionMonitor(
+            now, wifiEnabled, bootNetworkRunning || bootNetworkNeedsBle);
+    const bool wifiConnected = wifiLink.connected;
 
-    if (!WifiService::isScanBusy() && wifiEnabled && !bootNetworkRunning && !bootNetworkNeedsBle && wifiStatus != WL_CONNECTED) {
-        if (now - lastWifiRetryMs >= WIFI_RETRY_MS) {
-            Serial.printf(
-                "[WIFI] Still not connected (status=%s, code=%d); retrying.\n",
-                wifiStatusName(wifiStatus),
-                static_cast<int>(wifiStatus)
-            );
-
-            WiFi.reconnect();
-            lastWifiRetryMs = now;
-        }
-
-        if (
-            lastWifiStatusLogMs == 0 ||
-            now - lastWifiStatusLogMs >= WIFI_STATUS_LOG_MS
-        ) {
-            Serial.printf(
-                "[WIFI] Status: %s (code=%d).\n",
-                wifiStatusName(wifiStatus),
-                static_cast<int>(wifiStatus)
-            );
-            lastWifiStatusLogMs = now;
-        }
-    }
-
-    const bool wifiConnected =
-        wifiEnabled &&
-        wifiStatus == WL_CONNECTED;
-
-    if (wifiConnected && !previousWifiConnected && !bootNetworkRunning && !bootNetworkNeedsBle) {
+    if (wifiLink.justConnected) {
         Serial.printf(
-            "[WIFI] Connected. IP: %s, RSSI: %d dBm\n",
+            "[WIFI] Connected. IP: %s, RSSI: %d dBm\\n",
             WiFi.localIP().toString().c_str(),
             WiFi.RSSI()
         );
@@ -638,11 +591,9 @@ void loop() {
         lastWeatherRetryMs = 0;
     }
 
-    if (!wifiConnected && previousWifiConnected) {
+    if (wifiLink.justDisconnected) {
         Serial.println("[WIFI] Connection lost.");
     }
-
-    previousWifiConnected = wifiConnected;
 
     // A GPS update received during an active request is refreshed as soon as
     // that request releases its TLS/JSON resources. Keep it pending while offline.
