@@ -219,7 +219,7 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
     }
 
     JsonObjectConst binding = source["dataBinding"].as<JsonObjectConst>();
-    if (source.containsKey("dataBinding") && binding.isNull()) return false;
+    if (source.containsKey("dataBinding") && binding.isNull()) return true;
     if (!binding.isNull()) {
         if ((binding.containsKey("timezone") &&
              (!binding["timezone"].is<const char*>() || hasNonEmptyString(binding["timezone"]))) ||
@@ -470,7 +470,25 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
         return {FaceParseError::UnsupportedProperty, 0};
     }
 
-    if ((document["schemaVersion"] | 0) != 1) return {FaceParseError::UnsupportedSchema, 0};
+    if ((!document["schemaVersion"].is<int>() &&
+         !document["schemaVersion"].is<unsigned int>()) ||
+        (document["schemaVersion"] | 0) != 1) {
+        return {FaceParseError::UnsupportedSchema, 0};
+    }
+    static const char* const optionalStringKeys[] = {"description", "createdAt", "updatedAt"};
+    for (const char* key : optionalStringKeys) {
+        if (document.containsKey(key) && !document[key].is<const char*>()) {
+            return {FaceParseError::InvalidField, 0};
+        }
+    }
+    if (document.containsKey("description") &&
+        strlen(document["description"].as<const char*>()) > 500) {
+        return {FaceParseError::InvalidField, 0};
+    }
+    if (document.containsKey("metadata") &&
+        document["metadata"].as<JsonObjectConst>().isNull()) {
+        return {FaceParseError::InvalidField, 0};
+    }
     output.schemaVersion = 1;
     if (!copyString(document["designId"], output.designId, sizeof(output.designId), true) ||
         !copyString(document["deviceProfileId"], output.deviceProfileId, sizeof(output.deviceProfileId), true) ||
@@ -480,6 +498,14 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
 
     JsonObjectConst canvas = document["canvas"].as<JsonObjectConst>();
     if (canvas.isNull()) return {FaceParseError::MissingField, 0};
+    if (canvas["width"].isNull() || canvas["height"].isNull() ||
+        canvas["shape"].isNull() || canvas["backgroundColor"].isNull()) {
+        return {FaceParseError::MissingField, 0};
+    }
+    if ((!canvas["width"].is<int>() && !canvas["width"].is<unsigned int>()) ||
+        (!canvas["height"].is<int>() && !canvas["height"].is<unsigned int>())) {
+        return {FaceParseError::InvalidField, 0};
+    }
     static const char* const canvasKeys[] = {
         "width", "height", "shape", "backgroundColor", "clipToShape", "safeArea"
     };
@@ -492,6 +518,15 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
         if (safeArea.isNull() ||
             !hasOnlyKeys(safeArea, safeAreaKeys, sizeof(safeAreaKeys) / sizeof(safeAreaKeys[0]))) {
             return {FaceParseError::InvalidField, 0};
+        }
+        for (const char* key : safeAreaKeys) {
+            if (!safeArea.containsKey(key)) continue;
+            const JsonVariantConst value = safeArea[key];
+            if (!value.is<float>() && !value.is<int>() && !value.is<unsigned int>()) {
+                return {FaceParseError::InvalidField, 0};
+            }
+            const float inset = value.as<float>();
+            if (!isfinite(inset) || inset < 0.0f) return {FaceParseError::InvalidField, 0};
         }
     }
     if (canvas.containsKey("shape") && !canvas["shape"].is<const char*>()) {
