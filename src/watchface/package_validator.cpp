@@ -85,15 +85,21 @@ bool hasOnlyKeys(JsonObjectConst object, const char* const* allowedKeys, size_t 
     return true;
 }
 
+uint16_t capabilityBit(const char* value) {
+    if (value == nullptr) return 0;
+    if (strcmp(value, "text.basic") == 0) return 1U << 0;
+    if (strcmp(value, "clock.digital") == 0) return 1U << 1;
+    if (strcmp(value, "clock.analog") == 0) return 1U << 2;
+    if (strcmp(value, "date.basic") == 0) return 1U << 3;
+    if (strcmp(value, "weather.temperature") == 0) return 1U << 4;
+    if (strcmp(value, "weather.condition") == 0) return 1U << 5;
+    if (strcmp(value, "shape.basic") == 0) return 1U << 6;
+    if (strcmp(value, "image.rgb565") == 0) return 1U << 7;
+    return 0;
+}
+
 bool isSupportedCapability(const char* value) {
-    if (value == nullptr) return false;
-    return strcmp(value, "text.basic") == 0 ||
-           strcmp(value, "clock.digital") == 0 ||
-           strcmp(value, "clock.analog") == 0 ||
-           strcmp(value, "date.basic") == 0 ||
-           strcmp(value, "weather.temperature") == 0 ||
-           strcmp(value, "shape.basic") == 0 ||
-           strcmp(value, "image.rgb565") == 0;
+    return capabilityBit(value) != 0;
 }
 
 
@@ -303,7 +309,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         return false;
     }
 
-    bool imageCapabilityDeclared = false;
+    uint16_t declaredCapabilityMask = 0;
     JsonArrayConst requiredCapabilities = manifest["requiredCapabilities"].as<JsonArrayConst>();
     if (requiredCapabilities.isNull()) {
         free(manifestText);
@@ -318,7 +324,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
             error = PackageValidationError::UnsupportedCapability;
             return false;
         }
-        if (strcmp(capability.as<const char*>(), "image.rgb565") == 0) imageCapabilityDeclared = true;
+        declaredCapabilityMask |= capabilityBit(capability.as<const char*>());
     }
 
     // Release manifest parsing memory before allocating the layout parser
@@ -359,11 +365,36 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     for (uint8_t i = 0; i < parsedAssetCount; ++i) output.assets[i] = parsedAssets[i];
 
     bool referenced[FACE_MAX_ASSETS] = {};
-    bool hasImageObjects = false;
+    uint16_t requiredCapabilityMask = 0;
     for (uint8_t i = 0; i < output.objectCount; ++i) {
         const FaceObject& object = output.objects[i];
+        switch (object.type) {
+            case FaceElementType::Text:
+                requiredCapabilityMask |= capabilityBit("text.basic");
+                break;
+            case FaceElementType::DigitalClock:
+                requiredCapabilityMask |= capabilityBit("clock.digital");
+                break;
+            case FaceElementType::AnalogClock:
+                requiredCapabilityMask |= capabilityBit("clock.analog");
+                break;
+            case FaceElementType::Date:
+                requiredCapabilityMask |= capabilityBit("date.basic");
+                break;
+            case FaceElementType::Weather:
+                requiredCapabilityMask |= capabilityBit("weather.temperature");
+                if (object.showWeatherCondition) {
+                    requiredCapabilityMask |= capabilityBit("weather.condition");
+                }
+                break;
+            case FaceElementType::Shape:
+                requiredCapabilityMask |= capabilityBit("shape.basic");
+                break;
+            case FaceElementType::Image:
+                requiredCapabilityMask |= capabilityBit("image.rgb565");
+                break;
+        }
         if (object.type != FaceElementType::Image) continue;
-        hasImageObjects = true;
         bool found = false;
         for (uint8_t a = 0; a < output.assetCount; ++a) {
             const FaceAsset& asset = output.assets[a];
@@ -384,7 +415,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
             return false;
         }
     }
-    if (hasImageObjects && !imageCapabilityDeclared) {
+    if ((declaredCapabilityMask & requiredCapabilityMask) != requiredCapabilityMask) {
         error = PackageValidationError::UnsupportedCapability;
         return false;
     }
