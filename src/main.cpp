@@ -11,6 +11,7 @@
 #include "input/button_manager.h"
 #include "services/time_service.h"
 #include "services/weather_service.h"
+#include "services/wifi_service.h"
 #include "services/ble_service.h"
 #include "system/diagnostics.h"
 #include "display/display_manager.h"
@@ -56,8 +57,6 @@ static volatile bool weatherFaceInitialized = false;
 static bool previousWifiConnected = false;
 
 static volatile bool weatherFetchRunning = false;
-static volatile bool wifiScanRunning = false;
-static bool wifiScanRestoreOff = false;
 static volatile int8_t weatherNotifyPending = -1;
 static volatile bool locationWeatherRefreshPending = false;
 
@@ -66,7 +65,7 @@ static volatile bool bootNetworkNeedsBle = false;
 
 // Prevent a new bulk face transfer from overlapping TLS/weather/Wi-Fi scan work.
 bool canStartWfsTransfer() {
-    return !weatherFetchRunning && !wifiScanRunning && !bootNetworkRunning && !bootNetworkNeedsBle;
+    return !weatherFetchRunning && !WifiService::isScanBusy() && !bootNetworkRunning && !bootNetworkNeedsBle;
 }
 static bool bootUiReady = false;
 static uint32_t lastLocationWeatherRetryMs = 0;
@@ -182,7 +181,7 @@ static bool scheduleWeatherFetch() {
         return false;
     }
 
-    if (weatherFetchRunning || wifiScanRunning || bootNetworkRunning || bootNetworkNeedsBle ||
+    if (weatherFetchRunning || WifiService::isScanBusy() || bootNetworkRunning || bootNetworkNeedsBle ||
         TransferManager::isBusy()) {
         return false;
     }
@@ -222,7 +221,7 @@ static bool scheduleWeatherFetch() {
  */
 uint8_t requestWeatherFetch() {
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning || wifiScanRunning || TransferManager::isBusy()) return 1;
+    if (weatherFetchRunning || WifiService::isScanBusy() || TransferManager::isBusy()) return 1;
 
     const uint32_t now = millis();
     if (lastManualWeatherRequestMs != 0 &&
@@ -247,7 +246,7 @@ uint8_t requestWeatherFetchForLocation() {
     lastLocationWeatherRetryMs = 0;
 
     if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning || wifiScanRunning || TransferManager::isBusy()) return 1;
+    if (weatherFetchRunning || WifiService::isScanBusy() || TransferManager::isBusy()) return 1;
 
     if (scheduleWeatherFetch()) {
         locationWeatherRefreshPending = false;
@@ -263,27 +262,10 @@ uint8_t requestWeatherFetchForLocation() {
 
 // Return: 0=started, 1=already busy, 2=network work has priority, 3=start failed.
 uint8_t requestWifiScan() {
-    if (wifiScanRunning) return 1;
-    if (weatherFetchRunning || bootNetworkRunning || bootNetworkNeedsBle || TransferManager::isBusy()) return 2;
-
-    wifiScanRestoreOff = !wifiEnabled;
-    if (wifiScanRestoreOff) {
-        WiFi.mode(WIFI_STA);
-    }
-
-    // Async mode returns immediately; the main loop polls scanComplete().
-    const int result = WiFi.scanNetworks(true, true);
-    if (result == WIFI_SCAN_FAILED) {
-        WiFi.scanDelete();
-        if (wifiScanRestoreOff) WiFi.mode(WIFI_OFF);
-        wifiScanRestoreOff = false;
-        Serial.println("[WIFI] Could not start asynchronous scan.");
-        return 3;
-    }
-
-    wifiScanRunning = true;
-    Serial.println("[WIFI] Asynchronous scan started.");
-    return 0;
+    return WifiService::requestScan(
+        weatherFetchRunning,
+        bootNetworkRunning || bootNetworkNeedsBle,
+        TransferManager::isBusy());
 }
 
 static void serviceWeatherNotification() {
@@ -293,49 +275,6 @@ static void serviceWeatherNotification() {
     sendBLENotification(result ? "WEATHER_OK" : "WEATHER_FAILED");
 }
 
-bool isWifiScanBusy() {
-    return wifiScanRunning;
-}
-
-static void serviceWifiScan() {
-    if (!wifiScanRunning) return;
-
-    const int count = WiFi.scanComplete();
-    if (count == WIFI_SCAN_RUNNING) return;
-
-    if (count == WIFI_SCAN_FAILED) {
-        Serial.println("[WIFI] Asynchronous scan failed.");
-        WiFi.scanDelete();
-        if (wifiScanRestoreOff) WiFi.mode(WIFI_OFF);
-        wifiScanRestoreOff = false;
-        wifiScanRunning = false;
-        sendBLENotification("WIFI_SCAN_ERROR");
-        return;
-    }
-
-    JsonDocument doc;
-    JsonArray list = doc.to<JsonArray>();
-    // Keep the BLE response bounded. Twelve SSIDs fit comfortably within
-    // the small C3 heap and avoid an unbounded notification burst.
-    const int returned = count < 12 ? count : 12;
-    for (int i = 0; i < returned; ++i) {
-        list.add(WiFi.SSID(i));
-    }
-
-    String json;
-    serializeJson(doc, json);
-    Serial.printf("[WIFI] Scan complete: %d found, %d returned, %u JSON bytes.\n",
-                  count, returned, static_cast<unsigned int>(json.length()));
-
-    WiFi.scanDelete();
-    if (wifiScanRestoreOff) WiFi.mode(WIFI_OFF);
-    wifiScanRestoreOff = false;
-    wifiScanRunning = false;
-
-    sendBLENotification(json);
-}
-
-// =====================================================
 // WIFI CONTROL
 // =====================================================
 
@@ -347,7 +286,7 @@ void toggleWiFi() {
         Serial.println("[WIFI] Toggle ignored while a face transfer is active.");
         return;
     }
-    if (wifiScanRunning) {
+    if (WifiService::isScanBusy()) {
         Serial.println("[WIFI] Toggle ignored while scan is active.");
         return;
     }
@@ -626,12 +565,12 @@ void loop() {
     handleBLECommands();
     serviceBLE();
     serviceWeatherNotification();
-    serviceWifiScan();
+    WifiService::serviceScan();
 
     // Automatic sleep is deliberately disabled during an active BLE session.
     // Manual Sleep from the menu still bypasses this connection guard.
     const bool backgroundWorkActive =
-        bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning || wifiScanRunning;
+        bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning || WifiService::isScanBusy();
     SystemManager::serviceAutoSleep(
         now, getLastButtonActivityMs(), isBLEConnected(),
         backgroundWorkActive, currentScreen == SCREEN_CLOCK);
@@ -652,7 +591,7 @@ void loop() {
 
     const wl_status_t wifiStatus = WiFi.status();
 
-    if (!wifiScanRunning && wifiEnabled && !bootNetworkRunning && !bootNetworkNeedsBle && wifiStatus != WL_CONNECTED) {
+    if (!WifiService::isScanBusy() && wifiEnabled && !bootNetworkRunning && !bootNetworkNeedsBle && wifiStatus != WL_CONNECTED) {
         if (now - lastWifiRetryMs >= WIFI_RETRY_MS) {
             Serial.printf(
                 "[WIFI] Still not connected (status=%s, code=%d); retrying.\n",
@@ -704,7 +643,7 @@ void loop() {
 
     // A GPS update received during an active request is refreshed as soon as
     // that request releases its TLS/JSON resources. Keep it pending while offline.
-    if (locationWeatherRefreshPending && wifiConnected && !weatherFetchRunning && !wifiScanRunning &&
+    if (locationWeatherRefreshPending && wifiConnected && !weatherFetchRunning && !WifiService::isScanBusy() &&
         !TransferManager::isBusy() &&
         (lastLocationWeatherRetryMs == 0 ||
          now - lastLocationWeatherRetryMs >= WEATHER_RETRY_MS)) {
@@ -730,7 +669,7 @@ void loop() {
         !bootNetworkNeedsBle &&
         !hasWeatherData &&
         !weatherFetchRunning &&
-        !wifiScanRunning &&
+        !WifiService::isScanBusy() &&
         !TransferManager::isBusy() &&
         (
             lastWeatherRetryMs == 0 ||
@@ -756,7 +695,7 @@ void loop() {
         !bootNetworkNeedsBle &&
         hasWeatherData &&
         !weatherFetchRunning &&
-        !wifiScanRunning &&
+        !WifiService::isScanBusy() &&
         !TransferManager::isBusy() &&
         now - lastWeatherFetchMs >= WEATHER_REFRESH_MS &&
         (lastWeatherAttemptMs == 0 || now - lastWeatherAttemptMs >= WEATHER_RETRY_MS)
