@@ -4,11 +4,34 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
 const { TextEncoder, TextDecoder } = require('node:util');
+let fakeImageAlpha = 255;
 
 class FakeElement {
   constructor(tagName) { this.tagName = tagName; this.attributes = {}; this.style = {}; this.children = []; }
   setAttribute(name, value) { this.attributes[name] = value; }
   append(child) { this.children.push(child); }
+  getContext() {
+    let fillStyle = '';
+    return {
+      set fillStyle(value) { fillStyle = value; },
+      get fillStyle() { return fillStyle; },
+      clearRect() {},
+      drawImage() {},
+      getImageData(_x, _y, width, height) {
+        const data = new Uint8ClampedArray(width * height * 4);
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = 255;
+          data[i + 3] = fillStyle ? 255 : fakeImageAlpha;
+        }
+        return { data };
+      },
+    };
+  }
+}
+
+class FakeImage {
+  set src(value) { this.source = value; }
+  decode() { return Promise.resolve(); }
 }
 
 const root = path.resolve(__dirname, '../..');
@@ -29,6 +52,7 @@ const sandbox = {
   TextEncoder,
   TextDecoder,
   structuredClone,
+  Image: FakeImage,
 };
 vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
@@ -233,6 +257,62 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   state.wfsCapabilities.stage = 64;
   await assert.rejects(buildPackage(design), /staging storage/,
     'package builder must reject a package larger than the reported staging capacity');
+
+  const longPrefix = 'a'.repeat(50);
+  state.images = [
+    { id: longPrefix + '1', name: 'first.png', data: 'data:image/png;base64,AA==' },
+    { id: longPrefix + '2', name: 'second.png', data: 'data:image/png;base64,BB==' },
+  ];
+  state.wfsCapabilities = { upload: 1, obj: 16, json: 16384, stage: 32768, img: 1, assets: 16,
+    bw: 240, bh: 240, el: 'text,digital-clock,analog-clock,date,weather,shape,image' };
+  const imageDesign = {
+    schemaVersion: 1, designId: 'image_pipeline_test', name: 'Image pipeline test',
+    deviceProfileId: 'esp32-c3-gc9a01-240',
+    canvas: { width: 240, height: 240, shape: 'circle', backgroundColor: '#080b10', clipToShape: true },
+    objects: [
+      { id: 'image_one', type: 'image', name: 'Image one', assetId: longPrefix + '1', visible: true, locked: false,
+        transform: { x: 0, y: 0, width: 2, height: 1, anchor: 'top-left', zIndex: 0 } },
+      { id: 'image_two', type: 'image', name: 'Image two', assetId: longPrefix + '2', visible: true, locked: false,
+        transform: { x: 2, y: 0, width: 2, height: 1, anchor: 'top-left', zIndex: 1 } },
+    ],
+  };
+  fakeImageAlpha = 255;
+  const imagePackage = await buildPackage(imageDesign);
+  const imageBytes = new Uint8Array(await imagePackage.blob.arrayBuffer());
+  const imageHeader = new DataView(imageBytes.buffer, imageBytes.byteOffset, 64);
+  const imageManifestLength = imageHeader.getUint32(8, true);
+  const imageLayoutLength = imageHeader.getUint32(12, true);
+  const imagePayload = imageBytes.slice(64);
+  const imageManifest = JSON.parse(new TextDecoder().decode(imagePayload.slice(0, imageManifestLength)));
+  const imageLayout = JSON.parse(new TextDecoder().decode(imagePayload.slice(imageManifestLength, imageManifestLength + imageLayoutLength)));
+  assert.equal(imageManifest.assets.length, 2);
+  assert.notEqual(imageManifest.assets[0].assetId, imageManifest.assets[1].assetId,
+    'truncated source IDs must not collide in the firmware package manifest');
+  assert.deepEqual(Array.from(imagePayload.slice(imageManifestLength + imageLayoutLength, imageManifestLength + imageLayoutLength + 4)),
+    [0, 248, 0, 248], 'image conversion must emit little-endian RGB565 pixels');
+  assert.equal(imageLayout.objects[0].assetId, imageManifest.assets[0].assetId);
+  assert.equal(imageLayout.objects[1].assetId, imageManifest.assets[1].assetId);
+
+  fakeImageAlpha = 0;
+  const transparentBottom = structuredClone(imageDesign);
+  transparentBottom.objects = [transparentBottom.objects[0]];
+  transparentBottom.objects[0].transform.zIndex = 5;
+  await buildPackage(transparentBottom);
+  const transparentOverlay = structuredClone(transparentBottom);
+  transparentOverlay.objects.unshift({
+    id: 'underlay', type: 'shape', name: 'Underlay', shape: 'rect',
+    transform: { x: 0, y: 0, width: 20, height: 20, anchor: 'top-left', zIndex: -1 },
+    style: { fill: '#ffffff' },
+  });
+  transparentOverlay.objects[1].transform.zIndex = 0;
+  await assert.rejects(buildPackage(transparentOverlay), /transparent overlay images/,
+    'transparent images above lower layers must be rejected before RGB565 flattening');
+  const negativeTransparentOverlay = structuredClone(transparentOverlay);
+  negativeTransparentOverlay.objects[1].transform.zIndex = -1;
+  negativeTransparentOverlay.objects[0].transform.zIndex = -2;
+  await assert.rejects(buildPackage(negativeTransparentOverlay), /transparent overlay images/,
+    'transparent overlay detection must use actual z-order, not assume non-negative z-indexes');
+  fakeImageAlpha = 255;
 
   console.log('WFS Web package builder tests passed.');
 })().catch(error => {

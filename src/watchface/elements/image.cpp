@@ -16,13 +16,17 @@ bool drawImageElement(const FaceModel& face, const FaceObject& object) {
         }
     }
     if (asset == nullptr || asset->width == 0 || asset->width > DisplayProfileConfig::MAX_BITMAP_WIDTH ||
-        asset->height == 0 || asset->height > DisplayProfileConfig::MAX_BITMAP_HEIGHT) return false;
+        asset->height == 0 || asset->height > DisplayProfileConfig::MAX_BITMAP_HEIGHT ||
+        asset->byteLength != static_cast<size_t>(asset->width) * asset->height * sizeof(uint16_t)) return false;
 
     const uint8_t slot = FaceStorage::activeSlot();
     if (slot > 1) return false;
     fs::File file = FaceStorage::openSlot(slot, "r");
     if (!file) return false;
-    if (!file.seek(asset->packageOffset, fs::SeekSet)) {
+    const size_t fileSize = file.size();
+    if (asset->packageOffset > fileSize ||
+        asset->byteLength > fileSize - asset->packageOffset ||
+        !file.seek(asset->packageOffset, fs::SeekSet)) {
         file.close();
         return false;
     }

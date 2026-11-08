@@ -139,4 +139,10 @@ subprocess.run(
     check=True,
 )
 
+subprocess.run(
+    [sys.executable, str(ROOT / "tests" / "host" / "image_pipeline_guard_test.py")],
+    cwd=ROOT,
+    check=True,
+)
+
 print("WFS device compatibility preflight host tests passed.")
