@@ -119,4 +119,39 @@ nestedChildren.objects[0].children = [{
 assert.ok(errorsFor(nestedChildren).some(error => error.includes('nested children')),
   'non-empty nested children must be rejected before firmware parsing');
 
+
+const opacityAboveRange = structuredClone(fixture);
+opacityAboveRange.objects[0].transform.opacity = 1.2;
+assert.ok(errorsFor(opacityAboveRange).some(error => error.includes('opacity must be numeric')),
+  'opacity above one must be rejected before the firmware parser rejects it');
+
+const stringOpacity = structuredClone(fixture);
+stringOpacity.objects[0].transform.opacity = '1';
+assert.ok(errorsFor(stringOpacity).some(error => error.includes('opacity must be numeric')),
+  'string opacity must not be coerced into a number');
+
+const stringWeight = structuredClone(fixture);
+stringWeight.objects[0].textStyle.fontWeight = '400';
+assert.ok(errorsFor(stringWeight).some(error => error.includes('fontWeight must be numeric')),
+  'string font weights must be rejected before firmware parsing');
+
+const stringLetterSpacing = structuredClone(fixture);
+stringLetterSpacing.objects[0].textStyle.letterSpacing = '0';
+assert.ok(errorsFor(stringLetterSpacing).some(error => error.includes('letterSpacing must be numeric')),
+  'string letter spacing must not be coerced into a number');
+
+const nullGlyphOpacity = structuredClone(fixture);
+nullGlyphOpacity.objects[0].textStyle.opacity = null;
+assert.ok(errorsFor(nullGlyphOpacity).some(error => error.includes('advanced glyph styling')),
+  'null glyph opacity must not be treated as the default value');
+
+const stringStrokeWidth = structuredClone(fixture);
+stringStrokeWidth.objects.push({
+  id: 'outline', type: 'shape', name: 'Outline',
+  transform: { x: 10, y: 10, width: 40, height: 40 },
+  style: { fill: '#ffffff', strokeWidth: '1' }
+});
+assert.ok(errorsFor(stringStrokeWidth).some(error => error.includes('strokeWidth must be numeric')),
+  'string shape stroke widths must be rejected before firmware parsing');
+
 console.log('WFS device compatibility preflight tests passed.');
