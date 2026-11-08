@@ -112,7 +112,7 @@ void drawCurrentScreen(bool force) {
             if (FaceManager::hasActiveFace()) {
                 const FaceRenderStatus status = FaceManager::renderActive(timeinfo, getWeatherSnapshot());
                 if (status != FaceRenderStatus::Ok) {
-                    Serial.printf("[FACE] Render rejected (%u); using built-in clock.\\n",
+                    Serial.printf("[FACE] Render rejected (%u); using built-in clock.\n",
                                   static_cast<unsigned int>(status));
                     FaceManager::disableActive();
                     getDisplayCanvas().clearScreen(0x0000);

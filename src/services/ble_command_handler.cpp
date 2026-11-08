@@ -60,7 +60,7 @@ static void handleCommand(const String &cmd) {
         }
 
         setAutoSleepTimeoutSeconds(static_cast<uint8_t>(seconds));
-        Serial.printf("[POWER] Auto Sleep setting saved to NVS: %d seconds.\\n", seconds);
+        Serial.printf("[POWER] Auto Sleep setting saved to NVS: %d seconds.\n", seconds);
         sendBLENotification(String("AUTO_SLEEP_OK:") + String(seconds));
         return;
     }
