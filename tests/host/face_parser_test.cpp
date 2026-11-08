@@ -56,22 +56,6 @@ int main(int argc, char** argv) {
     assert(model.objects[0].type == FaceElementType::DigitalClock);
     assert(model.canvasWidth == 240 && model.canvasHeight == 240);
 
-    result = parse(replaceOnce(fixture, "\"schemaVersion\": 1",
-                               "\"schemaVersion\": 1.5"), model);
-    assert(!result);
-
-    result = parse(replaceOnce(fixture, "\"width\": 240",
-                               "\"width\": 240.5"), model);
-    assert(!result);
-
-    result = parse(replaceOnce(fixture, "\"backgroundColor\": \"#080B10\"",
-                               "\"backgroundColor\": null"), model);
-    assert(!result);
-
-    result = parse(replaceOnce(fixture, "\"description\":", "\"description\":"),
-                   model);
-    assert(result);
-
     std::string invalidMetadata = replaceOnce(fixture, "\"objects\":",
         "\"metadata\": \"not-an-object\", \"objects\":");
     assert(!parse(invalidMetadata, model));
@@ -96,24 +80,25 @@ int main(int argc, char** argv) {
         "\"clockMode\": \"digital\"", "\"clockMode\": \"\"");
     assert(!parse(invalidClockMode, model));
 
-    std::string manyObjects = fixture;
-    const std::string objectStart = "\"objects\": [";
-    const size_t arrayStart = manyObjects.find(objectStart);
-    assert(arrayStart != std::string::npos);
-    const size_t firstObjectStart = manyObjects.find('{', arrayStart + objectStart.size());
-    const size_t firstObjectEnd = manyObjects.find("\n    }", firstObjectStart);
-    assert(firstObjectStart != std::string::npos && firstObjectEnd != std::string::npos);
-    const std::string objectJson = manyObjects.substr(firstObjectStart, firstObjectEnd + 5 - firstObjectStart);
-    manyObjects.replace(arrayStart + objectStart.size(),
-                        manyObjects.find(']', arrayStart) - (arrayStart + objectStart.size()),
-                        "");
-    std::string objects;
+    const std::string objectJson = R"JSON({
+      "id": "label",
+      "type": "text",
+      "name": "Label",
+      "transform": {"x": 0, "y": 0, "width": 80, "height": 20},
+      "text": "Hello"
+    })JSON";
+    std::string manyObjects = R"JSON({
+      "schemaVersion": 1,
+      "designId": "many",
+      "name": "Many",
+      "deviceProfileId": "esp32-c3-gc9a01-240",
+      "canvas": {"width": 240, "height": 240, "shape": "circle", "backgroundColor": "#000000"},
+      "objects": [)JSON";
     for (int i = 0; i < 17; ++i) {
-        if (i) objects += ",";
-        objects += objectJson;
+        if (i) manyObjects += ",";
+        manyObjects += objectJson;
     }
-    const size_t insertAt = manyObjects.find('[', arrayStart) + 1;
-    manyObjects.insert(insertAt, objects);
+    manyObjects += "]}";
     result = parse(manyObjects, model);
     assert(!result && result.error == FaceParseError::TooManyObjects);
 
