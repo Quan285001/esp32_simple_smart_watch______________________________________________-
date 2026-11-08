@@ -7,6 +7,7 @@
 #include "config.h"
 #include "app/app_state.h"
 #include "app/app_controller.h"
+#include "app/boot_coordinator.h"
 #include "input/button_manager.h"
 #include "services/time_service.h"
 #include "services/weather_service.h"
@@ -51,14 +52,12 @@ static uint32_t lastWeatherFrameMs = 0;
 
 static volatile bool weatherFaceInitialized = false;
 
-static volatile bool bootNetworkRunning = false;
-static volatile bool bootNetworkNeedsBle = false;
 
 // Prevent a new bulk face transfer from overlapping TLS/weather/Wi-Fi scan work.
 bool canStartWfsTransfer() {
     return WeatherCoordinator::canStartTransfer(
         WifiService::isScanBusy(),
-        bootNetworkRunning || bootNetworkNeedsBle);
+        BootCoordinator::isBusy());
 }
 static bool bootUiReady = false;
 
@@ -175,93 +174,6 @@ void toggleWiFi() {
 // =====================================================
 
 /**
- * @brief Performs Wi-Fi, NTP, weather, and lunar work sequentially.
- * The clock UI is already running while this low-priority task works.
- */
-static void bootNetworkTask(void *parameter) {
-    (void)parameter;
-
-    Preferences prefs;
-    String savedSsid = WIFI_SSID;
-    String savedPass = WIFI_PASSWORD;
-    if (prefs.begin("watch", true)) {
-        savedSsid = prefs.getString("ssid", WIFI_SSID);
-        savedPass = prefs.getString("pass", WIFI_PASSWORD);
-        prefs.end();
-    }
-    if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
-    if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
-
-    bootTerminalLog("[BOOT] Connecting to Wi-Fi", TFT_YELLOW);
-    WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
-    WiFi.begin(savedSsid.c_str(), savedPass.c_str());
-
-    const uint32_t wifiStart = millis();
-    while (WiFi.status() != WL_CONNECTED &&
-           millis() - wifiStart < 15000UL) {
-        vTaskDelay(pdMS_TO_TICKS(250));
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-        char wifiMsg[48];
-        snprintf(wifiMsg, sizeof(wifiMsg), "[OK] Wi-Fi connected (%d dBm)", WiFi.RSSI());
-        bootTerminalLog(wifiMsg, TFT_GREEN);
-
-        // IP fallback and NTP setup happen away from the UI loop.
-        bootTerminalLog("[TIME] Synchronizing NTP", TFT_YELLOW);
-        beginTimeService();
-
-        struct tm syncedTime = {};
-        bool timeSynced = false;
-        const uint32_t timeStart = millis();
-        while (millis() - timeStart < 15000UL) {
-            if (getLocalTime(&syncedTime, 100) &&
-                syncedTime.tm_year >= (2024 - 1900)) {
-                timeSynced = true;
-                break;
-            }
-            vTaskDelay(pdMS_TO_TICKS(150));
-        }
-
-        if (timeSynced) {
-            saveTimeCheckpoint();
-            bootTerminalLog("[OK] NTP synchronized", TFT_GREEN);
-        } else {
-            bootTerminalLog("[INFO] NTP unavailable; keeping saved time", TFT_YELLOW);
-        }
-
-        // Keep TLS stages strictly sequential and prevent the normal loop
-        // from scheduling another weather request during this boot phase.
-        WeatherCoordinator::beginBootFetch();
-        bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
-        const bool weatherUpdated = fetchHourlyWeather();
-        bootTerminalLog(weatherUpdated
-            ? "[OK] Weather updated and cached"
-            : "[INFO] Weather unavailable; cache retained",
-            weatherUpdated ? TFT_GREEN : TFT_YELLOW);
-
-        if (weatherUpdated && WiFi.status() == WL_CONNECTED) {
-            vTaskDelay(pdMS_TO_TICKS(5000));
-            bootTerminalLog("[LUNAR] Fetching lunar details", TFT_YELLOW);
-            fetchLunarDetails();
-            bootTerminalLog("[OK] Lunar stage complete", TFT_GREEN);
-        }
-        // Keep the coordinator busy until both sequential TLS stages are complete.
-        WeatherCoordinator::finishBootFetch(weatherUpdated);
-    } else {
-        bootTerminalLog("[INFO] Wi-Fi unavailable; using saved data", TFT_YELLOW);
-    }
-
-    // BLE is initialized by loop() after this task exits, so its allocation
-    // cannot overlap either HTTPS/TLS request.
-    bootTerminalLog("[OK] Network startup stage complete", TFT_GREEN);
-    bootNetworkRunning = false;
-    bootNetworkNeedsBle = true;
-    vTaskDelete(nullptr);
-}
-
-/**
  * @brief Restores persistent state, keeps the boot terminal visible while
  * startup services run, then hands the display to the clock UI.
  */
@@ -312,26 +224,7 @@ void setup() {
     // Keep the terminal visible until all startup stages have finished.
     bootTerminalLog("[BOOT] Starting startup services", TFT_GREEN);
 
-    wifiEnabled = true;
-    bootNetworkRunning = true;
-    const BaseType_t created = xTaskCreate(
-        bootNetworkTask,
-        "bootNetwork",
-        8192,
-        nullptr,
-        1,
-        nullptr
-    );
-
-    if (created != pdPASS) {
-        bootNetworkRunning = false;
-        bootNetworkNeedsBle = true;
-        bootTerminalLog("[WARN] Network task unavailable; skipping Wi-Fi", TFT_YELLOW);
-        WiFi.disconnect(false, false);
-        WiFi.mode(WIFI_OFF);
-        wifiEnabled = false;
-        Serial.println("[BOOT] Could not create network task; staying offline.");
-    }
+    BootCoordinator::begin();
 }
 
 // =====================================================
@@ -346,8 +239,7 @@ void loop() {
     // button, or periodic services until network work and BLE initialization
     // have both reached their terminal state.
     if (!bootUiReady) {
-        if (bootNetworkNeedsBle) {
-            bootNetworkNeedsBle = false;
+        if (BootCoordinator::takeBleInitRequest()) {
             bootTerminalLog("[BLE] Initializing Bluetooth", TFT_YELLOW);
             beginBLE();
             if (isBLEEnabled()) {
