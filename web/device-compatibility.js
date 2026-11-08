@@ -232,6 +232,14 @@
             (style.strokeWidth !== 0 && style.strokeWidth !== 1)))) {
         result.push(name + ': strokeWidth must be numeric zero or one; separate background fill is not supported');
       }
+      if (hasOwn(style, 'cornerRadius')) {
+        const radius = style.cornerRadius;
+        if (!finiteNumber(radius) || !Number.isInteger(radius) || radius < 0 || radius > 255) {
+          result.push(name + ': cornerRadius must be an integer from 0 to 255 pixels');
+        } else if (radius > 0 && (type !== 'shape' || object.shape !== 'rounded-rect')) {
+          result.push(name + ': cornerRadius is rendered only for rounded-rectangle shape elements');
+        }
+      }
       if (type !== 'shape' && style.fill && !textStyle.fill) {
         result.push(name + ': style.fill is only rendered for shape elements; use textStyle.fill for text color');
       }

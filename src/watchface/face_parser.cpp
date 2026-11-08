@@ -240,6 +240,20 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
             const float width = style["strokeWidth"] | -1.0f;
             if (!isfinite(width) || (width != 0.0f && width != 1.0f)) return true;
         }
+        if (style.containsKey("cornerRadius")) {
+            const JsonVariantConst radiusValue = style["cornerRadius"];
+            if (!radiusValue.is<float>() && !radiusValue.is<int>() &&
+                !radiusValue.is<unsigned int>()) return true;
+            const float radius = radiusValue.as<float>();
+            const char* type = source["type"] | "";
+            const char* shape = source["shape"] | "rect";
+            if (!isfinite(radius) || radius < 0.0f || radius > 255.0f ||
+                floorf(radius) != radius ||
+                (radius > 0.0f &&
+                 (strcmp(type, "shape") != 0 || strcmp(shape, "rounded-rect") != 0))) {
+                return true;
+            }
+        }
     }
 
     JsonObjectConst renderHints = source["renderHints"].as<JsonObjectConst>();

@@ -93,6 +93,27 @@ int main(int argc, char** argv) {
         "\"clockMode\": \"digital\"", "\"clockMode\": \"\"");
     assert(!parse(invalidClockMode, model));
 
+    const std::string fractionalCornerRadius = replaceOnce(TEXT_FACE,
+        "\"text\": \"Hello\"", "\"text\": \"Hello\", \"style\": {\"cornerRadius\": 1.5}");
+    result = parse(fractionalCornerRadius, model);
+    assert(!result && result.error == FaceParseError::UnsupportedProperty);
+
+    const std::string oversizedCornerRadius = replaceOnce(TEXT_FACE,
+        "\"text\": \"Hello\"", "\"text\": \"Hello\", \"style\": {\"cornerRadius\": 256}");
+    result = parse(oversizedCornerRadius, model);
+    assert(!result && result.error == FaceParseError::UnsupportedProperty);
+
+    const std::string misplacedCornerRadius = replaceOnce(TEXT_FACE,
+        "\"text\": \"Hello\"", "\"text\": \"Hello\", \"style\": {\"cornerRadius\": 8}");
+    result = parse(misplacedCornerRadius, model);
+    assert(!result && result.error == FaceParseError::UnsupportedProperty);
+
+    std::string validRoundedShape = replaceOnce(TEXT_FACE, "\"type\": \"text\"", "\"type\": \"shape\"");
+    validRoundedShape = replaceOnce(validRoundedShape, "\"text\": \"Hello\"",
+        "\"shape\": \"rounded-rect\", \"style\": {\"cornerRadius\": 8}");
+    result = parse(validRoundedShape, model);
+    assert(result && model.objects[0].cornerRadius == 8);
+
     const std::string objectJson = R"JSON({
       "id": "label",
       "type": "text",

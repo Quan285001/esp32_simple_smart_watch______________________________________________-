@@ -162,6 +162,28 @@ nullGlyphOpacity.objects[0].textStyle.opacity = null;
 assert.ok(errorsFor(nullGlyphOpacity).some(error => error.includes('advanced glyph styling')),
   'null glyph opacity must not be treated as the default value');
 
+const fractionalCornerRadius = structuredClone(fixture);
+fractionalCornerRadius.objects[0].type = 'shape';
+fractionalCornerRadius.objects[0].shape = 'rounded-rect';
+fractionalCornerRadius.objects[0].style = { cornerRadius: 1.5 };
+assert.ok(errorsFor(fractionalCornerRadius).some(error => error.includes('cornerRadius must be an integer')),
+  'fractional corner radii must be rejected before firmware truncates them');
+
+const oversizedCornerRadius = structuredClone(fractionalCornerRadius);
+oversizedCornerRadius.objects[0].style.cornerRadius = 256;
+assert.ok(errorsFor(oversizedCornerRadius).some(error => error.includes('cornerRadius must be an integer')),
+  'corner radii outside the firmware uint8 range must be rejected');
+
+const misplacedCornerRadius = structuredClone(fixture);
+misplacedCornerRadius.objects[0].style = { cornerRadius: 8 };
+assert.ok(errorsFor(misplacedCornerRadius).some(error => error.includes('rendered only for rounded-rectangle')),
+  'corner radius on a non-shape element must be rejected');
+
+const validRoundedCornerRadius = structuredClone(fractionalCornerRadius);
+validRoundedCornerRadius.objects[0].style.cornerRadius = 8;
+assert.deepEqual(errorsFor(validRoundedCornerRadius), [],
+  'integer corner radius on a rounded rectangle must remain supported');
+
 const stringStrokeWidth = structuredClone(fixture);
 stringStrokeWidth.objects.push({
   id: 'outline', type: 'shape', name: 'Outline',
