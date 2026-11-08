@@ -37,6 +37,7 @@ This document records implementation state. It is not a declaration that the ful
 - WFS capability exchange advertises the active profile ID, canvas size/shape, bitmap limits, object/asset limits, JSON size, image support, upload availability, chunk size and current staging capacity.
 - Web preflight consumes the negotiated profile and resource limits. Older WFS v1 firmware that omits the newer fields retains conservative ESP32-C3 defaults.
 - Web preflight now rejects numeric fields with coercible-but-invalid string/null types and values outside the firmware renderer's supported opacity, font-weight and glyph-spacing contract.
+- Web preflight and the firmware parser now require rounded-rectangle corner radii to be integral pixels in the `uint8_t` range (0–255), and reject nonzero radii on non-rounded-shape elements so CSS preview styling cannot silently disappear on-device.
 - WFS package manifests now declare optional weather-condition support when used, and firmware package validation verifies that every element's required capability is declared before accepting the package.
 - Portable `.wfsproject.json` files bundle the design and its referenced source images.
 - The project envelope has a shared schema and a golden fixture. Legacy raw Watch Face JSON remains importable when referenced images already exist in the browser's IndexedDB.
@@ -58,6 +59,8 @@ This document records implementation state. It is not a declaration that the ful
 7. **Hardware regression:** execute the step-by-step [ESP32-C3 hardware regression checklist](hardware-regression-checklist.md), including BLE MTU/notifications, repeated connect/disconnect, package retry/cancel/apply, screen rendering, Wi-Fi/weather concurrency, sleep/wake and recovery. CI cannot substitute for this.
 
 ## Verification record
+
+- Commit `f4213b8`: PlatformIO Build and Pages deployment completed successfully after aligning rounded-rectangle corner-radius validation across the browser preflight and firmware parser; compatibility and parser host tests cover fractional, out-of-range, misplaced and valid radii.
 
 - Commit `310ddaa`: PlatformIO Build completed successfully; schema validation, device compatibility, canvas boundary, host canvas contract, profile contract, Web asset validation, JavaScript syntax, protocol host tests and parser host tests all passed.
 - Commit `2b9dc1f`: PlatformIO Build completed successfully after moving Auto Sleep policy into `SystemManager`.
