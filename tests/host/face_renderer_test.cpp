@@ -78,9 +78,9 @@ int main() {
     face.objects[0]=baseObject(FaceElementType::DigitalClock,"clock");
     face.objects[0].dataFormat[0]='H'; face.objects[0].dataFormat[1]='H';
     face.objects[0].dataFormat[2]=':'; face.objects[0].dataFormat[3]='m';
-    face.objects[0].dataFormat[4]='m'; face.objects[0].dataFormat[5]='\\0';
+    face.objects[0].dataFormat[4]='m'; face.objects[0].dataFormat[5]='\0';
     face.objects[0].timeFormat[0]='1'; face.objects[0].timeFormat[1]='2';
-    face.objects[0].timeFormat[2]='h'; face.objects[0].timeFormat[3]='\\0';
+    face.objects[0].timeFormat[2]='h'; face.objects[0].timeFormat[3]='\0';
     face.objects[0].showSeconds=true;
     canvas.reset();
     assert(renderWatchFace(face,timeInfo,weather)==FaceRenderStatus::Ok);
@@ -111,7 +111,7 @@ int main() {
     face.objects[1].transform.rotation=0.0f;
     face.objects[1].fontFamily[0]='C'; face.objects[1].fontFamily[1]='o';
     face.objects[1].fontFamily[2]='m'; face.objects[1].fontFamily[3]='i';
-    face.objects[1].fontFamily[4]='c'; face.objects[1].fontFamily[5]='\\0';
+    face.objects[1].fontFamily[4]='c'; face.objects[1].fontFamily[5]='\0';
     assert(validateFaceModelForRenderer(face)==FaceRenderStatus::UnsupportedFont);
 
     face=baseFace(); face.objectCount=3;
@@ -137,6 +137,6 @@ int main() {
            canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05");
     assert(canvas.clipX==50 && canvas.clipY==50 && canvas.clipW==100 && canvas.clipH==30);
 
-    std::cout << "WFS Face renderer host tests passed.\\n";
+    std::cout << "WFS Face renderer host tests passed.\n";
     return 0;
 }
