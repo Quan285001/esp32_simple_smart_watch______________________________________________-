@@ -25,3 +25,26 @@ assert "TransferManager::isBusy()" in wifi_command
 assert "isWifiScanBusy()" in wifi_command
 
 print("WFS Wi-Fi radio arbitration guard tests passed.")
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+command_handler = (ROOT / "src/communication/command_handler.cpp").read_text()
+
+location_start = command_handler.index('if (strcmp(name, "LOCATION_SET") == 0)')
+location_end = command_handler.index('if (strcmp(name, "WIFI_SCAN") == 0)', location_start)
+location_command = command_handler[location_start:location_end]
+assert "BootCoordinator::isBusy()" in location_command
+assert "WeatherCoordinator::isFetchRunning()" in location_command
+assert "WifiService::isScanBusy()" in location_command
+assert location_command.index("network_work_busy") < location_command.index('Preferences prefs;')
+assert location_command.index("network_work_busy") < location_command.index("setWeatherCoordinates(")
+
+wifi_start = command_handler.index('if (strcmp(name, "WIFI_CONFIG") == 0)')
+wifi_end = command_handler.index('if (strcmp(name, "AUTO_SLEEP_GET") == 0)', wifi_start)
+wifi_command = command_handler[wifi_start:wifi_end]
+assert "BootCoordinator::isBusy()" in wifi_command
+assert "WeatherCoordinator::isFetchRunning()" in wifi_command
+assert wifi_command.index("network_work_busy") < wifi_command.index("WifiService::configureCredentials(")
+
+print("WFS command network arbitration guard tests passed.")

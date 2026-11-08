@@ -10,6 +10,8 @@
 #include "../services/weather_service.h"
 #include "../services/time_service.h"
 #include "../services/wifi_service.h"
+#include "../services/weather_coordinator.h"
+#include "../app/boot_coordinator.h"
 #include "transfer_manager.h"
 
 extern void requestLightSleep();
@@ -116,6 +118,11 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
     }
 
     if (strcmp(name, "LOCATION_SET") == 0) {
+        if (BootCoordinator::isBusy() || WeatherCoordinator::isFetchRunning() ||
+            WifiService::isScanBusy()) {
+            setResult(result, false, 0x0050, "network_work_busy");
+            return false;
+        }
         const double latitude = request["latitude"].isNull() ? 999.0 : request["latitude"].as<double>();
         const double longitude = request["longitude"].isNull() ? 999.0 : request["longitude"].as<double>();
         if (!isfinite(latitude) || !isfinite(longitude) ||
@@ -151,6 +158,10 @@ bool dispatch(const uint8_t* payload, size_t length, Result& result) {
     }
 
     if (strcmp(name, "WIFI_CONFIG") == 0) {
+        if (BootCoordinator::isBusy() || WeatherCoordinator::isFetchRunning()) {
+            setResult(result, false, 0x0050, "network_work_busy");
+            return false;
+        }
         const char* ssid = request["ssid"] | "";
         const char* password = request["password"] | "";
         if (!validText(ssid, 32) || !validText(password, 63, true)) {
