@@ -6,6 +6,7 @@
 #include "../storage/storage_manager.h"
 #include "../storage/face_storage.h"
 #include "package_validator.h"
+#include "../display/display_profile.h"
 
 namespace FaceManager {
 namespace {
@@ -79,8 +80,9 @@ bool hasActiveFace() {
 
 bool setActiveModel(const FaceModel& model) {
     if (model.schemaVersion != 1 || model.objectCount > FACE_MAX_OBJECTS || model.assetCount > FACE_MAX_ASSETS ||
-        model.canvasWidth != 240 || model.canvasHeight != 240 ||
-        strcmp(model.deviceProfileId, "esp32-c3-gc9a01-240") != 0) return false;
+        model.canvasWidth != DisplayProfileConfig::WIDTH ||
+        model.canvasHeight != DisplayProfileConfig::HEIGHT ||
+        strcmp(model.deviceProfileId, DisplayProfileConfig::ID) != 0) return false;
     activeFace = model;
     activeFaceValid = true;
     activeFaceNeedsFullRender = true;

@@ -1,4 +1,5 @@
 #include "face_parser.h"
+#include "../display/display_profile.h"
 
 #include <ArduinoJson.h>
 #include <ctype.h>
@@ -539,7 +540,8 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
     if (strcmp(canvasShape, "circle") != 0) return {FaceParseError::UnsupportedProperty, 0};
     output.canvasWidth = canvas["width"] | 0;
     output.canvasHeight = canvas["height"] | 0;
-    if (output.canvasWidth != 240 || output.canvasHeight != 240) {
+    if (output.canvasWidth != DisplayProfileConfig::WIDTH ||
+        output.canvasHeight != DisplayProfileConfig::HEIGHT) {
         return {FaceParseError::InvalidField, 0};
     }
     if (!readColor(canvas["backgroundColor"], output.backgroundColor, 0x0000)) {

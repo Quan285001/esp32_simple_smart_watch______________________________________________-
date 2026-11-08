@@ -5,6 +5,7 @@
 
 #include "../../display/display_canvas.h"
 #include "../../storage/face_storage.h"
+#include "../../display/display_profile.h"
 
 bool drawImageElement(const FaceModel& face, const FaceObject& object) {
     const FaceAsset* asset = nullptr;
@@ -14,8 +15,8 @@ bool drawImageElement(const FaceModel& face, const FaceObject& object) {
             break;
         }
     }
-    if (asset == nullptr || asset->width == 0 || asset->width > 240 ||
-        asset->height == 0 || asset->height > 240) return false;
+    if (asset == nullptr || asset->width == 0 || asset->width > DisplayProfileConfig::MAX_BITMAP_WIDTH ||
+        asset->height == 0 || asset->height > DisplayProfileConfig::MAX_BITMAP_HEIGHT) return false;
 
     const uint8_t slot = FaceStorage::activeSlot();
     if (slot > 1) return false;

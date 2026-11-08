@@ -8,6 +8,7 @@
 
 #include "face_parser.h"
 #include "face_renderer.h"
+#include "../display/display_profile.h"
 
 namespace {
 constexpr size_t WFS_HEADER_SIZE = 64;
@@ -191,7 +192,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
                      sizeof(manifestKeys) / sizeof(manifestKeys[0])) ||
         (manifest["packageFormatVersion"] | 0) != 1 ||
         (manifest["schemaVersion"] | 0) != 1 ||
-        strcmp(profileId, "esp32-c3-gc9a01-240") != 0) {
+        strcmp(profileId, DisplayProfileConfig::ID) != 0) {
         free(manifestText);
         free(layoutText);
         error = PackageValidationError::Manifest;
@@ -259,7 +260,8 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         if (assetId[0] == '\0' || strlen(assetId) >= FACE_ASSET_ID_CAPACITY ||
             parsedAssetCount >= FACE_MAX_ASSETS || strcmp(encoding, "rgb565le") != 0 ||
             strcmp(mediaType, "image/rgb565") != 0 ||
-            width == 0 || width > 240 || height == 0 || height > 240 ||
+            width == 0 || width > DisplayProfileConfig::MAX_BITMAP_WIDTH ||
+            height == 0 || height > DisplayProfileConfig::MAX_BITMAP_HEIGHT ||
             byteLength != width * height * 2U || offset != expectedAssetOffset ||
             !hexToBytes(assetShaText, expectedAssetDigest, 32)) {
             free(manifestText);
@@ -349,7 +351,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         return false;
     }
     if (strcmp(output.designId, manifestDesignId) != 0 ||
-        strcmp(output.deviceProfileId, "esp32-c3-gc9a01-240") != 0) {
+        strcmp(output.deviceProfileId, DisplayProfileConfig::ID) != 0) {
         error = PackageValidationError::DesignIdMismatch;
         return false;
     }

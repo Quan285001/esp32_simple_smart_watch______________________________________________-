@@ -1,4 +1,5 @@
 #include "display_manager.h"
+#include "display_profile.h"
 
 #include <math.h>
 #include <string.h>
