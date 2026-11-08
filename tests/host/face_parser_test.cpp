@@ -56,6 +56,14 @@ int main(int argc, char** argv) {
     assert(model.objects[0].type == FaceElementType::DigitalClock);
     assert(model.canvasWidth == 240 && model.canvasHeight == 240);
 
+    assert(!parse(replaceOnce(fixture, "\\"schemaVersion\\": 1",
+                              "\\"schemaVersion\\": 1.5"), model));
+    assert(!parse(replaceOnce(fixture, "\\"width\\": 240",
+                              "\\"width\\": 240.5"), model));
+    assert(!parse(replaceOnce(fixture, "\\"backgroundColor\\": \\"#080B10\\"",
+                              "\\"backgroundColor\\": null"), model));
+    assert(!parse(replaceOnce(fixture, "\\"top\\": 12", "\\"top\\": -1"), model));
+
     std::string invalidMetadata = replaceOnce(fixture, "\"objects\":",
         "\"metadata\": \"not-an-object\", \"objects\":");
     assert(!parse(invalidMetadata, model));
