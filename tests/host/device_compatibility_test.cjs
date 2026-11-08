@@ -4,6 +4,14 @@ const path = require('node:path');
 const compatibility = require('../../web/device-compatibility.js');
 
 const root = path.resolve(__dirname, '../..');
+const appSource = fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
+const packageBuilder = appSource.slice(
+  appSource.indexOf('async function buildWfsPackage'),
+  appSource.indexOf('async function sendWfsChunkWithRetry')
+);
+assert.match(packageBuilder, /WfsDeviceCompatibility\\?\.errors/,
+  'the browser package builder must invoke the shared firmware compatibility preflight');
+
 const fixture = JSON.parse(fs.readFileSync(
   path.join(root, 'shared/schemas/examples/minimal-watch-face-v1.json'), 'utf8'));
 const profile = JSON.parse(fs.readFileSync(
