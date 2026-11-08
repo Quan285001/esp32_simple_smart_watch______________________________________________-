@@ -41,6 +41,9 @@ jobs:
       - name: Validate shared JSON schemas
         run: python scripts/validate_schemas.py
 
+      - name: Validate firmware/device compatibility fixture
+        run: python scripts/validate_device_compatibility.py
+
       - name: Validate Web app assets
         run: python scripts/validate_web.py
 
