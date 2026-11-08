@@ -75,7 +75,7 @@ class CharacteristicCallbacks final : public BLECharacteristicCallbacks {
 
 namespace {
 void rollbackBleInitialization(const char* reason) {
-    Serial.printf("[BLE] Initialization aborted: %s\\n",
+    Serial.printf("[BLE] Initialization aborted: %s\n",
                   reason != nullptr ? reason : "unknown");
 
     if (bleAdvertising != nullptr) {
