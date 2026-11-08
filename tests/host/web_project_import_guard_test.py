@@ -27,3 +27,17 @@ load_design = APP[load_start:load_end]
 if not load_design.rstrip().endswith("saveDraft()}"):
     raise SystemExit("FAIL: loading/importing a design must update the autosaved draft")
 print("PASS: loaded designs become the current autosaved draft")
+
+get_start = APP.index("function getDesigns()")
+get_end = APP.index("\\nfunction persistDesign", get_start)
+get_designs = APP[get_start:get_end]
+if "Array.isArray(value)" not in get_designs or "Array.isArray(d.objects)" not in get_designs:
+    raise SystemExit("FAIL: malformed saved design collections must be ignored safely")
+print("PASS: malformed saved design collections are filtered")
+
+init_start = APP.index("async function init()")
+init_end = APP.index("\\ndocument.addEventListener('DOMContentLoaded'", init_start)
+init_body = APP[init_start:init_end]
+if "candidate.objects" not in init_body or "Ignoring malformed saved draft" not in init_body:
+    raise SystemExit("FAIL: malformed autosaved drafts must not break startup")
+print("PASS: malformed autosaved drafts fall back safely")
