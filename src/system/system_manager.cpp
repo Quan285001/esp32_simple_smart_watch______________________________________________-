@@ -82,12 +82,12 @@ void begin() {
 bool setAutoSleepTimeoutSeconds(uint8_t seconds) {
     if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
           seconds == 15 || seconds == 18 || seconds == 20)) {
-        Serial.printf("[POWER] Rejected invalid Auto Sleep value: %u seconds.\\n", seconds);
+        Serial.printf("[POWER] Rejected invalid Auto Sleep value: %u seconds.\n", seconds);
         return false;
     }
     autoSleepTimeoutSeconds = seconds;
     lastUserActivityMs = millis();
-    Serial.printf("[POWER] Auto Sleep timeout applied: %u seconds.\\n", autoSleepTimeoutSeconds);
+    Serial.printf("[POWER] Auto Sleep timeout applied: %u seconds.\n", autoSleepTimeoutSeconds);
     return true;
 }
 
@@ -114,7 +114,7 @@ void serviceAutoSleep(uint32_t nowMs, uint32_t buttonActivityMs, bool bleConnect
     if (!pendingSleep && !bleConnected && !backgroundWorkActive &&
         lastUserActivityMs != 0 && onClockScreen && autoSleepTimeoutSeconds > 0 &&
         (nowMs - lastUserActivityMs) >= static_cast<uint32_t>(autoSleepTimeoutSeconds) * 1000UL) {
-        Serial.printf("[POWER] Auto Light Sleep: %u seconds without user activity.\\n",
+        Serial.printf("[POWER] Auto Light Sleep: %u seconds without user activity.\n",
                       autoSleepTimeoutSeconds);
         requestSleep();
     }
