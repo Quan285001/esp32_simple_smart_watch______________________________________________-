@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory(prefix="wfs-face-parser-") as tmp:
     binary = Path(tmp) / "face_parser_test"
     subprocess.run(
         ["g++", "-std=c++17", "-Wall", "-Wextra",
-         "-I", str(STUBS), "-I", str(ARDUINOJSON),
+         "-I", str(STUBS), "-I", str(ROOT / "src/watchface"), "-I", str(ARDUINOJSON),
          str(TEST), str(PARSER), "-o", str(binary)],
         cwd=ROOT,
         check=True,

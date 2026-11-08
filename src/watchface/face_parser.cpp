@@ -89,7 +89,7 @@ bool parseType(const char* value, FaceElementType& type) {
 bool hasNonEmptyString(JsonVariantConst value) {
     if (value.isNull() || !value.is<const char*>()) return false;
     const char* text = value.as<const char*>();
-    return text != nullptr && text[0] != '\\0';
+    return text != nullptr && text[0] != '\0';
 }
 
 bool hasOnlyKeys(JsonObjectConst object, const char* const* allowedKeys, size_t allowedCount) {
@@ -269,13 +269,13 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
     if (source.containsKey("showSeconds") && !source["showSeconds"].is<bool>()) return true;
     const char* type = source["type"] | "";
     const char* clockMode = source["clockMode"] | "";
-    if (clockMode[0] != '\\0') {
+    if (clockMode[0] != '\0') {
         if ((strcmp(type, "analog-clock") == 0 && strcmp(clockMode, "analog") != 0) ||
             (strcmp(type, "digital-clock") == 0 && strcmp(clockMode, "digital") != 0) ||
             (strcmp(type, "analog-clock") != 0 && strcmp(type, "digital-clock") != 0)) return true;
     }
     const char* timeFormat = source["timeFormat"] | "";
-    if (timeFormat[0] != '\\0' &&
+    if (timeFormat[0] != '\0' &&
         strcmp(timeFormat, "12h") != 0 && strcmp(timeFormat, "24h") != 0) return true;
     if ((source["showAmPm"] | false) && strcmp(timeFormat, "12h") != 0) return true;
     if (source.containsKey("showAmPm") && !(source["showAmPm"] | false) &&
