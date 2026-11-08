@@ -11,6 +11,10 @@ assert "BootCoordinator::isBusy()" in toggle
 assert "WeatherCoordinator::isFetchRunning()" in toggle
 assert "TransferManager::isBusy()" in toggle
 assert "WifiService::isScanBusy()" in toggle
+assert "WifiService::disable()" in toggle
+assert "WifiService::enableSavedCredentials()" in toggle
+assert "WiFi.mode(" not in toggle
+assert "Preferences" not in toggle
 
 wifi_command_start = ble_handler.index('if (cmd.startsWith("WIFI:"))')
 wifi_command_end = ble_handler.index('if (cmd == "SCAN_WIFI")', wifi_command_start)

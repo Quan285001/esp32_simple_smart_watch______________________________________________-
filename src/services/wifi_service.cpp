@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <string.h>
 #include <ArduinoJson.h>
+#include "../config.h"
 #include "ble_service.h"
 
 extern bool wifiEnabled;
@@ -62,6 +63,40 @@ bool configureCredentials(const char* ssid, const char* password) {
     wifiEnabled = true;
     resetConnectionMonitor(millis());
     WiFi.begin(ssid, password);
+    return true;
+}
+
+bool enableSavedCredentials() {
+    if (scanRunning) return false;
+
+    Preferences prefs;
+    String savedSsid = WIFI_SSID;
+    String savedPass = WIFI_PASSWORD;
+    if (prefs.begin("watch", true)) {
+        savedSsid = prefs.getString("ssid", WIFI_SSID);
+        savedPass = prefs.getString("pass", WIFI_PASSWORD);
+        prefs.end();
+    }
+    if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
+    if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
+
+    wifiEnabled = true;
+    WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
+    WiFi.begin(savedSsid.c_str(), savedPass.c_str());
+    resetConnectionMonitor(millis());
+    Serial.println("[WIFI] Enabled; reconnecting with saved credentials.");
+    return true;
+}
+
+bool disable() {
+    if (scanRunning) return false;
+
+    WiFi.disconnect(false, false);
+    WiFi.mode(WIFI_OFF);
+    wifiEnabled = false;
+    resetConnectionMonitor(millis());
+    Serial.println("[WIFI] Disabled; cached weather retained.");
     return true;
 }
 

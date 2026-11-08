@@ -5,6 +5,8 @@
 namespace WifiService {
 
 bool configureCredentials(const char* ssid, const char* password);
+bool enableSavedCredentials();
+bool disable();
 struct ConnectionSnapshot {
     bool connected;
     bool justConnected;

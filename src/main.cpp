@@ -129,41 +129,15 @@ void toggleWiFi() {
         Serial.println("[WIFI] Toggle ignored while scan is active.");
         return;
     }
+
     if (wifiEnabled) {
-        WiFi.disconnect(false, false);
-        WiFi.mode(WIFI_OFF);
-
-        wifiEnabled = false;
-        WifiService::resetConnectionMonitor(millis());
-
-        Serial.println(
-            "[WIFI] Disabled; cached weather retained."
-        );
-    } else {
-        // Reuse credentials saved through BLE instead of always falling back
-        // to compile-time defaults.
-        Preferences prefs;
-        String savedSsid = WIFI_SSID;
-        String savedPass = WIFI_PASSWORD;
-        if (prefs.begin("watch", true)) {
-            savedSsid = prefs.getString("ssid", WIFI_SSID);
-            savedPass = prefs.getString("pass", WIFI_PASSWORD);
-            prefs.end();
-        }
-        if (savedSsid.length() == 0) savedSsid = WIFI_SSID;
-        if (savedPass.length() == 0) savedPass = WIFI_PASSWORD;
-
-        wifiEnabled = true;
-        WiFi.mode(WIFI_STA);
-        WiFi.setAutoReconnect(true);
-        WiFi.begin(savedSsid.c_str(), savedPass.c_str());
-
-        WifiService::resetConnectionMonitor(millis());
-        beginTimeService();
-        WeatherCoordinator::onWifiEnabled();
-
-        Serial.println("[WIFI] Enabled; reconnecting with saved credentials.");
+        WifiService::disable();
+        return;
     }
+
+    if (!WifiService::enableSavedCredentials()) return;
+    beginTimeService();
+    WeatherCoordinator::onWifiEnabled();
 }
 
 // =====================================================
