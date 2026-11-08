@@ -133,9 +133,9 @@ int main() {
     canvas.reset();
     assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
     assert(canvas.clipCalls==1 && canvas.resetCalls==1);
-    assert(canvas.calls.size()==4);
+    assert(canvas.calls.size()==5);
     assert(canvas.calls[0]=="clip" && canvas.calls[1]=="fill" &&
-           canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05");
+           canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05" && canvas.calls[4]=="reset-clip");
     assert(canvas.clipX==50 && canvas.clipY==50 && canvas.clipW==100 && canvas.clipH==30);
 
     std::cout << "WFS Face renderer host tests passed.\n";
