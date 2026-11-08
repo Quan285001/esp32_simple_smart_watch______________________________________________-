@@ -36,6 +36,9 @@ function errorsFor(design, assetIds = []) {
 assert.deepEqual(errorsFor(fixture), [],
   'committed minimal fixture must be accepted by the device compatibility preflight');
 
+assert.match(appSource, /id:'mono',name:'Monochrome'[^}]*weight:600/,
+  'the built-in Monochrome template must use a renderer-supported font weight');
+
 const badCanvas = structuredClone(fixture);
 badCanvas.canvas.width = 320;
 assert.ok(errorsFor(badCanvas).some(error => error.includes('240 × 240')),
