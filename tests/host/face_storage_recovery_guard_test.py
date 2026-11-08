@@ -47,4 +47,18 @@ assert "if (slot == INVALID_SLOT)" in face_storage
 assert "prefs.remove(ACTIVE_SLOT_KEY)" in face_storage
 assert "currentActiveSlot = slot;" in face_storage
 
+# Rollback is the only other path allowed to change the NVS active pointer.
+for source in (ROOT / "src").rglob("*.cpp"):
+    if source == ROOT / "src/communication/transfer_manager.cpp":
+        continue
+    assert "FaceStorage::restoreActiveSlot(" not in source.read_text(), source
+
+restore_start = face_storage.index("bool restoreActiveSlot(")
+restore_end = face_storage.index("bool activateSlot(", restore_start)
+restore = face_storage[restore_start:restore_end]
+assert "prefs.isKey(ACTIVE_SLOT_KEY)" in restore
+assert "prefs.remove(ACTIVE_SLOT_KEY)" in restore
+assert "prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT) == slot" in restore
+assert "if (restored)" in restore
+
 print("WFS committed-slot recovery and transfer transaction guard tests passed.")
