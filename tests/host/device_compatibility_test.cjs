@@ -73,4 +73,50 @@ const uploadDisabled = compatibility.errors(fixture, { ...capabilities, upload: 
 assert.ok(uploadDisabled.some(error => error.includes('does not currently accept')),
   'a device that does not advertise upload must be rejected');
 
+// Regression cases: schema-valid fields placed on the wrong firmware element.
+function withObjectField(field, value, base = fixture) {
+  const design = structuredClone(base);
+  design.objects[0][field] = value;
+  return design;
+}
+assert.ok(errorsFor(withObjectField('shape', 'circle')).some(error => error.includes('only valid on shape')),
+  'shape metadata on a digital clock must be rejected');
+assert.ok(errorsFor(withObjectField('weatherFields', ['temperature'])).some(error => error.includes('only valid on weather')),
+  'weatherFields on a digital clock must be rejected');
+assert.ok(errorsFor(withObjectField('showSeconds', true)).some(error => error.includes('only valid on digital clocks')) === false,
+  'showSeconds remains valid on digital clocks');
+
+const analogFace = structuredClone(fixture);
+analogFace.objects[0].type = 'analog-clock';
+delete analogFace.objects[0].dataBinding;
+delete analogFace.objects[0].timeFormat;
+delete analogFace.objects[0].showSeconds;
+delete analogFace.objects[0].showAmPm;
+delete analogFace.objects[0].clockMode;
+assert.ok(errorsFor(withObjectField('showSeconds', true, analogFace)).some(error => error.includes('only valid on digital clocks')),
+  'showSeconds on an analog clock must be rejected');
+assert.ok(errorsFor(withObjectField('showAmPm', false, analogFace)).some(error => error.includes('only valid on digital clocks')),
+  'showAmPm on an analog clock must be rejected');
+
+assert.ok(errorsFor(withObjectField('clockMode', '', fixture)).some(error => error.includes('clock mode')),
+  'an explicitly empty clockMode must be rejected');
+assert.ok(errorsFor(withObjectField('showAmPm', true, fixture)).some(error => error.includes('AM/PM can only be enabled')),
+  'AM/PM cannot be enabled in 24-hour mode');
+
+const nonAsciiText = structuredClone(fixture);
+nonAsciiText.objects.push({
+  id: 'label', type: 'text', name: 'Unicode label',
+  transform: { x: 0, y: 0, width: 80, height: 20 }, text: 'Xin chào'
+});
+assert.ok(errorsFor(nonAsciiText).some(error => error.includes('printable ASCII')),
+  'non-ASCII text must be rejected before firmware parsing');
+
+const nestedChildren = structuredClone(fixture);
+nestedChildren.objects[0].children = [{
+  id: 'child', type: 'text', name: 'Child',
+  transform: { x: 0, y: 0, width: 10, height: 10 }, text: 'x'
+}];
+assert.ok(errorsFor(nestedChildren).some(error => error.includes('nested children')),
+  'non-empty nested children must be rejected before firmware parsing');
+
 console.log('WFS device compatibility preflight tests passed.');

@@ -104,6 +104,33 @@
         result.push(name + ': element ' + String(type) + ' is not supported by this firmware');
         continue;
       }
+
+      // Mirror the firmware parser's element-specific property contract. The
+      // JSON schema permits these fields on more than one element type.
+      if (hasOwn(object, 'shape') && type !== 'shape') {
+        result.push(name + ': shape is only valid on shape elements');
+      }
+      if (hasOwn(object, 'weatherFields') && type !== 'weather') {
+        result.push(name + ': weatherFields is only valid on weather elements');
+      }
+      if (hasOwn(object, 'showSeconds') && type !== 'digital-clock') {
+        result.push(name + ': showSeconds is only valid on digital clocks');
+      }
+      if (hasOwn(object, 'showAmPm') && type !== 'digital-clock') {
+        result.push(name + ': showAmPm is only valid on digital clocks');
+      }
+      if (hasOwn(object, 'children') &&
+          (!Array.isArray(object.children) || object.children.length > 0)) {
+        result.push(name + ': nested children are not supported by this firmware');
+      }
+      if (typeof object.text === 'string' &&
+          [...object.text].some(character => {
+            const code = character.charCodeAt(0);
+            return code < 0x20 || code > 0x7e;
+          })) {
+        result.push(name + ': text must contain printable ASCII characters only');
+      }
+
       const [elementName, capabilityName] = TYPE_CAPABILITY[type];
       if (advertisedElements && !advertisedElements.has(elementName)) {
         result.push(name + ': device does not advertise ' + elementName);
@@ -219,11 +246,16 @@
       if (binding.format && unsupportedFormat(binding.format, type)) {
         result.push(name + ': data format contains unsupported tokens');
       }
+      if (hasOwn(object, 'weatherFields') && !Array.isArray(object.weatherFields)) {
+        result.push(name + ': weatherFields must be an array');
+      }
       if (Array.isArray(object.weatherFields) &&
           object.weatherFields.some(field => !['temperature', 'condition'].includes(field))) {
         result.push(name + ': only temperature and condition weather fields are supported');
       }
-      if (object.shape === 'arc') result.push(name + ': arc shapes are not supported yet');
+      if (type === 'shape' && !['rect', 'circle', 'rounded-rect', 'line'].includes(object.shape || 'rect')) {
+        result.push(name + ': unsupported shape kind');
+      }
       if (Array.isArray(object.glyphOverrides) && object.glyphOverrides.length) {
         result.push(name + ': per-glyph overrides are not supported yet');
       }
@@ -240,11 +272,20 @@
       if (renderHints.requiresAntialias === true || renderHints.requiresBitmap === true) {
         result.push(name + ': requested render hint is not supported by the device');
       }
-      if (object.clockMode &&
+      if (hasOwn(object, 'clockMode') &&
           ((type === 'analog-clock' && object.clockMode !== 'analog') ||
            (type === 'digital-clock' && object.clockMode !== 'digital') ||
            !['analog-clock', 'digital-clock'].includes(type))) {
         result.push(name + ': clock mode does not match the selected clock element');
+      }
+      if (hasOwn(object, 'showSeconds') && typeof object.showSeconds !== 'boolean') {
+        result.push(name + ': showSeconds must be a boolean');
+      }
+      if (hasOwn(object, 'showAmPm') && typeof object.showAmPm !== 'boolean') {
+        result.push(name + ': showAmPm must be a boolean');
+      }
+      if (object.showAmPm === true && object.timeFormat !== '12h') {
+        result.push(name + ': AM/PM can only be enabled in 12-hour mode');
       }
       if (object.showAmPm === false && object.timeFormat === '12h') {
         result.push(name + ': hiding AM/PM in 12-hour mode is not supported yet');
