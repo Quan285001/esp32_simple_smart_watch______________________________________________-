@@ -32,12 +32,12 @@ const sandbox = {
 };
 vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
-  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
+  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, renderAnalogClockPreview, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
   sandbox,
   { filename: 'web/app.js' },
 );
 
-const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, setPreviewText, renderWeatherPreview, crc32, hex } = sandbox.__wfsCodecTest;
+const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, renderAnalogClockPreview, setPreviewText, renderWeatherPreview, crc32, hex } = sandbox.__wfsCodecTest;
 const writes = { control: [], data: [] };
 state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map(), controlRx: { writeValueWithResponse: async frame => writes.control.push(frame) }, dataRx: { writeValueWithResponse: async frame => writes.data.push(frame) } };
 state.schema = JSON.parse(fs.readFileSync(path.join(root, 'shared/schemas/watch-face.schema.json'), 'utf8'));
@@ -85,6 +85,22 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   process.exitCode = 1;
 });
 
+
+(async () => {
+  const analogPreview = new FakeElement('div');
+  renderAnalogClockPreview(analogPreview, new Date(2026, 0, 1, 3, 15, 30));
+  const analogSvg = analogPreview.children[0];
+  const analogLines = analogSvg.children.filter(node => node.tagName === 'line');
+  assert.equal(analogLines.length, 15,
+    'analog preview must include twelve ticks and three time-dependent hands');
+  assert.ok(Number(analogLines[13].attributes.x2) > 80,
+    'minute hand must follow the supplied time');
+  assert.equal(analogLines[14].attributes.stroke, '#ff0000',
+    'second hand must use the firmware red accent');
+  assert.ok(Number(analogLines[14].attributes.y2) > 89,
+    'second hand angle must follow the supplied seconds');
+  console.log('WFS Web analog clock preview parity tests passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
 
 (async () => {
   const textPreview = new FakeElement('div');
