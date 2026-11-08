@@ -62,6 +62,8 @@ assert "prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT) == slot" in restore
 assert "if (restored)" in restore
 assert "storageInitialized = false;" in restore
 assert "currentActiveSlot = INVALID_SLOT;" in restore
+assert "markStorageUnavailable();" in restore
+assert "if (!prefs.begin(NVS_NAMESPACE, false))" in restore
 
 activate_start = face_storage.index("bool activateSlot(")
 activate = face_storage[activate_start:]

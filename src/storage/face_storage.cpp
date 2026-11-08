@@ -13,6 +13,11 @@ constexpr char SLOT_A_PATH[] = "/face_a.wfs";
 constexpr char SLOT_B_PATH[] = "/face_b.wfs";
 uint8_t currentActiveSlot = INVALID_SLOT;
 bool storageInitialized = false;
+
+void markStorageUnavailable() {
+    currentActiveSlot = INVALID_SLOT;
+    storageInitialized = false;
+}
 }
 
 bool begin() {
@@ -92,11 +97,21 @@ fs::File openSlot(uint8_t slot, const char* mode) {
 }
 
 bool restoreActiveSlot(uint8_t slot) {
-    if (!storageInitialized || (slot != INVALID_SLOT && slot > 1)) return false;
-    if (slot <= 1 && !StorageManager::exists(slotPath(slot))) return false;
+    if (!storageInitialized) return false;
+    if (slot != INVALID_SLOT && slot > 1) {
+        markStorageUnavailable();
+        return false;
+    }
+    if (slot <= 1 && !StorageManager::exists(slotPath(slot))) {
+        markStorageUnavailable();
+        return false;
+    }
 
     Preferences prefs;
-    if (!prefs.begin(NVS_NAMESPACE, false)) return false;
+    if (!prefs.begin(NVS_NAMESPACE, false)) {
+        markStorageUnavailable();
+        return false;
+    }
 
     bool restored = false;
     if (slot == INVALID_SLOT) {
@@ -114,8 +129,7 @@ bool restoreActiveSlot(uint8_t slot) {
         currentActiveSlot = slot;
     } else {
         // Do not permit another transfer while the NVS pointer is ambiguous.
-        currentActiveSlot = INVALID_SLOT;
-        storageInitialized = false;
+        markStorageUnavailable();
         Serial.println("[FACE_STORAGE] WARNING: rollback could not be verified; storage disabled until reinitialization.");
     }
     return restored;
@@ -147,8 +161,7 @@ bool activateSlot(uint8_t slot) {
         if (restored != previousSlot) {
             // The persisted commit target is now unknown. Fail closed until
             // reboot/reinitialization rather than risk deleting the real active slot.
-            currentActiveSlot = INVALID_SLOT;
-            storageInitialized = false;
+            markStorageUnavailable();
             Serial.println("[FACE_STORAGE] WARNING: rollback could not be verified; storage disabled until reinitialization.");
         }
         return false;
