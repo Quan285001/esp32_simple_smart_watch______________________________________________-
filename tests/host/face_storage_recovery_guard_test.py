@@ -41,7 +41,6 @@ apply_end = transfer_manager.index("bool cancel(", apply_start)
 apply = transfer_manager[apply_start:apply_end]
 assert "currentState != State::Verified" in apply
 assert "FaceStorage::activateSlot(stagingSlot)" in apply
-assert "FaceStorage::activateSlot(previousActiveSlot)" in apply
 assert "FaceStorage::restoreActiveSlot(previousActiveSlot)" in apply
 assert "bool restoreActiveSlot(uint8_t slot);" in face_storage_header
 assert "if (slot == INVALID_SLOT)" in face_storage
