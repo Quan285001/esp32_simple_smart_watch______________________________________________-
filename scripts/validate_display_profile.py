@@ -48,4 +48,14 @@ if not shape_flag:
 if (shape_flag.group(1) == "true") != (display["shape"] == "circle"):
     raise AssertionError("Display shape mismatch between firmware and shared profile")
 
-print("Firmware/shared display profile contract passed.")
+
+# Keep the WFS capability payload and Web preflight on the same contract.
+BLE_SOURCE = (ROOT / "src/communication/ble_manager.cpp").read_text(encoding="utf-8")
+WEB_SOURCE = (ROOT / "web/app.js").read_text(encoding="utf-8")
+for key in ("pid", "cw", "ch", "cs", "bw", "bh", "obj", "assets", "json", "img", "stage"):
+    if f'\\\"{key}\\\"' not in BLE_SOURCE:
+        raise AssertionError(f"WFS firmware capability payload is missing {key!r}")
+    if f"caps?.{key}" not in WEB_SOURCE and f"caps.{key}" not in WEB_SOURCE:
+        raise AssertionError(f"Web compatibility preflight does not consume {key!r}")
+
+print("Firmware/shared display profile and WFS capability contracts passed.")
