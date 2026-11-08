@@ -10,6 +10,8 @@
 
 namespace {
 constexpr size_t MAX_FACE_JSON_BYTES = 16384; // Conservative v1 ceiling; revise after heap profiling.
+static_assert(DisplayProfileConfig::MAX_OBJECTS <= FACE_MAX_OBJECTS, "Profile object limit exceeds FaceModel storage");
+static_assert(DisplayProfileConfig::MAX_ASSETS <= FACE_MAX_ASSETS, "Profile asset limit exceeds FaceModel storage");
 
 bool copyString(JsonVariantConst value, char* destination, size_t capacity, bool required) {
     if (destination == nullptr || capacity == 0) return false;
@@ -555,7 +557,7 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
 
     JsonArrayConst objects = document["objects"].as<JsonArrayConst>();
     if (objects.isNull()) return {FaceParseError::MissingField, 0};
-    if (objects.size() > FACE_MAX_OBJECTS) return {FaceParseError::TooManyObjects, 0};
+    if (objects.size() > DisplayProfileConfig::MAX_OBJECTS || objects.size() > FACE_MAX_OBJECTS) return {FaceParseError::TooManyObjects, 0};
 
     uint8_t index = 0;
     for (JsonObjectConst object : objects) {

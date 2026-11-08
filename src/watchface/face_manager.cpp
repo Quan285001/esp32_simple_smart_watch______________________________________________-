@@ -79,7 +79,8 @@ bool hasActiveFace() {
 }
 
 bool setActiveModel(const FaceModel& model) {
-    if (model.schemaVersion != 1 || model.objectCount > FACE_MAX_OBJECTS || model.assetCount > FACE_MAX_ASSETS ||
+    if (model.schemaVersion != 1 || model.objectCount > DisplayProfileConfig::MAX_OBJECTS || model.objectCount > FACE_MAX_OBJECTS ||
+        model.assetCount > DisplayProfileConfig::MAX_ASSETS || model.assetCount > FACE_MAX_ASSETS ||
         model.canvasWidth != DisplayProfileConfig::WIDTH ||
         model.canvasHeight != DisplayProfileConfig::HEIGHT ||
         strcmp(model.deviceProfileId, DisplayProfileConfig::ID) != 0) return false;

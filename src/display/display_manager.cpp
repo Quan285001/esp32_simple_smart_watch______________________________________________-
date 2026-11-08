@@ -137,15 +137,17 @@ bool beginDisplay(uint8_t rotation) {
     if (tft.width() != DisplayProfileConfig::WIDTH ||
         tft.height() != DisplayProfileConfig::HEIGHT) {
         Serial.printf("[DISPLAY] Profile mismatch: expected %ux%u, driver reports %ux%u.\\n",
-                      DisplayProfileConfig::WIDTH, DisplayProfileConfig::HEIGHT,
-                      tft.width(), tft.height());
+                      static_cast<unsigned>(DisplayProfileConfig::WIDTH),
+                      static_cast<unsigned>(DisplayProfileConfig::HEIGHT),
+                      static_cast<unsigned>(tft.width()), static_cast<unsigned>(tft.height()));
         return false;
     }
     tft.fillScreen(TFT_BLACK);
     activeRotation = rotation;
     displayInitialized = true;
     Serial.printf("[DISPLAY] %s initialized (%ux%u).\\n",
-                  DisplayProfileConfig::ID, tft.width(), tft.height());
+                  DisplayProfileConfig::ID, static_cast<unsigned>(tft.width()),
+                  static_cast<unsigned>(tft.height()));
     return true;
 }
 

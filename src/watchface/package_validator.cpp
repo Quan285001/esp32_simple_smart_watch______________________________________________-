@@ -14,7 +14,6 @@ namespace {
 constexpr size_t WFS_HEADER_SIZE = 64;
 constexpr size_t MAX_MANIFEST_BYTES = 8192;
 constexpr size_t MAX_LAYOUT_BYTES = 16384;
-constexpr uint16_t MAX_ASSETS = 16;
 constexpr uint8_t WFS_MAGIC[4] = {'W', 'F', 'S', '1'};
 
 uint16_t readU16(const uint8_t* p) {
@@ -135,7 +134,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
     const uint32_t payloadLength = readU32(header + 20);
     if (manifestLength == 0 || manifestLength > MAX_MANIFEST_BYTES ||
         layoutLength == 0 || layoutLength > MAX_LAYOUT_BYTES ||
-        assetCount > MAX_ASSETS || assetCount > FACE_MAX_ASSETS ||
+        assetCount > DisplayProfileConfig::MAX_ASSETS || assetCount > FACE_MAX_ASSETS ||
         payloadLength != expectedFileLength - WFS_HEADER_SIZE ||
         static_cast<uint64_t>(manifestLength) + layoutLength > payloadLength) {
         error = PackageValidationError::Length;
@@ -258,7 +257,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         uint8_t actualAssetDigest[32] = {};
 
         if (assetId[0] == '\0' || strlen(assetId) >= FACE_ASSET_ID_CAPACITY ||
-            parsedAssetCount >= FACE_MAX_ASSETS || strcmp(encoding, "rgb565le") != 0 ||
+            parsedAssetCount >= DisplayProfileConfig::MAX_ASSETS || parsedAssetCount >= FACE_MAX_ASSETS || strcmp(encoding, "rgb565le") != 0 ||
             strcmp(mediaType, "image/rgb565") != 0 ||
             width == 0 || width > DisplayProfileConfig::MAX_BITMAP_WIDTH ||
             height == 0 || height > DisplayProfileConfig::MAX_BITMAP_HEIGHT ||
