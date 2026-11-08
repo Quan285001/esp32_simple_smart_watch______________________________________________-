@@ -61,6 +61,8 @@ assert "prefs.remove(ACTIVE_SLOT_KEY)" in restore
 assert "prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT) == slot" in restore
 assert "if (restored)" in restore
 assert "markStorageUnavailable();" in restore
+activate_start = face_storage.index("bool activateSlot(")
+activate = face_storage[activate_start:]
 assert "markStorageUnavailable();" in activate
 unavailable_start = face_storage.index("void markStorageUnavailable()")
 unavailable_end = face_storage.index("}", unavailable_start)
@@ -68,8 +70,5 @@ unavailable = face_storage[unavailable_start:unavailable_end]
 assert "currentActiveSlot = INVALID_SLOT;" in unavailable
 assert "storageInitialized = false;" in unavailable
 assert "if (!prefs.begin(NVS_NAMESPACE, false))" in restore
-
-activate_start = face_storage.index("bool activateSlot(")
-activate = face_storage[activate_start:]
 
 print("WFS committed-slot recovery and transfer transaction guard tests passed.")
