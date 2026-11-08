@@ -24,13 +24,13 @@ const sandbox = {
 };
 vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
-  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, crc32: wfsCrc32, hex: wfsHex };',
+  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: wfsSendFrame, crc32: wfsCrc32, hex: wfsHex };',
   sandbox,
   { filename: 'web/app.js' },
 );
 
-const { state, encode, decode, waitFor, buildPackage, crc32, hex } = sandbox.__wfsCodecTest;
-state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map() };
+const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, crc32, hex } = sandbox.__wfsCodecTest;
+const writes = { control: [], data: [] };\nstate.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map(), controlRx: { writeValueWithResponse: async frame => writes.control.push(frame) }, dataRx: { writeValueWithResponse: async frame => writes.data.push(frame) } };
 state.schema = JSON.parse(fs.readFileSync(path.join(root, 'shared/schemas/watch-face.schema.json'), 'utf8'));
 
 const payload = Uint8Array.from([0x10, 0x20, 0x30, 0x40]);
@@ -48,6 +48,16 @@ assert.deepEqual(Array.from(decoded.payload), Array.from(payload));
 const corrupted = frame.slice();
 corrupted[6] ^= 1;
 assert.throws(() => decode(corrupted), /CRC mismatch/);
+
+(async () => {
+  await assert.rejects(wfsSendFrame(0x10, new Uint8Array(221), 'control'),
+    /control payload exceeds 220-byte limit/);
+  await wfsSendFrame(0x22, new Uint8Array(224), 'data');
+  assert.equal(writes.data[0].length, 240);
+  await assert.rejects(wfsSendFrame(0x22, new Uint8Array(225), 'data'),
+    /data payload exceeds 224-byte limit/);
+  console.log('WFS Web BLE characteristic payload-boundary tests passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
 
 (async () => {
   const pendingAck = waitFor(0x23, 60000);

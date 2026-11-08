@@ -48,7 +48,7 @@ All multi-byte integers are little-endian. Header size is 16 bytes.
 
 Reject invalid magic/version, unknown mandatory message types, nonzero reserved flags, oversized payloads, bad header CRC, truncated frames, wrong session IDs and invalid sequence transitions.
 
-Control payloads are compact UTF-8 JSON with a negotiated maximum. Data payloads are binary. BLE callbacks only copy bounded bytes into queues; parsing, flash writes and command execution happen in the application loop.
+Control RX payloads are compact UTF-8 JSON and are limited to 220 bytes. Data RX payloads are binary and are limited to 224 bytes per frame; the 8-byte DATA transfer prefix leaves at most 216 package bytes per chunk. BLE callbacks only copy bounded bytes into queues; parsing, flash writes and command execution happen in the application loop.
 
 ## 3. Message types
 
