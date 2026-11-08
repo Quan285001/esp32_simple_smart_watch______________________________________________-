@@ -220,7 +220,6 @@ static void bootNetworkTask(void *parameter) {
         WeatherCoordinator::beginBootFetch();
         bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
         const bool weatherUpdated = fetchHourlyWeather();
-        WeatherCoordinator::finishBootFetch(weatherUpdated);
         bootTerminalLog(weatherUpdated
             ? "[OK] Weather updated and cached"
             : "[INFO] Weather unavailable; cache retained",
@@ -232,6 +231,8 @@ static void bootNetworkTask(void *parameter) {
             fetchLunarDetails();
             bootTerminalLog("[OK] Lunar stage complete", TFT_GREEN);
         }
+        // Keep the coordinator busy until both sequential TLS stages are complete.
+        WeatherCoordinator::finishBootFetch(weatherUpdated);
     } else {
         bootTerminalLog("[INFO] Wi-Fi unavailable; using saved data", TFT_YELLOW);
     }
