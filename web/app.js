@@ -111,7 +111,8 @@ function designCompatibilityErrors(design,caps){
  const objects=Array.isArray(design?.objects)?design.objects:[];
  if(objects.length>maxObjects)errors.push('This firmware supports at most '+maxObjects+' objects per face');
  const imageObjects=objects.filter(o=>o?.type==='image');
- if(imageObjects.length>maxAssets)errors.push('This firmware supports at most '+maxAssets+' image assets per face');
+ const imageAssetIds=new Set(imageObjects.map(o=>o.assetId).filter(Boolean));
+ if(imageAssetIds.size>maxAssets)errors.push('This firmware supports at most '+maxAssets+' unique image assets per face');
  const supported=new Set(['text','digital-clock','analog-clock','date','weather','shape','image']);
  for(const o of objects){
   const name=o?.name||o?.id||'Unnamed element',t=o?.transform||{},s=o?.textStyle||{},b=o?.dataBinding||{};
