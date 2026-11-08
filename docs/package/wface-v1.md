@@ -122,7 +122,7 @@ Commit sequence:
 8. report the active design ID and package digest;
 9. retain the previous slot for rollback until a later confirmed boot policy permits cleanup.
 
-Power loss before step 7 leaves the old slot active. Power loss after step 7 is recovered by verifying the selected slot at boot and falling back to the previous valid slot if needed.
+Power loss before step 7 leaves the old slot active. After step 7, boot verifies only the slot named by the persisted NVS commit pointer. If that committed package is missing or invalid, the custom face is rejected and the built-in face is used. The firmware does not automatically promote the other slot: it may contain a partial package from a later interrupted transfer, and the current metadata does not prove that it is safe to activate. The previous slot remains untouched, but automatic fallback to it is not implemented.
 
 The two-slot scheme cannot guarantee that two maximum-sized packages fit in the SPIFFS partition. Runtime capacity checks are mandatory.
 
