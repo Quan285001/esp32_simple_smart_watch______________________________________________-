@@ -89,6 +89,11 @@ static void handleCommand(const String &cmd) {
     }
 
     if (cmd.startsWith("GPS:")) {
+        if (BootCoordinator::isBusy() || WeatherCoordinator::isFetchRunning() ||
+            isWifiScanBusy()) {
+            sendBLENotification("ERR_LOCATION_NETWORK_BUSY");
+            return;
+        }
         String value = cmd.substring(4);
         int comma = value.indexOf(',');
         if (comma < 1) { sendBLENotification("ERR_GPS"); return; }

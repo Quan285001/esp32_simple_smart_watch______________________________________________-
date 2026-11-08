@@ -48,3 +48,15 @@ assert "WeatherCoordinator::isFetchRunning()" in wifi_command
 assert wifi_command.index("network_work_busy") < wifi_command.index("WifiService::configureCredentials(")
 
 print("WFS command network arbitration guard tests passed.")
+
+ble_handler_source = (ROOT / "src/services/ble_command_handler.cpp").read_text()
+gps_start = ble_handler_source.index('if (cmd.startsWith("GPS:"))')
+gps_end = ble_handler_source.index('if (cmd.startsWith("WIFI:"))', gps_start)
+gps_command = ble_handler_source[gps_start:gps_end]
+assert "BootCoordinator::isBusy()" in gps_command
+assert "WeatherCoordinator::isFetchRunning()" in gps_command
+assert "isWifiScanBusy()" in gps_command
+assert gps_command.index("ERR_LOCATION_NETWORK_BUSY") < gps_command.index("Preferences prefs;")
+assert gps_command.index("ERR_LOCATION_NETWORK_BUSY") < gps_command.index("setWeatherCoordinates(")
+
+print("Legacy BLE GPS network arbitration guard tests passed.")
