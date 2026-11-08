@@ -9,7 +9,7 @@ const packageBuilder = appSource.slice(
   appSource.indexOf('async function buildWfsPackage'),
   appSource.indexOf('async function sendWfsChunkWithRetry')
 );
-assert.match(packageBuilder, /WfsDeviceCompatibility\\?\.errors/,
+assert.match(packageBuilder, /WfsDeviceCompatibility\?\.errors/,
   'the browser package builder must invoke the shared firmware compatibility preflight');
 
 const fixture = JSON.parse(fs.readFileSync(
