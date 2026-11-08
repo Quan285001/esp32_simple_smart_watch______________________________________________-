@@ -55,3 +55,11 @@ with tempfile.TemporaryDirectory(prefix="wfs-lifecycle-test-") as tmp:
 
 print("WFS transfer lifecycle policy host tests passed.")
 
+subprocess.run(
+    ["node", str(ROOT / "tests" / "host" / "device_compatibility_test.cjs")],
+    cwd=ROOT,
+    check=True,
+)
+
+print("WFS device compatibility preflight host tests passed.")
+

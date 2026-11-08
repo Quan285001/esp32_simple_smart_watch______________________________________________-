@@ -20,13 +20,22 @@
       "left": 12
     }
   },
-  "nominalLimits": {},
+  "nominalLimits": {
+    "maxBitmapWidth": 240,
+    "maxBitmapHeight": 240,
+    "maxObjects": 16,
+    "maxAssetBytes": 115200
+  },
   "declaredCapabilities": [
-    "clock.analog.fixed-face",
+    "text.basic",
+    "clock.digital",
+    "clock.analog",
     "date.basic",
-    "weather.current",
-    "weather.forecast",
-    "connectivity.ble",
+    "weather.temperature",
+    "shape.basic",
+    "image.rgb565",
+    "connectivity.ble.legacy",
+    "connectivity.ble.wfs-v1",
     "connectivity.wifi",
     "input.boot-button",
     "power.light-sleep"
