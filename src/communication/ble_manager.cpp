@@ -449,6 +449,21 @@ void handleDataPacket(const WfsPacket& packet) {
     }
     sendDataAck(transferId);
 }
+
+void rollbackWfsGattSetup() {
+    wfsService = nullptr;
+    controlTx = nullptr;
+    dataTx = nullptr;
+    if (rxQueue != nullptr) {
+        vQueueDelete(rxQueue);
+        rxQueue = nullptr;
+    }
+    sessionId = 0;
+    txSequence = 0;
+    lastControlSequence = 0;
+    queueDrops = 0;
+    __atomic_store_n(&sessionResetPending, false, __ATOMIC_RELEASE);
+}
 }
 
 bool beginWfsGatt(BLEServer* server) {
@@ -460,7 +475,10 @@ bool beginWfsGatt(BLEServer* server) {
     }
 
     wfsService = server->createService(WfsProtocol::SERVICE_UUID);
-    if (wfsService == nullptr) return false;
+    if (wfsService == nullptr) {
+        rollbackWfsGattSetup();
+        return false;
+    }
 
     BLECharacteristic* controlRx = wfsService->createCharacteristic(
         WfsProtocol::CONTROL_RX_UUID,
@@ -477,6 +495,7 @@ bool beginWfsGatt(BLEServer* server) {
 
     if (controlRx == nullptr || controlTx == nullptr || dataRx == nullptr || dataTx == nullptr) {
         Serial.println("[WFS] Characteristic creation failed.");
+        rollbackWfsGattSetup();
         return false;
     }
 

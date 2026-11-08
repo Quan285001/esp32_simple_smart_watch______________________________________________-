@@ -17,6 +17,18 @@ for forbidden in ("handleControlPacket(", "handleDataPacket(",
                   "TransferManager::", "FaceStorage::", "SPIFFS."):
     assert forbidden not in callback, forbidden
 
+# A failed optional WFS GATT setup must release its RX queue instead of
+# retaining nearly 2 KiB of queue storage while legacy BLE continues.
+setup_start = ble.index("void rollbackWfsGattSetup()")
+setup_end = ble.index(chr(10) + "}", setup_start)
+setup_rollback = ble[setup_start:setup_end]
+assert "vQueueDelete(rxQueue)" in setup_rollback
+assert "rxQueue = nullptr" in setup_rollback
+begin_start = ble.index("bool beginWfsGatt(")
+begin_end = ble.index("void applyPendingSessionReset()", begin_start)
+begin_wfs = ble[begin_start:begin_end]
+assert begin_wfs.count("rollbackWfsGattSetup();") == 2
+
 # Connect/disconnect callbacks invalidate queued packets by advancing an epoch.
 server_start = legacy.index("class ServerCallbacks")
 server_end = legacy.index("class CharacteristicCallbacks", server_start)
