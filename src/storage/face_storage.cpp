@@ -91,6 +91,32 @@ fs::File openSlot(uint8_t slot, const char* mode) {
     return StorageManager::open(path, mode);
 }
 
+bool restoreActiveSlot(uint8_t slot) {
+    if (!storageInitialized || (slot != INVALID_SLOT && slot > 1)) return false;
+    if (slot <= 1 && !StorageManager::exists(slotPath(slot))) return false;
+
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, false)) return false;
+
+    bool restored = false;
+    if (slot == INVALID_SLOT) {
+        if (prefs.isKey(ACTIVE_SLOT_KEY)) prefs.remove(ACTIVE_SLOT_KEY);
+        restored = !prefs.isKey(ACTIVE_SLOT_KEY);
+    } else {
+        const size_t written = prefs.putUChar(ACTIVE_SLOT_KEY, slot);
+        restored = written == sizeof(uint8_t) &&
+                   prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT) == slot;
+    }
+    prefs.end();
+
+    if (restored) {
+        currentActiveSlot = slot;
+    } else {
+        Serial.println("[FACE_STORAGE] WARNING: failed to restore active-slot commit record.");
+    }
+    return restored;
+}
+
 bool activateSlot(uint8_t slot) {
     if (!storageInitialized ||
         !FaceStoragePolicy::mayActivateSlot(slot, StorageManager::exists(slotPath(slot)))) {

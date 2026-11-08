@@ -182,7 +182,9 @@ bool apply(uint32_t transferId) {
     currentState = State::Applying;
     if (!FaceStorage::activateSlot(stagingSlot) ||
         !FaceManager::setActiveModel(verifiedFace)) {
-        if (previousActiveSlot <= 1) FaceStorage::activateSlot(previousActiveSlot);
+        // Restore the exact previous commit state. On a first install that
+        // means removing the active pointer, not leaving the new slot committed.
+        FaceStorage::restoreActiveSlot(previousActiveSlot);
         currentState = State::Failed;
         currentError = Error::ApplyFailed;
         return false;

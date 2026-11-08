@@ -42,5 +42,10 @@ apply = transfer_manager[apply_start:apply_end]
 assert "currentState != State::Verified" in apply
 assert "FaceStorage::activateSlot(stagingSlot)" in apply
 assert "FaceStorage::activateSlot(previousActiveSlot)" in apply
+assert "FaceStorage::restoreActiveSlot(previousActiveSlot)" in apply
+assert "bool restoreActiveSlot(uint8_t slot);" in face_storage_header
+assert "if (slot == INVALID_SLOT)" in face_storage
+assert "prefs.remove(ACTIVE_SLOT_KEY)" in face_storage
+assert "currentActiveSlot = slot;" in face_storage
 
 print("WFS committed-slot recovery and transfer transaction guard tests passed.")
