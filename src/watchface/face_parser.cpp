@@ -95,6 +95,18 @@ bool hasNonEmptyString(JsonVariantConst value) {
     return text != nullptr && text[0] != '\0';
 }
 
+bool validIdentifier(const char* value) {
+    if (value == nullptr || value[0] == '\0') return false;
+    for (const unsigned char* cursor = reinterpret_cast<const unsigned char*>(value);
+         *cursor != 0; ++cursor) {
+        const bool alpha = *cursor >= 'A' && *cursor <= 'Z';
+        const bool digit = *cursor >= '0' && *cursor <= '9';
+        const bool lower = *cursor >= 'a' && *cursor <= 'z';
+        if (!alpha && !digit && *cursor != '_' && *cursor != '-' && !lower) return false;
+    }
+    return true;
+}
+
 bool hasOnlyKeys(JsonObjectConst object, const char* const* allowedKeys, size_t allowedCount) {
     for (JsonPairConst pair : object) {
         const char* key = pair.key().c_str();
@@ -303,7 +315,10 @@ bool hasUnsupportedObjectProperties(JsonObjectConst source) {
 
 bool parseObject(JsonObjectConst source, FaceObject& target) {
     memset(&target, 0, sizeof(target));
-    if (!copyString(source["id"], target.id, sizeof(target.id), true) ||
+    if (!hasNonEmptyString(source["id"]) ||
+        !validIdentifier(source["id"].as<const char*>()) ||
+        !hasNonEmptyString(source["name"]) ||
+        !copyString(source["id"], target.id, sizeof(target.id), true) ||
         !copyString(source["name"], target.name, sizeof(target.name), true)) return false;
     if ((source.containsKey("visible") && !source["visible"].is<bool>()) ||
         (source.containsKey("locked") && !source["locked"].is<bool>())) return false;
@@ -396,7 +411,8 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
 
     JsonObjectConst binding = source["dataBinding"].as<JsonObjectConst>();
     if (!binding.isNull()) {
-        if (!copyString(binding["source"], target.dataSource, sizeof(target.dataSource), true) ||
+        if (!hasNonEmptyString(binding["source"]) ||
+            !copyString(binding["source"], target.dataSource, sizeof(target.dataSource), true) ||
             !copyString(binding["format"], target.dataFormat, sizeof(target.dataFormat), false)) return false;
     }
 
@@ -443,7 +459,9 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     }
 
     if (target.type == FaceElementType::Image) {
-        if (!copyString(source["assetId"], target.assetId, sizeof(target.assetId), true)) return false;
+        if (!hasNonEmptyString(source["assetId"]) ||
+            !validIdentifier(source["assetId"].as<const char*>()) ||
+            !copyString(source["assetId"], target.assetId, sizeof(target.assetId), true)) return false;
     }
     if ((target.type == FaceElementType::DigitalClock || target.type == FaceElementType::Date ||
          target.type == FaceElementType::Weather) && target.dataSource[0] == '\0') return false;
@@ -507,6 +525,11 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
         return {FaceParseError::InvalidField, 0};
     }
     output.schemaVersion = 1;
+    if (!hasNonEmptyString(document["designId"]) ||
+        !hasNonEmptyString(document["deviceProfileId"]) ||
+        !hasNonEmptyString(document["name"])) {
+        return {FaceParseError::InvalidField, 0};
+    }
     if (!copyString(document["designId"], output.designId, sizeof(output.designId), true) ||
         !copyString(document["deviceProfileId"], output.deviceProfileId, sizeof(output.deviceProfileId), true) ||
         !copyString(document["name"], output.name, sizeof(output.name), true)) {

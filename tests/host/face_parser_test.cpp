@@ -58,6 +58,23 @@ int main(int argc, char** argv) {
 
     assert(!parse(replaceOnce(fixture, R"JSON("schemaVersion": 1)JSON",
                               R"JSON("schemaVersion": 1.5)JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("designId": "sample-minimal-digital")JSON",
+                              R"JSON("designId": "")JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("name": "Minimal Digital")JSON",
+                              R"JSON("name": "")JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("id": "time")JSON",
+                              R"JSON("id": "")JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("name": "Digital Time")JSON",
+                              R"JSON("name": "")JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("id": "time")JSON",
+                              R"JSON("id": "invalid id")JSON"), model));
+    assert(!parse(replaceOnce(fixture, R"JSON("source": "time")JSON",
+                              R"JSON("source": "")JSON"), model));
+    const std::string invalidImageAssetId = replaceOnce(
+        replaceOnce(TEXT_FACE, R"JSON("type": "text")JSON", R"JSON("type": "image")JSON"),
+        R"JSON("text": "Hello")JSON", R"JSON("assetId": "invalid id")JSON");
+    assert(!parse(invalidImageAssetId, model));
+    assert(parse(std::string(16385, ' '), model).error == FaceParseError::InputTooLarge);
     assert(!parse(replaceOnce(fixture, R"JSON("width": 240)JSON",
                               R"JSON("width": 240.5)JSON"), model));
     assert(!parse(replaceOnce(fixture, R"JSON("backgroundColor": "#080B10")JSON",
