@@ -15,6 +15,9 @@ uint8_t currentActiveSlot = INVALID_SLOT;
 }
 
 bool begin() {
+    // Clear RAM state before every initialization attempt. If SPIFFS or NVS
+    // cannot be opened, callers must never observe a stale active slot.
+    currentActiveSlot = INVALID_SLOT;
     if (!StorageManager::isReady()) return false;
 
     Preferences prefs;
@@ -27,18 +30,12 @@ bool begin() {
         StorageManager::exists(SLOT_A_PATH),
         StorageManager::exists(SLOT_B_PATH));
 
-    if (currentActiveSlot <= 1) {
-        if (stored != currentActiveSlot) {
-            Serial.printf("[FACE_STORAGE] Active pointer target missing; selected fallback slot %u.\n",
-                          currentActiveSlot);
-        }
-        return true;
-    }
+    if (currentActiveSlot <= 1) return true;
 
-    // An unset pointer means no package was committed. Never promote an
-    // inactive slot that may contain a partial first transfer after power loss.
-    currentActiveSlot = INVALID_SLOT;
-    return false;
+    // A missing/invalid commit record is not permission to promote the other
+    // slot: it may be an incomplete package left by an interrupted transfer.
+    Serial.printf("[FACE_STORAGE] No valid committed face slot (pointer=%u); refusing recovery promotion.\\n",
+                  stored);
 }
 
 uint8_t activeSlot() {
