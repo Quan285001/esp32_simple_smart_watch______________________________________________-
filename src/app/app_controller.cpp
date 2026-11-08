@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <time.h>
 #include <esp_system.h>
@@ -12,8 +11,8 @@
 #include "../services/weather_service.h"
 #include "../services/ble_service.h"
 #include "../watchface/face_manager.h"
+#include "../display/display_canvas.h"
 
-extern TFT_eSPI tft;
 
 extern void toggleWiFi();
 extern void requestLightSleep();
@@ -116,11 +115,11 @@ void drawCurrentScreen(bool force) {
                     Serial.printf("[FACE] Render rejected (%u); using built-in clock.\\n",
                                   static_cast<unsigned int>(status));
                     FaceManager::disableActive();
-                    tft.fillScreen(TFT_BLACK);
+                    getDisplayCanvas().clearScreen(0x0000);
                     drawAnalogClockFace(timeinfo, 0, 0, 0);
                 }
             } else {
-                tft.fillScreen(TFT_BLACK);
+                getDisplayCanvas().clearScreen(0x0000);
                 drawAnalogClockFace(timeinfo, 0, 0, 0);
             }
 
