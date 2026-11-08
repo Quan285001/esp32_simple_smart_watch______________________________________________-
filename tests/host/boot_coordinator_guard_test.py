@@ -6,8 +6,7 @@ boot = (ROOT / "src/app/boot_coordinator.cpp").read_text()
 header = (ROOT / "src/app/boot_coordinator.h").read_text()
 
 setup_start = main.index("void setup()")
-setup_end = main.index("// =====================================================\n// MAIN LOOP", setup_start)
-setup = main[setup_start:setup_end]
+setup = main[setup_start:]
 assert "BootCoordinator::restorePersistentState();" in setup
 assert "Preferences" not in setup
 assert "StorageManager::begin()" not in setup
