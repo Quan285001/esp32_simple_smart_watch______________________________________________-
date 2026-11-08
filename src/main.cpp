@@ -121,6 +121,10 @@ void toggleWiFi() {
         Serial.println("[WIFI] Toggle ignored while a face transfer is active.");
         return;
     }
+    if (BootCoordinator::isBusy() || WeatherCoordinator::isFetchRunning()) {
+        Serial.println("[WIFI] Toggle ignored while startup/weather network work is active.");
+        return;
+    }
     if (WifiService::isScanBusy()) {
         Serial.println("[WIFI] Toggle ignored while scan is active.");
         return;
