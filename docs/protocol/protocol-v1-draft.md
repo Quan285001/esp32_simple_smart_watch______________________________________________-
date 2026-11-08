@@ -1,6 +1,6 @@
 # Watch Face Studio Communication Protocol — WFS BLE v1
 
-**Status:** WFS v1 GATT, Web transport and package-transfer paths now exist in source. They are not yet verified by a current PlatformIO build or physical browser-to-device test. The frame payload-length offset defect was corrected in commit 679f610; golden host coverage was added in commit 51590e7.  
+**Status:** WFS v1 GATT, Web transport and package-transfer paths exist in source. PlatformIO firmware build, parser host tests, protocol host tests, shared schema checks, Web syntax checks and profile-contract validation passed on commit `664de2d`. The current branch continues to receive changes; physical browser-to-device interoperability, repeated reconnects, transfer interruption and sleep/wake behavior still require board testing. The frame payload-length offset defect was corrected in commit 679f610; golden host coverage was added in commit 51590e7.  
 **Legacy compatibility:** the existing text service remains available during migration.
 
 ## 1. BLE services
