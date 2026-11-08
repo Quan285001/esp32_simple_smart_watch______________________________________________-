@@ -21,7 +21,7 @@ capability_end = source.index("\nvoid handleControlPacket", capability_start)
 capability_source = source[capability_start:capability_end]
 assert '\\"el\\":\\"t,dc,ac,d,w,s,i\\"' in capability_source
 assert '\\"wc\\":1' in capability_source
-format_literals = re.findall(r'"(?:\\\\.|[^"\\\\])*"', capability_source)
+format_literals = re.findall(r'"(?:\\.|[^"\\])*"', capability_source)
 assert len(format_literals) >= 2
 format_string = ''.join(ast.literal_eval(value) for value in format_literals[:2])
 format_string = format_string.replace("%lu", "%u")
