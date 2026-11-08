@@ -179,8 +179,12 @@ misplacedCornerRadius.objects[0].style = { cornerRadius: 8 };
 assert.ok(errorsFor(misplacedCornerRadius).some(error => error.includes('rendered only for rounded-rectangle')),
   'corner radius on a non-shape element must be rejected');
 
-const validRoundedCornerRadius = structuredClone(fractionalCornerRadius);
-validRoundedCornerRadius.objects[0].style.cornerRadius = 8;
+const validRoundedCornerRadius = structuredClone(fixture);
+validRoundedCornerRadius.objects = [{
+  id: 'rounded', type: 'shape', name: 'Rounded',
+  transform: { x: 0, y: 0, width: 40, height: 40 },
+  shape: 'rounded-rect', style: { fill: '#ffffff', cornerRadius: 8 }
+}];
 assert.deepEqual(errorsFor(validRoundedCornerRadius), [],
   'integer corner radius on a rounded rectangle must remain supported');
 
