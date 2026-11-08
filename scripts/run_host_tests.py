@@ -100,6 +100,13 @@ subprocess.run(
     check=True,
 )
 
+subprocess.run(
+    [sys.executable, str(ROOT / "tests" / "host" / "wfs_session_lifecycle_guard_test.py")],
+    cwd=ROOT,
+    check=True,
+)
+
+
 
 subprocess.run(
     ["node", str(ROOT / "tests" / "host" / "device_compatibility_test.cjs")],
