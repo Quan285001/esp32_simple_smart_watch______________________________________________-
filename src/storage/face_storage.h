@@ -8,6 +8,7 @@ namespace FaceStorage {
 constexpr uint8_t INVALID_SLOT = 0xFF;
 
 bool begin();
+bool isReady();
 uint8_t activeSlot();
 uint8_t inactiveSlot();
 const char* slotPath(uint8_t slot);

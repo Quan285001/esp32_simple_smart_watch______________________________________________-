@@ -12,18 +12,21 @@ constexpr char ACTIVE_SLOT_KEY[] = "active";
 constexpr char SLOT_A_PATH[] = "/face_a.wfs";
 constexpr char SLOT_B_PATH[] = "/face_b.wfs";
 uint8_t currentActiveSlot = INVALID_SLOT;
+bool storageInitialized = false;
 }
 
 bool begin() {
     // Clear RAM state before every initialization attempt. If SPIFFS or NVS
     // cannot be opened, callers must never observe a stale active slot.
     currentActiveSlot = INVALID_SLOT;
+    storageInitialized = false;
     if (!StorageManager::isReady()) return false;
 
     Preferences prefs;
     if (!prefs.begin(NVS_NAMESPACE, true)) return false;
     const uint8_t stored = prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT);
     prefs.end();
+    storageInitialized = true;
 
     currentActiveSlot = FaceStoragePolicy::selectBootSlot(
         stored,
@@ -39,12 +42,18 @@ bool begin() {
     return false;
 }
 
+bool isReady() {
+    return storageInitialized;
+}
+
 uint8_t activeSlot() {
     return currentActiveSlot;
 }
 
 uint8_t inactiveSlot() {
-    return FaceStoragePolicy::inactiveSlot(currentActiveSlot);
+    return storageInitialized
+        ? FaceStoragePolicy::inactiveSlot(currentActiveSlot)
+        : INVALID_SLOT;
 }
 
 const char* slotPath(uint8_t slot) {
@@ -54,6 +63,7 @@ const char* slotPath(uint8_t slot) {
 }
 
 size_t slotSize(uint8_t slot) {
+    if (!storageInitialized) return 0;
     const char* path = slotPath(slot);
     if (path == nullptr || !StorageManager::exists(path)) return 0;
     fs::File file = StorageManager::open(path, "r");
@@ -64,19 +74,22 @@ size_t slotSize(uint8_t slot) {
 }
 
 bool removeSlot(uint8_t slot) {
-    if (!FaceStoragePolicy::mayRemoveSlot(slot, currentActiveSlot)) return false;
+    if (!storageInitialized ||
+        !FaceStoragePolicy::mayRemoveSlot(slot, currentActiveSlot)) return false;
     const char* path = slotPath(slot);
     return path != nullptr && (!StorageManager::exists(path) || StorageManager::remove(path));
 }
 
 fs::File openSlot(uint8_t slot, const char* mode) {
+    if (!storageInitialized) return fs::File();
     const char* path = slotPath(slot);
     if (path == nullptr || mode == nullptr) return fs::File();
     return StorageManager::open(path, mode);
 }
 
 bool activateSlot(uint8_t slot) {
-    if (!FaceStoragePolicy::mayActivateSlot(slot, StorageManager::exists(slotPath(slot)))) {
+    if (!storageInitialized ||
+        !FaceStoragePolicy::mayActivateSlot(slot, StorageManager::exists(slotPath(slot)))) {
         return false;
     }
 

@@ -59,7 +59,7 @@ bool begin(uint32_t transferId, uint32_t packageLength,
         currentError = Error::InvalidRequest;
         return false;
     }
-    if (!StorageManager::isReady()) {
+    if (!StorageManager::isReady() || !FaceStorage::isReady()) {
         currentState = State::Failed;
         currentError = Error::StorageUnavailable;
         return false;
