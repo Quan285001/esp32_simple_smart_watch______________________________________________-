@@ -5,12 +5,19 @@ const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
 const { TextEncoder, TextDecoder } = require('node:util');
 
+class FakeElement {
+  constructor(tagName) { this.tagName = tagName; this.attributes = {}; this.style = {}; this.children = []; }
+  setAttribute(name, value) { this.attributes[name] = value; }
+  append(child) { this.children.push(child); }
+}
+
 const root = path.resolve(__dirname, '../..');
 const appSource = fs.readFileSync(path.join(root, 'web/app.js'), 'utf8');
 const compatibilitySource = fs.readFileSync(path.join(root, 'web/device-compatibility.js'), 'utf8');
 const sandbox = {
   document: {
     querySelector: () => null,
+    createElementNS: (_namespace, tagName) => new FakeElement(tagName),
     querySelectorAll: () => [],
     addEventListener: () => {},
   },
@@ -24,12 +31,12 @@ const sandbox = {
 };
 vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
-  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, crc32: wfsCrc32, hex: wfsHex };',
+  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, crc32: wfsCrc32, hex: wfsHex };',
   sandbox,
   { filename: 'web/app.js' },
 );
 
-const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, crc32, hex } = sandbox.__wfsCodecTest;
+const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, crc32, hex } = sandbox.__wfsCodecTest;
 const writes = { control: [], data: [] };
 state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map(), controlRx: { writeValueWithResponse: async frame => writes.control.push(frame) }, dataRx: { writeValueWithResponse: async frame => writes.data.push(frame) } };
 state.schema = JSON.parse(fs.readFileSync(path.join(root, 'shared/schemas/watch-face.schema.json'), 'utf8'));
@@ -77,6 +84,31 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   process.exitCode = 1;
 });
 
+
+(async () => {
+  const linePreview = new FakeElement('div');
+  renderShapePreview(linePreview, { shape: 'line', transform: { width: 100, height: 50 } },
+    { fill: '#ff0000', strokeWidth: 0 });
+  const lineSvg = linePreview.children[0];
+  assert.equal(lineSvg.tagName, 'svg');
+  assert.equal(lineSvg.children[0].tagName, 'line');
+  assert.equal(lineSvg.children[0].attributes.stroke, '#ff0000',
+    'line preview must use the same fill-color fallback as firmware');
+  assert.equal(lineSvg.children[0].attributes.stroke-width, '1');
+
+  const circlePreview = new FakeElement('div');
+  renderShapePreview(circlePreview, { shape: 'circle', transform: { width: 80, height: 40 } },
+    { fill: '#00ff00', strokeWidth: 0 });
+  assert.equal(circlePreview.children[0].children[0].attributes.r, '20',
+    'circle preview must use the smaller bounding-box dimension like firmware');
+
+  const roundedPreview = new FakeElement('div');
+  renderShapePreview(roundedPreview, { shape: 'rounded-rect', transform: { width: 60, height: 30 } },
+    { fill: '#ffffff', cornerRadius: 7, strokeWidth: 0 });
+  assert.equal(roundedPreview.children[0].children[0].attributes.rx, '7',
+    'rounded-rectangle preview must use the configured firmware radius');
+  console.log('WFS Web shape renderer parity tests passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
 
 (async () => {
   const design = {
