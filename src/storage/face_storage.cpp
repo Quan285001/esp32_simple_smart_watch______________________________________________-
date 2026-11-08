@@ -103,9 +103,10 @@ bool restoreActiveSlot(uint8_t slot) {
         if (prefs.isKey(ACTIVE_SLOT_KEY)) prefs.remove(ACTIVE_SLOT_KEY);
         restored = !prefs.isKey(ACTIVE_SLOT_KEY);
     } else {
-        const size_t written = prefs.putUChar(ACTIVE_SLOT_KEY, slot);
-        restored = written == sizeof(uint8_t) &&
-                   prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT) == slot;
+        // Read-back is authoritative for rollback: putUChar's return count
+        // alone cannot tell us whether the previous pointer was restored.
+        prefs.putUChar(ACTIVE_SLOT_KEY, slot);
+        restored = prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT) == slot;
     }
     prefs.end();
 
