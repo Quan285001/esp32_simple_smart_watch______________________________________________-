@@ -56,11 +56,16 @@ static volatile bool bootNetworkNeedsBle = false;
 
 // Prevent a new bulk face transfer from overlapping TLS/weather/Wi-Fi scan work.
 bool canStartWfsTransfer() {
-    return WeatherCoordinator::canStartTransfer(WifiService::isScanBusy(),bootNetworkRunning||bootNetworkNeedsBle);
+    return WeatherCoordinator::canStartTransfer(
+        WifiService::isScanBusy(),
+        bootNetworkRunning || bootNetworkNeedsBle);
 }
 static bool bootUiReady = false;
 
-int32_t getWeatherRefreshCountdownSeconds(){return WeatherCoordinator::refreshCountdownSeconds(wifiEnabled,WiFi.status()==WL_CONNECTED);}
+int32_t getWeatherRefreshCountdownSeconds() {
+    return WeatherCoordinator::refreshCountdownSeconds(
+        wifiEnabled, WiFi.status() == WL_CONNECTED);
+}
 
 void setAutoSleepTimeoutSeconds(uint8_t seconds) {
     SystemManager::setAutoSleepTimeoutSeconds(seconds);
@@ -75,8 +80,19 @@ uint8_t getAutoSleepTimeoutSeconds() {
  */
 void requestLightSleep() { SystemManager::requestSleep(); }
 
-uint8_t requestWeatherFetch(){return WeatherCoordinator::requestManual(wifiEnabled,WiFi.status()==WL_CONNECTED,WifiService::isScanBusy(),bootNetworkRunning||bootNetworkNeedsBle,TransferManager::isBusy());}
-uint8_t requestWeatherFetchForLocation(){return WeatherCoordinator::requestForLocation(wifiEnabled,WiFi.status()==WL_CONNECTED,WifiService::isScanBusy(),bootNetworkRunning||bootNetworkNeedsBle,TransferManager::isBusy());}
+uint8_t requestWeatherFetch() {
+    return WeatherCoordinator::requestManual(
+        wifiEnabled, WiFi.status() == WL_CONNECTED,
+        WifiService::isScanBusy(), bootNetworkRunning || bootNetworkNeedsBle,
+        TransferManager::isBusy());
+}
+
+uint8_t requestWeatherFetchForLocation() {
+    return WeatherCoordinator::requestForLocation(
+        wifiEnabled, WiFi.status() == WL_CONNECTED,
+        WifiService::isScanBusy(), bootNetworkRunning || bootNetworkNeedsBle,
+        TransferManager::isBusy());
+}
 
 
 // =====================================================
@@ -377,7 +393,9 @@ void loop() {
     handleBLECommands();
     serviceBLE();
     WeatherCoordinator::serviceNotification();
-    if(WeatherCoordinator::takeFaceInvalidation())weatherFaceInitialized=false;
+    if (WeatherCoordinator::takeFaceInvalidation()) {
+        weatherFaceInitialized = false;
+    }
     WifiService::serviceScan();
 
     // Automatic sleep is deliberately disabled during an active BLE session.
@@ -424,8 +442,11 @@ void loop() {
         Serial.println("[WIFI] Connection lost.");
     }
 
-    const bool hasWeatherData=weatherDataValid;
-    WeatherCoordinator::service(now,wifiEnabled,wifiConnected,hasWeatherData,WifiService::isScanBusy(),bootNetworkRunning||bootNetworkNeedsBle,TransferManager::isBusy());
+    const bool hasWeatherData = weatherDataValid;
+    WeatherCoordinator::service(
+        now, wifiEnabled, wifiConnected, hasWeatherData,
+        WifiService::isScanBusy(), bootNetworkRunning || bootNetworkNeedsBle,
+        TransferManager::isBusy());
 
     // -------------------------------------------------
     // MENU ANIMATION
