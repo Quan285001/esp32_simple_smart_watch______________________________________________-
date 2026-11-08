@@ -1,7 +1,7 @@
 # Firmware Rebuild — Implementation Status
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
-**Last source audit:** `a955927`  
+**Last source audit:** `70da942`  
 **Scope:** ESP32-C3 firmware, WFS BLE v1, Watch Face renderer, shared Web editor contract.
 
 This document records implementation state. It is not a declaration that the full rebuild prompt is complete.
@@ -66,6 +66,9 @@ This document records implementation state. It is not a declaration that the ful
 - Commit `83e8235`: PlatformIO Build and Pages deployment completed successfully after extracting the Arduino `loop()` into `AppRuntime`.
 - Commit `fda3881`: PlatformIO Build and Pages deployment completed successfully after adding BLE partial-initialization rollback.
 - Commit `a955927`: PlatformIO Build and Pages deployment completed successfully; host protocol tests passed and the ESP32-C3 firmware build, Watch Face parser tests and artifact upload completed successfully.
+- Commit `caa1b50`: PlatformIO Build and Pages deployment completed successfully after adding WFS session-generation and queue-teardown guard tests.
+- Commit `509ad06`: PlatformIO Build and Pages deployment completed successfully after correcting ESP-IDF stack high-water units and adding worker-task memory snapshots. Static build usage was 103,476 / 327,680 bytes RAM (31.6%) and 1,802,826 / 3,145,728 bytes flash (57.3%). These are link-time image metrics, not runtime free-heap measurements.
+- Commit `70da942`: PlatformIO Build and Pages deployment completed successfully after making transfer cancellation return an explicit result; host BLE/session, transfer transaction, worker diagnostics and parser tests passed, and the firmware artifact was uploaded.
 - No physical ESP32-C3 test is claimed. The user performs board flashing and hardware regression.
 
 ## Migration constraints
