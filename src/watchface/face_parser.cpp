@@ -497,6 +497,10 @@ FaceParseResult parseWatchFaceJson(const char* json, size_t length, FaceModel& o
         return {FaceParseError::BufferOverflow, 0};
     }
 
+    if (strcmp(output.deviceProfileId, DisplayProfileConfig::ID) != 0) {
+        return {FaceParseError::UnsupportedSchema, 0};
+    }
+
     JsonObjectConst canvas = document["canvas"].as<JsonObjectConst>();
     if (canvas.isNull()) return {FaceParseError::MissingField, 0};
     if (canvas["width"].isNull() || canvas["height"].isNull() ||

@@ -65,6 +65,10 @@ int main(int argc, char** argv) {
     assert(!parse(replaceOnce(fixture, R"JSON("top": 12)JSON",
                               R"JSON("top": -1)JSON"), model));
 
+    assert(!parse(replaceOnce(fixture,
+                              R"JSON("deviceProfileId": "esp32-c3-gc9a01-240")JSON",
+                              R"JSON("deviceProfileId": "unknown-display")JSON"), model));
+
     std::string invalidMetadata = replaceOnce(fixture, "\"objects\":",
         "\"metadata\": \"not-an-object\", \"objects\":");
     assert(!parse(invalidMetadata, model));

@@ -134,10 +134,18 @@ bool beginDisplay(uint8_t rotation) {
     }
     tft.init();
     tft.setRotation(rotation);
+    if (tft.width() != DisplayProfileConfig::WIDTH ||
+        tft.height() != DisplayProfileConfig::HEIGHT) {
+        Serial.printf("[DISPLAY] Profile mismatch: expected %ux%u, driver reports %ux%u.\\n",
+                      DisplayProfileConfig::WIDTH, DisplayProfileConfig::HEIGHT,
+                      tft.width(), tft.height());
+        return false;
+    }
     tft.fillScreen(TFT_BLACK);
     activeRotation = rotation;
     displayInitialized = true;
-    Serial.println("[DISPLAY] GC9A01 initialized.");
+    Serial.printf("[DISPLAY] %s initialized (%ux%u).\\n",
+                  DisplayProfileConfig::ID, tft.width(), tft.height());
     return true;
 }
 
