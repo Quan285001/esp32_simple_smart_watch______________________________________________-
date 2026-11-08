@@ -34,8 +34,9 @@ bool begin() {
 
     // A missing/invalid commit record is not permission to promote the other
     // slot: it may be an incomplete package left by an interrupted transfer.
-    Serial.printf("[FACE_STORAGE] No valid committed face slot (pointer=%u); refusing recovery promotion.\\n",
+    Serial.printf("[FACE_STORAGE] No valid committed face slot (pointer=%u); refusing recovery promotion.\n",
                   stored);
+    return false;
 }
 
 uint8_t activeSlot() {
