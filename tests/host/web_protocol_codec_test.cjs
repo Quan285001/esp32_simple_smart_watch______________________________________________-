@@ -30,7 +30,8 @@ vm.runInNewContext(
 );
 
 const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, crc32, hex } = sandbox.__wfsCodecTest;
-const writes = { control: [], data: [] };\nstate.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map(), controlRx: { writeValueWithResponse: async frame => writes.control.push(frame) }, dataRx: { writeValueWithResponse: async frame => writes.data.push(frame) } };
+const writes = { control: [], data: [] };
+state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map(), controlRx: { writeValueWithResponse: async frame => writes.control.push(frame) }, dataRx: { writeValueWithResponse: async frame => writes.data.push(frame) } };
 state.schema = JSON.parse(fs.readFileSync(path.join(root, 'shared/schemas/watch-face.schema.json'), 'utf8'));
 
 const payload = Uint8Array.from([0x10, 0x20, 0x30, 0x40]);
