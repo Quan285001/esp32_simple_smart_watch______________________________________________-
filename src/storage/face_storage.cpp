@@ -82,11 +82,28 @@ bool activateSlot(uint8_t slot) {
 
     Preferences prefs;
     if (!prefs.begin(NVS_NAMESPACE, false)) return false;
+
+    const uint8_t previousSlot = currentActiveSlot;
     const size_t written = prefs.putUChar(ACTIVE_SLOT_KEY, slot);
     const uint8_t verified = prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT);
-    prefs.end();
+    if (written != sizeof(uint8_t) || verified != slot) {
+        // putUChar may have reached NVS even if the read-back check failed.
+        // Restore the previous commit record before reporting activation failure.
+        if (previousSlot <= 1) {
+            prefs.putUChar(ACTIVE_SLOT_KEY, previousSlot);
+        } else {
+            prefs.remove(ACTIVE_SLOT_KEY);
+        }
+        const uint8_t restored = prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT);
+        prefs.end();
 
-    if (written != sizeof(uint8_t) || verified != slot) return false;
+        if (restored != previousSlot) {
+            Serial.println("[FACE_STORAGE] WARNING: failed to restore active-slot commit record.");
+        }
+        return false;
+    }
+
+    prefs.end();
     currentActiveSlot = slot;
     return true;
 }
