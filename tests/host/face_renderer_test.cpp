@@ -2,6 +2,7 @@
 #include "display_canvas.h"
 
 #include <assert.h>
+#include <iostream>
 #include <string>
 #include <vector>
 
