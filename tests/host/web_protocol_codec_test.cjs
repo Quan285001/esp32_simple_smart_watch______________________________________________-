@@ -308,6 +308,9 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   transparentOverlay.objects[1].transform.zIndex = 0;
   await assert.rejects(buildPackage(transparentOverlay), /transparent overlay images/,
     'transparent images above lower layers must be rejected before RGB565 flattening');
+  const hiddenTransparentOverlay = structuredClone(transparentOverlay);
+  hiddenTransparentOverlay.objects[1].visible = false;
+  await buildPackage(hiddenTransparentOverlay);
   const negativeTransparentOverlay = structuredClone(transparentOverlay);
   negativeTransparentOverlay.objects[1].transform.zIndex = -1;
   negativeTransparentOverlay.objects[0].transform.zIndex = -2;
