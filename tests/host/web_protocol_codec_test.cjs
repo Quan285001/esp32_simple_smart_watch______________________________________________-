@@ -17,6 +17,7 @@ const compatibilitySource = fs.readFileSync(path.join(root, 'web/device-compatib
 const sandbox = {
   document: {
     querySelector: () => null,
+    createElement: tagName => new FakeElement(tagName),
     createElementNS: (_namespace, tagName) => new FakeElement(tagName),
     querySelectorAll: () => [],
     addEventListener: () => {},
@@ -31,12 +32,12 @@ const sandbox = {
 };
 vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
-  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, crc32: wfsCrc32, hex: wfsHex };',
+  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
   sandbox,
   { filename: 'web/app.js' },
 );
 
-const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, crc32, hex } = sandbox.__wfsCodecTest;
+const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, setPreviewText, renderWeatherPreview, crc32, hex } = sandbox.__wfsCodecTest;
 const writes = { control: [], data: [] };
 state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map(), controlRx: { writeValueWithResponse: async frame => writes.control.push(frame) }, dataRx: { writeValueWithResponse: async frame => writes.data.push(frame) } };
 state.schema = JSON.parse(fs.readFileSync(path.join(root, 'shared/schemas/watch-face.schema.json'), 'utf8'));
@@ -84,6 +85,33 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   process.exitCode = 1;
 });
 
+
+(async () => {
+  const textPreview = new FakeElement('div');
+  setPreviewText(textPreview, '12:34', { scaleX: 1.2, scaleY: 0.8, textAlign: 'right' });
+  assert.equal(textPreview.children[0].style.overflow, 'hidden',
+    'text preview must clip glyphs to the configured object bounds');
+  assert.equal(textPreview.children[0].style.justifyContent, 'flex-end',
+    'text preview alignment must match the firmware text alignment');
+  assert.equal(textPreview.children[0].children[0].textContent, '12:34');
+
+  const weatherPreview = new FakeElement('div');
+  renderWeatherPreview(weatherPreview, { weatherFields: ['temperature', 'condition'] },
+    { fontSize: 40, scaleX: 1, scaleY: 1, textAlign: 'center' });
+  assert.equal(weatherPreview.children.length, 2,
+    'combined weather preview must use separate temperature and condition rows');
+  assert.equal(weatherPreview.children[0].children[0].children[0].textContent, '27 C');
+  assert.equal(weatherPreview.children[1].children[0].children[0].textContent, 'Cloudy');
+  assert.match(weatherPreview.children[1].style.fontSize, /cqw$/,
+    'condition preview must use the smaller firmware text size');
+
+  const conditionOnly = new FakeElement('div');
+  renderWeatherPreview(conditionOnly, { weatherFields: ['condition'] },
+    { fontSize: 16, scaleX: 1, scaleY: 1, textAlign: 'center' });
+  assert.equal(conditionOnly.children[0].children[0].textContent, 'Cloudy',
+    'condition-only weather preview must not show temperature');
+  console.log('WFS Web text clipping and weather preview parity tests passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
 
 (async () => {
   const linePreview = new FakeElement('div');
