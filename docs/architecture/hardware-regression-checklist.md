@@ -56,6 +56,7 @@ The boot-network and weather-fetch tasks should also emit `bootNetwork task exit
 - [ ] Enable Bluetooth from the menu and discover `ESP32_Watch_C3`.
 - [ ] Connect from the Web editor and complete the WFS v1 Hello/HelloAck handshake.
 - [ ] Read capabilities, device status and face status.
+- [ ] Confirm the compact element list includes `t,dc,ac,d,w,s,i` and weather-condition support is reported as `wc=1`.
 - [ ] Disconnect and reconnect at least 10 times.
 - [ ] Confirm advertising resumes after disconnect when Bluetooth is enabled.
 - [ ] Disable Bluetooth while disconnected; confirm advertising stops.
@@ -69,6 +70,7 @@ The boot-network and weather-fetch tasks should also emit `bootNetwork task exit
 Use a known-good small project first, then a project containing one RGB565 image.
 
 - [ ] Upload a valid project; verify TransferBegin, chunk ACKs, digest/package verification and Apply.
+- [ ] Capture `[PERF] WFS receive=... verify=... bytes=... heap_start=... heap_after=... min_heap_drop=...` and `[PERF] WFS apply=... total=...` logs; record the timings and heap values.
 - [ ] Confirm the new face becomes active only after Apply succeeds.
 - [ ] Start another upload and cancel it; verify a cancellation event is emitted only when cancellation actually succeeds.
 - [ ] Send a wrong transfer ID to Cancel; verify an error is returned and the active transfer remains intact.
@@ -102,7 +104,7 @@ Capture serial snapshots:
 1. After cold boot and startup completion.
 2. After NTP and weather/lunar fetch.
 3. After BLE connect/disconnect cycles.
-4. After a successful image-bearing Watch Face transfer.
+4. After a successful image-bearing Watch Face transfer; preserve `[MEM] WFS receive begin`, `WFS verified` and `WFS apply complete` snapshots.
 5. After repeated screen transitions.
 6. After sleep/wake cycles.
 
