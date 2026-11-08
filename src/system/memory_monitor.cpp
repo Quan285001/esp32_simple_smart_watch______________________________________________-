@@ -1,6 +1,8 @@
 #include "memory_monitor.h"
 
 #include <esp_heap_caps.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 namespace MemoryMonitor {
 
@@ -9,6 +11,9 @@ Snapshot capture() {
     snapshot.freeHeap = ESP.getFreeHeap();
     snapshot.minimumFreeHeap = heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
     snapshot.largestFreeBlock = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    const UBaseType_t stackHighWaterWords = uxTaskGetStackHighWaterMark(nullptr);
+    snapshot.currentTaskStackHighWaterBytes =
+        static_cast<uint32_t>(stackHighWaterWords) * sizeof(StackType_t);
     return snapshot;
 }
 

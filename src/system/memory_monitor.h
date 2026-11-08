@@ -8,6 +8,7 @@ struct Snapshot {
     uint32_t freeHeap;
     uint32_t minimumFreeHeap;
     uint32_t largestFreeBlock;
+    uint32_t currentTaskStackHighWaterBytes;
 };
 
 Snapshot capture();

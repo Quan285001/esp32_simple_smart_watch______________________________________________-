@@ -3,10 +3,7 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
-#include <esp_sleep.h>
 #include <esp_system.h>
-#include <esp_heap_caps.h>
-#include <driver/gpio.h>
 #include <TFT_eSPI.h>
 #include "config.h"
 #include "app/app_state.h"
