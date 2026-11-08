@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "../display/display_canvas.h"
+#include "../display/display_profile.h"
 #include "elements/image.h"
 
 namespace {
