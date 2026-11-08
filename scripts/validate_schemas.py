@@ -17,6 +17,9 @@ FIXTURES = [
     (SCHEMA_DIR / "device-profile.schema.json",
      ROOT / "shared" / "capabilities" / "esp32-c3-gc9a01-240.json",
      "ESP32-C3 GC9A01 device profile"),
+    (SCHEMA_DIR / "watch-face-project.schema.json",
+     SCHEMA_DIR / "examples" / "minimal-watch-face-project-v1.json",
+     "portable watch-face project v1 fixture"),
 ]
 
 
