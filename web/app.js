@@ -143,7 +143,34 @@ function importJSON(file){if(!file)return;const input=$('#jsonInput');const rese
 function openAssetDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open('watch-face-studio-assets',1);req.onupgradeneeded=()=>req.result.createObjectStore('assets',{keyPath:'id'});req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
 async function saveAsset(asset){const db=await openAssetDB();return new Promise((resolve,reject)=>{const tx=db.transaction('assets','readwrite');tx.objectStore('assets').put(asset);tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>{db.close();reject(tx.error)}})}
 async function loadAssets(){try{const db=await openAssetDB();state.images=await new Promise((resolve,reject)=>{const req=db.transaction('assets').objectStore('assets').getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error)});db.close()}catch(e){console.warn('Image asset storage unavailable',e)}}
-function addImage(file){if(!file||!file.type.startsWith('image/'))return;const reader=new FileReader();reader.onload=async()=>{const id=uid();const asset={id,data:reader.result,name:file.name};try{await saveAsset(asset);state.images.push(asset);const o={id:uid(),type:'image',name:file.name.slice(0,40),assetId:id,visible:true,locked:false,transform:{x:30,y:30,width:180,height:180,anchor:'top-left',zIndex:state.design.objects.length}};state.design.objects.push(o);state.selected=o.id;saveDraft();render();toast('Image saved in this browser and added to the design')}catch(e){toast('Could not save image locally: '+e.message)}};reader.readAsDataURL(file)}
+function addImage(file){
+ const input=$('#imageInput');
+ const resetInput=()=>{if(input)input.value=''};
+ if(!file)return;
+ if(!file.type.startsWith('image/')){toast('Please select a supported image file');resetInput();return}
+ if(file.size>5*1024*1024){toast('Image exceeds the 5 MB source-file limit');resetInput();return}
+ const reader=new FileReader();
+ reader.onerror=()=>{toast('Could not read the selected image');resetInput()};
+ reader.onabort=()=>{toast('Image import was cancelled');resetInput()};
+ reader.onload=async()=>{
+  try{
+   if(typeof reader.result!=='string'||!reader.result.startsWith('data:image/'))throw Error('The selected file did not produce a valid image');
+   if(reader.result.length>8000000)throw Error('Encoded image exceeds the 8 MB portable asset limit');
+   const usedIds=new Set((state.design?.objects||[]).filter(o=>o.type==='image').map(o=>o.assetId));
+   if(usedIds.size>=16)throw Error('A portable project can contain at most 16 image assets');
+   const existingBytes=state.images.filter(asset=>usedIds.has(asset.id)).reduce((total,asset)=>total+asset.data.length,0);
+   if(existingBytes+reader.result.length>8000000)throw Error('Images in this design exceed the 8 MB portable project limit');
+   const id=uid(),asset={id,data:reader.result,name:file.name};
+   await saveAsset(asset);
+   state.images.push(asset);
+   const o={id:uid(),type:'image',name:file.name.slice(0,40),assetId:id,visible:true,locked:false,transform:{x:30,y:30,width:180,height:180,anchor:'top-left',zIndex:state.design.objects.length}};
+   state.design.objects.push(o);state.selected=o.id;saveDraft();render();
+   toast('Image saved in this browser and added to the design');
+  }catch(e){toast('Could not add image: '+e.message)}
+  finally{resetInput()}
+ };
+ try{reader.readAsDataURL(file)}catch(e){toast('Could not start image import: '+e.message);resetInput()}
+}
 async function sendLegacyCommand(command){if(!state.bleChar){toast('Connect to the watch first');return false}try{const bytes=new TextEncoder().encode(command);if(state.bleChar.properties.write&&state.bleChar.writeValueWithResponse)await state.bleChar.writeValueWithResponse(bytes);else if(state.bleChar.writeValueWithoutResponse)await state.bleChar.writeValueWithoutResponse(bytes);else await state.bleChar.writeValue(bytes);return true}catch(e){toast('BLE command failed: '+e.message);return false}}
 function legacyStatus(message){const el=$('#legacyStatus');if(el)el.textContent=message}
 function handleLegacyNotification(event){const chunk=new TextDecoder().decode(event.target.value);if(chunk.startsWith('AUTO_SLEEP:')){$('#autoSleepSelect').value=chunk.split(':')[1];legacyStatus('Current auto-sleep setting received');return}if(chunk.startsWith('AUTO_SLEEP_OK:')){legacyStatus('Auto-sleep setting saved');return}if(chunk==='ERR_AUTO_SLEEP'||chunk==='ERR_AUTO_SLEEP_STORAGE'){legacyStatus('Watch rejected the auto-sleep setting');return}if(chunk==='WEATHER_STARTED'){legacyStatus('Weather update started on the watch');return}if(chunk==='WEATHER_OK'){legacyStatus('Weather updated successfully');return}if(chunk==='WEATHER_FAILED'||chunk==='ERR_WIFI'){legacyStatus('Weather update failed; cached weather should remain on the watch');return}if(chunk==='WIFI_SCAN_STARTED'){legacyStatus('Watch is scanning Wi-Fi networks…');return}if(chunk==='WIFI_SCAN_ERROR'){legacyStatus('Wi-Fi scan failed on the watch');return}if(chunk==='GPS_OK'||chunk==='TIME_OK'||chunk==='SLEEP_OK'){legacyStatus('Watch acknowledged: '+chunk);return}state.legacyBuffer+=chunk;if(state.legacyBuffer.length>8192){state.legacyBuffer='';legacyStatus('Wi-Fi response was too large or incomplete');return}if(state.legacyBuffer.trim().endsWith(']')){try{const networks=JSON.parse(state.legacyBuffer);if(Array.isArray(networks)){const select=$('#wifiSelect');select.innerHTML='<option value="">Select a network</option>';networks.forEach(ssid=>{const op=document.createElement('option');op.value=ssid;op.textContent=ssid;select.append(op)});legacyStatus('Found '+networks.length+' Wi-Fi networks')}state.legacyBuffer=''}catch(e){state.legacyBuffer='';legacyStatus('Could not parse Wi-Fi scan response')}}}

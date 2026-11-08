@@ -121,6 +121,13 @@ subprocess.run(
 )
 
 subprocess.run(
+    [sys.executable, str(ROOT / "tests" / "host" / "web_image_import_guard_test.py")],
+    cwd=ROOT,
+    check=True,
+)
+
+
+subprocess.run(
     [sys.executable, str(ROOT / "tests" / "host" / "worker_diagnostics_guard_test.py")],
     cwd=ROOT,
     check=True,
