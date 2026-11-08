@@ -19,6 +19,7 @@ This change aligns the Web preflight and committed golden fixture with the firmw
 7. Shape styling that the firmware ignores is rejected before upload: `style.fill` cannot act as a fallback text color, `style.stroke` cannot create a browser-only border, and `style.cornerRadius` must be an integer from 0–255 and is only valid for `shape: rounded-rect`.
 8. Web shape previews now draw rect, rounded-rect, circle, and line primitives using SVG geometry that follows the firmware's fill/stroke/radius rules. Text previews clip glyphs to object bounds and use the same alignment/scaling contract; weather previews distinguish temperature-only, condition-only, and combined rows.
 9. The analog-clock preview now computes hour, minute, and second hands from the current time and scales dial/tick geometry from the object's actual bounds using the firmware's radius and hand-length ratios.
+10. Object opacity must be exactly 1.0: neither the browser preview nor the GC9A01 backend has alpha blending. Web compatibility preflight and firmware renderer preflight now reject near-opaque values instead of silently rendering them fully opaque.
 
 ## Runtime capability contract
 
