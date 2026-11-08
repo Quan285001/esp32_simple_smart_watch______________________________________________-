@@ -248,6 +248,10 @@ void handleControlPacket(const WfsPacket& packet) {
         sendError(0x0002, WfsProtocol::frameErrorName(decodeError));
         return;
     }
+    if (frame.payloadLength > WfsProtocol::MAX_CONTROL_PAYLOAD) {
+        sendError(0x0002, "control_payload_too_large");
+        return;
+    }
 
     if (frame.type == WfsProtocol::MessageType::Hello) {
         JsonDocument hello;
@@ -419,6 +423,10 @@ void handleDataPacket(const WfsPacket& packet) {
         WfsProtocol::decodeFrame(packet.bytes, packet.length, sessionId, frame);
     if (error != WfsProtocol::FrameError::None) {
         sendError(0x0002, WfsProtocol::frameErrorName(error));
+        return;
+    }
+    if (frame.payloadLength > WfsProtocol::MAX_DATA_FRAME_BYTES - WfsProtocol::FRAME_HEADER_SIZE) {
+        sendError(0x0004, "data_payload_too_large");
         return;
     }
     if (sessionId == 0 || frame.sessionId != sessionId) {
