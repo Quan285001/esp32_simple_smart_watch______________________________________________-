@@ -126,6 +126,10 @@
           "type": "integer",
           "minimum": 1
         },
+        "maxAssets": {
+          "type": "integer",
+          "minimum": 1
+        },
         "maxPackageBytes": {
           "type": "integer",
           "minimum": 1
