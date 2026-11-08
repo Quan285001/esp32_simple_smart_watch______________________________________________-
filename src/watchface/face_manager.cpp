@@ -18,6 +18,10 @@ bool activeFaceNeedsFullRender = false;
 }
 
 bool begin() {
+    // Clear the in-memory face before attempting recovery. A failed re-init
+    // must not leave a previously loaded model appearing active.
+    activeFaceValid = false;
+    activeFaceNeedsFullRender = false;
     if (!StorageManager::isReady()) return false;
 
     const uint8_t slot = FaceStorage::activeSlot();
@@ -37,6 +41,8 @@ bool begin() {
                               activeFace.name, activeFace.objectCount);
                 return true;
             }
+        } else {
+            packageError = PackageValidationError::Io;
         }
         Serial.printf("[FACE] Active package rejected: %s.\\n",
                       packageValidationErrorName(packageError));
