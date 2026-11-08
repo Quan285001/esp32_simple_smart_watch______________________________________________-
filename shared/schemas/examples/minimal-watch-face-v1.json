@@ -21,24 +21,32 @@
       "id": "time",
       "type": "digital-clock",
       "name": "Digital Time",
+      "visible": true,
+      "locked": false,
       "transform": {
         "x": 35,
         "y": 82,
         "width": 170,
         "height": 60,
+        "anchor": "top-left",
         "zIndex": 10
       },
       "dataBinding": {
         "source": "time",
         "format": "HH:mm"
       },
+      "clockMode": "digital",
       "timeFormat": "24h",
       "showSeconds": false,
       "showAmPm": false,
       "textStyle": {
         "fontSize": 40,
         "fontWeight": 600,
-        "fill": "#FFFFFF"
+        "fontFamily": "system-ui",
+        "textAlign": "center",
+        "fill": "#FFFFFF",
+        "scaleX": 1,
+        "scaleY": 1
       },
       "glyphOverrides": [],
       "glyphFallback": "compatibility-error"
