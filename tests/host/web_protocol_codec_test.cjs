@@ -32,12 +32,12 @@ const sandbox = {
 };
 vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
-  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, renderAnalogClockPreview, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
+  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, renderAnalogClockPreview, roundFirmwarePixel, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
   sandbox,
   { filename: 'web/app.js' },
 );
 
-const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, renderAnalogClockPreview, setPreviewText, renderWeatherPreview, crc32, hex } = sandbox.__wfsCodecTest;
+const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, renderAnalogClockPreview, roundFirmwarePixel, setPreviewText, renderWeatherPreview, crc32, hex } = sandbox.__wfsCodecTest;
 const writes = { control: [], data: [] };
 state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map(), controlRx: { writeValueWithResponse: async frame => writes.control.push(frame) }, dataRx: { writeValueWithResponse: async frame => writes.data.push(frame) } };
 state.schema = JSON.parse(fs.readFileSync(path.join(root, 'shared/schemas/watch-face.schema.json'), 'utf8'));
@@ -85,6 +85,14 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   process.exitCode = 1;
 });
 
+
+(async () => {
+  assert.equal(roundFirmwarePixel(1.5), 2);
+  assert.equal(roundFirmwarePixel(-1.5), -2,
+    'preview geometry must round negative half-pixels away from zero like lroundf');
+  assert.equal(roundFirmwarePixel(2.49), 2);
+  console.log('WFS Web-to-firmware pixel rounding tests passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
 
 (async () => {
   const analogPreview = new FakeElement('div');
