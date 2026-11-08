@@ -1,7 +1,7 @@
 # Firmware Rebuild — Implementation Status
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
-**Last source audit:** `cdf9985`  
+**Last source audit:** `9d2afe4` (BLE lifecycle guard review); technical reference added at `2644af0`.  
 **Scope:** ESP32-C3 firmware, WFS BLE v1, Watch Face renderer, shared Web editor contract.
 
 This document records implementation state. It is not a declaration that the full rebuild prompt is complete.
@@ -42,6 +42,13 @@ This document records implementation state. It is not a declaration that the ful
 - WFS package manifests now declare optional weather-condition support when used, and firmware package validation verifies that every element's required capability is declared before accepting the package.
 - Portable `.wfsproject.json` files bundle the design and its referenced source images.
 - The project envelope has a shared schema and a golden fixture. Legacy raw Watch Face JSON remains importable when referenced images already exist in the browser's IndexedDB.
+
+### Storage and BLE lifecycle hardening
+
+- Storage boot selection is governed exclusively by the NVS active-slot commit pointer. A missing, invalid or dangling pointer never promotes the other SPIFFS slot.
+- Transfer verification requires flushing and closing the staging writer before reopening the package for validation. Apply is gated by the Verified state.
+- Failed activation attempts restore and read back the previous commit pointer; first-install rollback removes the pointer. If rollback cannot be verified, storage is disabled until reinitialization.
+- Added host source guards for BLE callback/session teardown ordering and storage recovery/rollback invariants. These are source-contract checks, not simulated NVS/SPIFFS power-loss tests.
 
 ### Power and diagnostics
 

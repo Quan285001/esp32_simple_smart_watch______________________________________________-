@@ -6,6 +6,12 @@ The goal is to keep the firmware small and practical: show the time, display wea
 
 > This is an experimental personal project. Hardware revisions and firmware behavior may change.
 
+## Technical documentation
+
+Start with the [Technical Reference](docs/TECHNICAL_REFERENCE.md) for the complete firmware/Web architecture, hardware contract, build commands, Watch Face model, WFS1 package, BLE protocol, storage transaction, diagnostics and test strategy.
+
+The full document set is indexed in [docs/README.md](docs/README.md). For implementation progress, see the [Phase Completion Matrix](docs/architecture/phase-completion-matrix.md) and [Firmware Rebuild Status](docs/architecture/rebuild-implementation-status.md). Physical-board verification is tracked in the [Hardware Regression Checklist](docs/architecture/hardware-regression-checklist.md).
+
 ## Features
 
 - **Analog clock** with time synchronization through NTP (UTC+7).
