@@ -18,6 +18,8 @@ for required in (
     "SystemManager::serviceAutoSleep(",
     "drawAnalogClockFace(",
     "drawWeatherFaceData(",
+    "micros() - renderStartedUs",
+    "renderDurationUs >= 8000UL",
 ):
     assert required in runtime, required
 

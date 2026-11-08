@@ -223,7 +223,15 @@ void loop() {
         if (FaceManager::hasActiveFace()) {
             static int lastCustomFaceSecond = -1;
             if (cachedTime.tm_sec != lastCustomFaceSecond) {
+                const uint32_t renderStartedUs = micros();
                 const FaceRenderStatus status = FaceManager::renderActiveDynamic(cachedTime, getWeatherSnapshot());
+                const uint32_t renderDurationUs = micros() - renderStartedUs;
+                // Emit only slow frames so normal one-second updates do not
+                // flood Serial or perturb the UI loop being measured.
+                if (renderDurationUs >= 8000UL) {
+                    Serial.printf("[PERF] Watch Face render=%lu us\\n",
+                                  static_cast<unsigned long>(renderDurationUs));
+                }
                 if (status == FaceRenderStatus::Ok) {
                     lastCustomFaceSecond = cachedTime.tm_sec;
                 } else {
