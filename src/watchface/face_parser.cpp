@@ -295,6 +295,25 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     if (!copyString(source["type"], typeName, sizeof(typeName), true) ||
         !parseType(typeName, target.type)) return false;
 
+    if (source.containsKey("clockMode")) {
+        if (!source["clockMode"].is<const char*>()) return false;
+        const char* mode = source["clockMode"].as<const char*>();
+        if ((target.type == FaceElementType::DigitalClock &&
+             strcmp(mode, "digital") != 0) ||
+            (target.type == FaceElementType::AnalogClock &&
+             strcmp(mode, "analog") != 0) ||
+            (target.type != FaceElementType::DigitalClock &&
+             target.type != FaceElementType::AnalogClock)) return false;
+    }
+    if (source.containsKey("showSeconds") &&
+        (target.type != FaceElementType::DigitalClock ||
+         !source["showSeconds"].is<bool>())) return false;
+    if (source.containsKey("showAmPm") &&
+        (target.type != FaceElementType::DigitalClock ||
+         !source["showAmPm"].is<bool>())) return false;
+    if (source.containsKey("weatherFields") && target.type != FaceElementType::Weather) return false;
+    if (source.containsKey("shape") && target.type != FaceElementType::Shape) return false;
+
     target.visible = source["visible"].isNull() ? true : source["visible"].as<bool>();
     JsonObjectConst transform = source["transform"].as<JsonObjectConst>();
     if (transform.isNull()) return false;
@@ -329,6 +348,10 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     if (textStyle.containsKey("fontWeight") &&
         !textStyle["fontWeight"].is<int>() && !textStyle["fontWeight"].is<unsigned int>()) return false;
     if (textStyle.containsKey("textAlign") && !textStyle["textAlign"].is<const char*>()) return false;
+    if (textStyle.containsKey("letterSpacing") &&
+        !textStyle["letterSpacing"].is<float>() &&
+        !textStyle["letterSpacing"].is<int>() &&
+        !textStyle["letterSpacing"].is<unsigned int>()) return false;
     target.fontWeight = textStyle["fontWeight"] | 400;
     target.letterSpacing = textStyle["letterSpacing"] | 0;
     if (target.fontSize <= 0.0f || target.fontSize > 256.0f ||
@@ -364,6 +387,10 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     if (source.containsKey("style") && style.isNull()) return false;
     if (!readColor(style["fill"], target.fillColor, 0xFFFF) ||
         !readColor(style["stroke"], target.strokeColor, 0x0000)) return false;
+    if (style.containsKey("strokeWidth") &&
+        !style["strokeWidth"].is<float>() &&
+        !style["strokeWidth"].is<int>() &&
+        !style["strokeWidth"].is<unsigned int>()) return false;
     const float strokeWidth = style["strokeWidth"] | 0.0f;
     if (!isfinite(strokeWidth) || strokeWidth < 0.0f || strokeWidth > 64.0f) return false;
     target.strokeWidth = static_cast<uint8_t>(strokeWidth);
@@ -373,6 +400,7 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     if (!isfinite(cornerRadius) || cornerRadius < 0.0f || cornerRadius > 255.0f) return false;
     target.cornerRadius = static_cast<uint8_t>(cornerRadius);
 
+    if (source.containsKey("shape") && !source["shape"].is<const char*>()) return false;
     const char* shape = source["shape"] | "rect";
     if (strcmp(shape, "circle") == 0) target.shapeKind = 1;
     else if (strcmp(shape, "rounded-rect") == 0) target.shapeKind = 2;
@@ -385,6 +413,7 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     target.showWeatherTemperature = true;
     target.showWeatherCondition = false;
     JsonArrayConst weatherFields = source["weatherFields"].as<JsonArrayConst>();
+    if (source.containsKey("weatherFields") && weatherFields.isNull()) return false;
     if (!weatherFields.isNull()) {
         target.showWeatherTemperature = false;
         for (JsonVariantConst field : weatherFields) {
@@ -410,6 +439,9 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
     }
     if (target.timeFormat[0] != '\0' &&
         strcmp(target.timeFormat, "12h") != 0 && strcmp(target.timeFormat, "24h") != 0) return false;
+    if (source.containsKey("showAmPm") &&
+        !source["showAmPm"].as<bool>() &&
+        strcmp(target.timeFormat, "12h") == 0) return false;
     if ((target.type == FaceElementType::DigitalClock &&
          !validFormatTokens(target.dataFormat, false)) ||
         (target.type == FaceElementType::Date &&
