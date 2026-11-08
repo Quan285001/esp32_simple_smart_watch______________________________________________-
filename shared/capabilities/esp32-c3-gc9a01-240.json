@@ -24,7 +24,8 @@
     "maxBitmapWidth": 240,
     "maxBitmapHeight": 240,
     "maxObjects": 16,
-    "maxAssetBytes": 115200
+    "maxAssetBytes": 115200,
+    "maxAssets": 16
   },
   "declaredCapabilities": [
     "text.basic",

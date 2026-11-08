@@ -47,6 +47,9 @@ jobs:
       - name: Validate Watch Face display backend boundary
         run: python scripts/validate_canvas_boundary.py
 
+      - name: Validate firmware display profile contract
+        run: python scripts/validate_display_profile.py
+
       - name: Validate Web app assets
         run: python scripts/validate_web.py
 
