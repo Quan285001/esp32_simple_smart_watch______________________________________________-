@@ -59,7 +59,7 @@ for key in ("pid", "cw", "ch", "cs", "bw", "bh", "obj", "assets", "json", "img",
         raise AssertionError(f"Web compatibility preflight does not consume {key!r}")
 
 protocol_header = (ROOT / "src/communication/protocol.h").read_text(encoding="utf-8")
-payload_limit_match = re.search(r"MAX_CONTROL_PAYLOAD = (\\d+)", protocol_header)
+payload_limit_match = re.search(r"MAX_CONTROL_PAYLOAD = (\d+)", protocol_header)
 if not payload_limit_match:
     raise AssertionError("Missing WFS control payload limit")
 payload_limit = int(payload_limit_match.group(1))
