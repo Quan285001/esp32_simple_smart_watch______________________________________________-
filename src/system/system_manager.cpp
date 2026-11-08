@@ -15,6 +15,10 @@ namespace SystemManager {
 namespace {
 volatile bool pendingSleep = false;
 volatile PowerState currentPowerState = PowerState::Active;
+uint8_t autoSleepTimeoutSeconds = 15;
+uint32_t lastUserActivityMs = 0;
+uint32_t lastButtonActivitySeenMs = 0;
+bool previousBleConnected = false;
 }
 
 void enterLightSleep() {
@@ -69,6 +73,51 @@ void enterLightSleep() {
 void begin() {
     pendingSleep = false;
     currentPowerState = PowerState::Active;
+    autoSleepTimeoutSeconds = 15;
+    lastUserActivityMs = 0;
+    lastButtonActivitySeenMs = 0;
+    previousBleConnected = false;
+}
+
+bool setAutoSleepTimeoutSeconds(uint8_t seconds) {
+    if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
+          seconds == 15 || seconds == 18 || seconds == 20)) {
+        Serial.printf("[POWER] Rejected invalid Auto Sleep value: %u seconds.\\n", seconds);
+        return false;
+    }
+    autoSleepTimeoutSeconds = seconds;
+    lastUserActivityMs = millis();
+    Serial.printf("[POWER] Auto Sleep timeout applied: %u seconds.\\n", autoSleepTimeoutSeconds);
+    return true;
+}
+
+uint8_t getAutoSleepTimeoutSeconds() {
+    return autoSleepTimeoutSeconds;
+}
+
+void resetAutoSleepActivity(uint32_t nowMs, uint32_t buttonActivityMs, bool bleConnected) {
+    lastUserActivityMs = nowMs;
+    lastButtonActivitySeenMs = buttonActivityMs;
+    previousBleConnected = bleConnected;
+}
+
+void serviceAutoSleep(uint32_t nowMs, uint32_t buttonActivityMs, bool bleConnected,
+                      bool backgroundWorkActive, bool onClockScreen) {
+    if (buttonActivityMs != lastButtonActivitySeenMs) {
+        lastButtonActivitySeenMs = buttonActivityMs;
+        lastUserActivityMs = nowMs;
+    }
+    if (bleConnected != previousBleConnected) {
+        previousBleConnected = bleConnected;
+        lastUserActivityMs = nowMs;
+    }
+    if (!pendingSleep && !bleConnected && !backgroundWorkActive &&
+        lastUserActivityMs != 0 && onClockScreen && autoSleepTimeoutSeconds > 0 &&
+        (nowMs - lastUserActivityMs) >= static_cast<uint32_t>(autoSleepTimeoutSeconds) * 1000UL) {
+        Serial.printf("[POWER] Auto Light Sleep: %u seconds without user activity.\\n",
+                      autoSleepTimeoutSeconds);
+        requestSleep();
+    }
 }
 
 void requestSleep() {

@@ -13,6 +13,11 @@ enum class PowerState : uint8_t {
 };
 
 void begin();
+bool setAutoSleepTimeoutSeconds(uint8_t seconds);
+uint8_t getAutoSleepTimeoutSeconds();
+void resetAutoSleepActivity(uint32_t nowMs, uint32_t buttonActivityMs, bool bleConnected);
+void serviceAutoSleep(uint32_t nowMs, uint32_t buttonActivityMs, bool bleConnected,
+                      bool backgroundWorkActive, bool onClockScreen);
 void requestSleep();
 void enterLightSleep();
 bool sleepRequested();

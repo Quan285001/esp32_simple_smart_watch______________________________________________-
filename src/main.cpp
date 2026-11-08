@@ -97,23 +97,13 @@ static constexpr uint32_t WIFI_STATUS_LOG_MS = 5000;
 
 static uint32_t lastWifiRetryMs = 0;
 static uint32_t lastWifiStatusLogMs = 0;
-static uint8_t autoSleepTimeoutSeconds = 15; // 0 disables automatic sleep.
-static uint32_t lastUserActivityMs = 0;
-static uint32_t lastButtonActivitySeenMs = 0;
-static bool previousBleConnected = false;
-
 void setAutoSleepTimeoutSeconds(uint8_t seconds) {
-    if (!(seconds == 0 || seconds == 10 || seconds == 12 ||
-          seconds == 15 || seconds == 18 || seconds == 20)) {
-        Serial.printf("[POWER] Rejected invalid Auto Sleep value: %u seconds.\n", seconds);
-        return;
-    }
-    autoSleepTimeoutSeconds = seconds;
-    lastUserActivityMs = millis();
-    Serial.printf("[POWER] Auto Sleep timeout applied: %u seconds.\n", autoSleepTimeoutSeconds);
+    SystemManager::setAutoSleepTimeoutSeconds(seconds);
 }
 
-uint8_t getAutoSleepTimeoutSeconds() { return autoSleepTimeoutSeconds; }
+uint8_t getAutoSleepTimeoutSeconds() {
+    return SystemManager::getAutoSleepTimeoutSeconds();
+}
 
 /**
  * @brief Schedules entry into Light Sleep mode from the main application loop.
@@ -614,9 +604,8 @@ void loop() {
             stopBootTerminalDisplay();
             drawCurrentScreen(true);
             bootUiReady = true;
-            lastUserActivityMs = millis();
-            lastButtonActivitySeenMs = getLastButtonActivityMs();
-            previousBleConnected = isBLEConnected();
+            SystemManager::resetAutoSleepActivity(
+                millis(), getLastButtonActivityMs(), isBLEConnected());
             Serial.println("[BOOT] Clock interface ready.");
         }
         delay(2);
@@ -637,19 +626,6 @@ void loop() {
     updateButtonManager();
 
     // Count real physical button activity, not periodic UI redraws.
-    const uint32_t buttonActivityMs = getLastButtonActivityMs();
-    if (buttonActivityMs != lastButtonActivitySeenMs) {
-        lastButtonActivitySeenMs = buttonActivityMs;
-        lastUserActivityMs = now;
-    }
-
-    // A connection/disconnection is a meaningful state transition. Start a
-    // fresh idle window after disconnect rather than sleeping immediately.
-    const bool bleConnectedNow = isBLEConnected();
-    if (bleConnectedNow != previousBleConnected) {
-        previousBleConnected = bleConnectedNow;
-        lastUserActivityMs = now;
-    }
 
     handleBLECommands();
     serviceBLE();
@@ -660,18 +636,9 @@ void loop() {
     // Manual Sleep from the menu still bypasses this connection guard.
     const bool backgroundWorkActive =
         bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning || wifiScanRunning;
-    if (!SystemManager::sleepRequested() &&
-        !isBLEConnected() &&
-        !backgroundWorkActive &&
-        lastUserActivityMs != 0 &&
-        currentScreen == SCREEN_CLOCK &&
-        autoSleepTimeoutSeconds > 0 &&
-        (now - lastUserActivityMs) >= static_cast<uint32_t>(autoSleepTimeoutSeconds) * 1000UL) {
-        Serial.printf("[POWER] Auto Light Sleep: %u seconds without user activity.\n",
-                      autoSleepTimeoutSeconds);
-        SystemManager::requestSleep();
-    }
-
+    SystemManager::serviceAutoSleep(
+        now, getLastButtonActivityMs(), isBLEConnected(),
+        backgroundWorkActive, currentScreen == SCREEN_CLOCK);
     if (SystemManager::sleepRequested()) {
         // Keep the UI loop responsive while HTTPS/TLS work finishes.
         // Sleep is entered on a later loop iteration once radio tasks are idle.
