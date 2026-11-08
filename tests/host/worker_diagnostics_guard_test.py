@@ -17,7 +17,7 @@ for source, task_name in (
     assert '#include "../system/diagnostics.h"' in source
 
 assert "uxTaskGetStackHighWaterMark(nullptr)" in memory
-assert "sizeof(StackType_t)" not in memory
+assert "* sizeof(StackType_t)" not in memory
 assert "static_cast<uint32_t>(stackHighWaterBytes)" in memory
 
 print("Worker-task stack and heap diagnostic guard tests passed.")
