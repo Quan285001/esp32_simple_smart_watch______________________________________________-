@@ -93,7 +93,44 @@ async function sendWfsFrame(type,payload,channel='control',sessionOverride){cons
 async function sendWfsJson(type,value){const payload=new TextEncoder().encode(JSON.stringify(value||{}));await sendWfsFrame(type,payload,'control')}
 async function connectWfsProtocol(server){const service=await server.getPrimaryService(WFS_UUID.service);const controlRx=await service.getCharacteristic(WFS_UUID.controlRx);const controlTx=await service.getCharacteristic(WFS_UUID.controlTx);const dataRx=await service.getCharacteristic(WFS_UUID.dataRx);const dataTx=await service.getCharacteristic(WFS_UUID.dataTx);state.wfs={controlRx,controlTx,dataRx,dataTx,sessionId:0,txSequence:0,pending:new Map()};await controlTx.startNotifications();await dataTx.startNotifications();controlTx.addEventListener('characteristicvaluechanged',handleWfsNotification);dataTx.addEventListener('characteristicvaluechanged',handleWfsNotification);const helloWait=waitForWfsMessage(0x02);await sendWfsFrame(0x01,new TextEncoder().encode(JSON.stringify({minMajor:1,maxMajor:1,client:'WatchFaceStudio'})),'control',0);const hello=await helloWait;const helloData=JSON.parse(new TextDecoder().decode(hello.payload));state.wfs.sessionId=hello.sessionId;if(!state.wfs.sessionId)throw Error('Device did not create a WFS session');const capsWait=waitForWfsMessage(0x04);await sendWfsFrame(0x03,new Uint8Array(),'control');const caps=await capsWait;state.wfsCapabilities=JSON.parse(new TextDecoder().decode(caps.payload));await refreshWfsStatus();legacyStatus('WFS v1 ready · '+helloData.device+' · package transfer '+(state.wfsCapabilities.upload?'available':'unavailable'));return state.wfsCapabilities}
 async function refreshWfsStatus(){if(!state.wfs)return null;const pending=waitForWfsMessage(0x06);await sendWfsFrame(0x05,new Uint8Array(),'control');const frame=await pending;state.wfsStatus=JSON.parse(new TextDecoder().decode(frame.payload));const status=state.wfsStatus;if($('#deviceStatus'))$('#deviceStatus').textContent='Connected · '+(status.wifiConnected?'Wi-Fi online':'Wi-Fi offline');return status}
-function designCompatibilityErrors(design,caps){if(!globalThis.WfsDeviceCompatibility)return ['Device compatibility checker is unavailable'];return globalThis.WfsDeviceCompatibility.errors(design,caps,state.images.map(asset=>asset.id))}
+function designCompatibilityErrors(design,caps){
+ const errors=[];
+ if(!design||design.schemaVersion!==1)errors.push('Unsupported Watch Face schema version');
+ if(design?.deviceProfileId!=='esp32-c3-gc9a01-240')errors.push('Design targets a different device profile');
+ const canvas=design?.canvas||{};
+ const canvasWidth=Number(caps?.cw)||240,canvasHeight=Number(caps?.ch)||240;
+ const canvasShape=caps?.cs||'circle';
+ if(canvas.width!==canvasWidth||canvas.height!==canvasHeight)errors.push('Canvas must match the connected device resolution ('+canvasWidth+' × '+canvasHeight+')');
+ if(canvas.shape&&canvas.shape!==canvasShape)errors.push('Canvas shape is not supported by the connected device');
+ const maxObjects=Number(caps?.obj)||16;
+ const objects=Array.isArray(design?.objects)?design.objects:[];
+ if(objects.length>maxObjects)errors.push('This firmware supports at most '+maxObjects+' objects per face');
+ const imageObjects=objects.filter(o=>o?.type==='image');
+ if(imageObjects.length>16)errors.push('This firmware supports at most 16 image assets per face');
+ const supported=new Set(['text','digital-clock','analog-clock','date','weather','shape','image']);
+ for(const o of objects){
+  const name=o?.name||o?.id||'Unnamed element',t=o?.transform||{},s=o?.textStyle||{},b=o?.dataBinding||{};
+  if(!supported.has(o.type))errors.push(name+': element '+o.type+' is not supported by this firmware');
+  if(o.type==='image'){
+   if(!caps?.img)errors.push(name+': RGB565 image assets are not enabled by this firmware');
+   if(!state.images.some(a=>a.id===o.assetId))errors.push(name+': source image asset is missing from this browser');
+   if(t.width<1||t.height<1||t.width>240||t.height>240)errors.push(name+': image dimensions must be between 1 and 240 pixels');
+  }
+  if(o.type==='shape'&&!['rect','circle','rounded-rect','line'].includes(o.shape||'rect'))errors.push(name+': selected shape is not supported by this firmware');
+  if(t.rotation&&Math.abs(t.rotation)>0.001)errors.push(name+': rotation is not supported yet');
+  if(t.opacity!==undefined&&t.opacity<0.999)errors.push(name+': partial opacity is not supported yet');
+  const font=s.fontFamily;
+  if(font&&font!=='system-ui'&&font!=='sans-serif'&&font!=='inherit')errors.push(name+': font '+font+' is not available on the device yet');
+  if(s.fontSize!==undefined&&(s.fontSize<=0||s.fontSize>256))errors.push(name+': font size is outside the device range');
+  if(s.fontWeight!==undefined&&![400,600].includes(Number(s.fontWeight)))errors.push(name+': this firmware currently supports regular and semibold weights only');
+  for(const axis of ['scaleX','scaleY'])if(s[axis]!==undefined&&(!Number.isFinite(Number(s[axis]))||Number(s[axis])<0.1||Number(s[axis])>8))errors.push(name+': '+axis+' must be between 0.1 and 8');
+  if(s.letterSpacing!==undefined&&Number(s.letterSpacing)!==0)errors.push(name+': letter spacing is not supported yet');
+  if(o.type==='digital-clock'&&b.source!=='time')errors.push(name+': digital clock requires the time binding');
+  if(o.type==='date'&&b.source!=='date')errors.push(name+': date requires the date binding');
+  if(o.type==='weather'&&b.source!=='temperature')errors.push(name+': only temperature weather binding is supported currently');
+ }
+ return [...new Set(errors)];
+}
 async function convertImageToRgb565(object,design){const source=state.images.find(a=>a.id===object.assetId);if(!source)throw Error(object.name+': image source not found');const width=Math.max(1,Math.round(object.transform.width)),height=Math.max(1,Math.round(object.transform.height));const image=new Image();image.src=source.data;if(image.decode)await image.decode();else await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('Could not decode '+source.name))});const sourceCanvas=document.createElement('canvas');sourceCanvas.width=width;sourceCanvas.height=height;const sourceCtx=sourceCanvas.getContext('2d',{willReadFrequently:true});sourceCtx.clearRect(0,0,width,height);sourceCtx.drawImage(image,0,0,width,height);const sourcePixels=sourceCtx.getImageData(0,0,width,height).data;let hasTransparency=false;for(let i=3;i<sourcePixels.length;i+=4){if(sourcePixels[i]!==255){hasTransparency=true;break}}if(hasTransparency&&(object.transform.zIndex??0)>0)throw Error(object.name+': transparent overlay images are not supported yet; use an opaque image or place it as the bottom background layer');const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.fillStyle=design.canvas.backgroundColor||'#000000';ctx.fillRect(0,0,width,height);ctx.drawImage(image,0,0,width,height);const rgba=ctx.getImageData(0,0,width,height).data;const bytes=new Uint8Array(width*height*2);for(let i=0,p=0;i<rgba.length;i+=4,p+=2){const r=rgba[i]>>3,g=rgba[i+1]>>2,b=rgba[i+2]>>3;const rgb565=(r<<11)|(g<<5)|b;bytes[p]=rgb565&255;bytes[p+1]=(rgb565>>8)&255}return {width,height,bytes}}
 
 function advancedFeatureErrors(design){
@@ -104,7 +141,7 @@ function advancedFeatureErrors(design){
   if(t.anchor&&t.anchor!=='top-left')errors.push(o.name+': only top-left object anchoring is supported');
   if(typeof o.text==='string'&&Array.from(o.text).some(ch=>{const n=ch.codePointAt(0);return n<32||n>126}))errors.push(o.name+': this firmware currently supports printable ASCII text only');
   if(o.shape==='arc')errors.push(o.name+': arc shapes are not supported yet');
-  if(o.weatherFields?.includes('icon'))errors.push(o.name+': weather icons are not supported yet');
+  if(o.weatherFields?.some(field=>!['temperature','condition'].includes(field)))errors.push(o.name+': this firmware supports only temperature and condition weather fields');
   if(o.glyphOverrides?.length)errors.push(o.name+': per-glyph overrides are not supported yet');
   if(o.glyphAtlasAssetId)errors.push(o.name+': custom glyph atlases are not supported by this firmware build');
   if(o.glyphFallback&&o.glyphFallback!=='compatibility-error')errors.push(o.name+': selected glyph fallback mode is not supported');
