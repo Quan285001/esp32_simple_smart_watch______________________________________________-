@@ -60,7 +60,8 @@ The boot-network and weather-fetch tasks should also emit `bootNetwork task exit
 - [ ] Confirm advertising resumes after disconnect when Bluetooth is enabled.
 - [ ] Disable Bluetooth while disconnected; confirm advertising stops.
 - [ ] Re-enable Bluetooth and reconnect.
-- [ ] Disable Bluetooth while a client is connected; verify the current connection is not corrupted and advertising resumes only after disconnect.
+- [ ] Disable Bluetooth while a client is connected; verify the current connection is not corrupted and advertising stays off after disconnect.
+- [ ] While still connected after disabling, enable Bluetooth again; verify advertising restart is deferred until the client disconnects.
 - [ ] Confirm legacy BLE commands still work.
 
 ## 5. Watch Face transfer transaction
