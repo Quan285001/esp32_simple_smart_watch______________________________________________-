@@ -29,7 +29,7 @@ bool begin() {
 
     if (currentActiveSlot <= 1) {
         if (stored != currentActiveSlot) {
-            Serial.printf("[FACE_STORAGE] Active pointer target missing; selected fallback slot %u.\\n",
+            Serial.printf("[FACE_STORAGE] Active pointer target missing; selected fallback slot %u.\n",
                           currentActiveSlot);
         }
         return true;
