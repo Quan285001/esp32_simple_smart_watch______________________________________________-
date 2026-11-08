@@ -9,8 +9,10 @@ const packageBuilder = appSource.slice(
   appSource.indexOf('async function buildWfsPackage'),
   appSource.indexOf('async function sendWfsChunkWithRetry')
 );
-assert.match(packageBuilder, /globalThis\.WfsDeviceCompatibility\?\.errors/,
+assert.match(packageBuilder, /globalThis\.WfsDeviceCompatibility/,
   'the browser package builder must invoke the shared firmware compatibility preflight');
+assert.match(packageBuilder, /typeof compatibilityModule\.errors!==\x27function\x27/,
+  'package creation must fail closed when the shared compatibility module is unavailable');
 
 const fixture = JSON.parse(fs.readFileSync(
   path.join(root, 'shared/schemas/examples/minimal-watch-face-v1.json'), 'utf8'));
