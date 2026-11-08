@@ -23,7 +23,7 @@ assert '\\"el\\":\\"t,dc,ac,d,w,s,i\\"' in capability_source
 assert '\\"wc\\":1' in capability_source
 format_literals = re.findall(r'"(?:\\.|[^"\\])*"', capability_source)
 assert len(format_literals) >= 2
-format_string = ''.join(ast.literal_eval(value) for value in format_literals[:2])
+format_string = ''.join(ast.literal_eval(value) for value in format_literals[:4])
 format_string = format_string.replace("%lu", "%u")
 capability_payload = format_string % (
     "esp32-c3-gc9a01-240", 240, 240, "circle", 240, 240,
