@@ -18,6 +18,7 @@ This change aligns the Web preflight and committed golden fixture with the firmw
 6. The compatibility module is invoked by the actual `buildWfsPackage()` path, not only by a standalone diagnostics panel. A schema-valid design requesting unsupported weather fields is rejected before package serialization.
 7. Shape styling that the firmware ignores is rejected for non-shape elements: `style.fill` cannot act as a fallback text color, and `style.stroke` cannot create a browser-only border.
 8. Web shape previews now draw rect, rounded-rect, circle, and line primitives using SVG geometry that follows the firmware's fill/stroke/radius rules. Text previews clip glyphs to object bounds and use the same alignment/scaling contract; weather previews distinguish temperature-only, condition-only, and combined rows.
+9. The analog-clock preview now computes hour, minute, and second hands from the current time and scales dial/tick geometry from the object's actual bounds using the firmware's radius and hand-length ratios.
 
 ## Runtime capability contract
 

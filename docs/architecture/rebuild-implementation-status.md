@@ -52,8 +52,8 @@ This document records implementation state. It is not a declaration that the ful
 1. **Application orchestration:** narrow remaining compatibility wrappers and make service/resource arbitration explicit without duplicating ownership of the TFT instance or UI state.
 2. **Display backend completion:** only the GC9A01/TFT_eSPI backend exists. The active profile is compile-time selected; runtime profile selection and alternative backends (ST7789, OLED, monochrome/e-paper, RGB888) are not implemented.
 3. **Legacy UI migration:** built-in clock, weather, menu and boot-terminal renderers still use the transitional global `tft` handle.
-4. **Renderer parity:** browser and firmware fonts are not pixel-identical; advanced schema elements and weather bindings remain unsupported. Keep Web preflight aligned with parser/renderer capabilities.
-5. **Storage fault coverage:** add host/mock tests for interrupted writes, full storage, corrupt metadata, rollback and power loss. Preserve the two-slot rule: never replace the active package before the candidate verifies.
+4. **Renderer parity:** browser and firmware fonts are not pixel-identical; advanced schema elements and weather bindings remain unsupported. Web shape, analog-clock, text clipping and weather previews now follow the supported firmware geometry/field contract, but pixel-level font parity still requires device comparison.
+5. **Storage fault coverage:** add host/mock tests for interrupted writes, full storage, corrupt metadata and power loss. Failed apply now restores the prior active-slot pointer, including removing it on a first-install rollback; actual NVS/SPIFFS fault injection is still outstanding. Preserve the two-slot rule: never replace the active package before the candidate verifies.
 6. **Runtime profiling:** capture representative heap/stack snapshots during image rendering, TLS weather fetch, BLE transfer and repeated screen transitions; use measured values to tune JSON/package limits.
 7. **Hardware regression:** execute the step-by-step [ESP32-C3 hardware regression checklist](hardware-regression-checklist.md), including BLE MTU/notifications, repeated connect/disconnect, package retry/cancel/apply, screen rendering, Wi-Fi/weather concurrency, sleep/wake and recovery. CI cannot substitute for this.
 
@@ -77,6 +77,8 @@ This document records implementation state. It is not a declaration that the ful
 - Commit `ff53541`: PlatformIO Build and Pages deployment completed successfully after keeping the weather worker marked active through its exit memory snapshot, preventing service/auto-sleep logic from treating the worker as finished while it is still logging.
 - Commit `21efdf3`: PlatformIO Build and Pages deployment completed successfully after tightening Web preflight numeric type/range checks; regression cases cover out-of-range opacity and string/null numeric values.
 - Commit `cdf9985`: PlatformIO Build and Pages deployment completed successfully after aligning package manifest capability declarations with the actual Watch Face elements, including `weather.condition`; firmware now rejects manifests that omit capabilities required by the parsed design.
+- Commit `6c295a2`: PlatformIO Build and Pages deployment completed successfully after adding rollback to the no-active-face state when first-install apply fails; host storage recovery guards and parser tests passed.
+- Commit `072364e`: PlatformIO Build and Pages deployment completed successfully after adding rate-limited slow Watch Face render timing diagnostics (frames taking at least 8 ms).
 - No physical ESP32-C3 test is claimed. The user performs board flashing and hardware regression.
 
 ## Migration constraints
