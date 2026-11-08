@@ -23,6 +23,7 @@ assert "FaceStorage::isReady()" in transfer_manager
 assert "bool isReady();" in face_storage_header
 assert "if (!storageInitialized" in face_storage
 assert "prefs.begin(NVS_NAMESPACE, false)" in face_storage
+assert "return storageInitialized;" in face_storage
 
 # The transfer must close the staging writer before reopening the file for
 # validation. The state cannot become Verified until validation has succeeded.

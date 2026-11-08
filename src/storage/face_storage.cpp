@@ -41,7 +41,9 @@ bool begin() {
     // slot: it may be an incomplete package left by an interrupted transfer.
     Serial.printf("[FACE_STORAGE] No valid committed face slot (pointer=%u); refusing recovery promotion.\n",
                   stored);
-    return false;
+    // Storage metadata is initialized even when no custom face is committed.
+    // This is a valid first-boot state and must permit the first upload.
+    return storageInitialized;
 }
 
 bool isReady() {
