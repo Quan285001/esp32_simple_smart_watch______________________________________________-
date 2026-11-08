@@ -49,7 +49,7 @@ function renderAnalogClockPreview(element,now=new Date()){
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
  svg.setAttribute('viewBox','0 0 100 100');svg.setAttribute('width','100%');svg.setAttribute('height','100%');svg.setAttribute('preserveAspectRatio','xMidYMid meet');
  const add=(tag,attrs)=>{const node=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));svg.append(node);return node};
- const cx=50,cy=50,radius=46,point=(degrees,r)=>{const angle=degrees*Math.PI/180;return{x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r}};
+ const cx=50,cy=50,radius=48,point=(degrees,r)=>{const angle=degrees*Math.PI/180;return{x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r}};
  add('circle',{cx,cy,r:radius,fill:'none',stroke:'currentColor','stroke-width':1});
  for(let tick=0;tick<12;tick++){
   const angle=tick*30-90,outer=point(angle,radius-2),inner=point(angle,radius-(tick%3===0?9:5));
