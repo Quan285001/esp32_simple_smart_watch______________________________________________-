@@ -15,8 +15,6 @@
 #include "services/ble_service.h"
 #include "system/diagnostics.h"
 #include "display/display_manager.h"
-#include "storage/storage_manager.h"
-#include "storage/face_storage.h"
 #include "watchface/face_manager.h"
 #include "communication/transfer_manager.h"
 #include "system/system_manager.h"
