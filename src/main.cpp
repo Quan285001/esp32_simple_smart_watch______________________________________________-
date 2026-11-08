@@ -10,6 +10,7 @@
 #include "input/button_manager.h"
 #include "services/time_service.h"
 #include "services/weather_service.h"
+#include "services/weather_coordinator.h"
 #include "services/wifi_service.h"
 #include "services/ble_service.h"
 #include "system/diagnostics.h"
@@ -44,51 +45,22 @@ extern void drawMenuScreen(
 extern void drawWeatherFaceData(const WeatherData& w);
 extern void updateWeatherFaceAnimation(const WeatherData& w);
 
-static uint32_t lastWeatherFetchMs = 0;      // Last successful forecast fetch.
-static uint32_t lastWeatherAttemptMs = 0;   // Last scheduled attempt; throttles failures.
-static uint32_t lastWeatherRetryMs = 0;
-static uint32_t lastManualWeatherRequestMs = 0;
 static uint32_t lastClockDrawMs = 0;
 static uint32_t lastMenuFrameMs = 0;
 static uint32_t lastWeatherFrameMs = 0;
 
 static volatile bool weatherFaceInitialized = false;
 
-static volatile bool weatherFetchRunning = false;
-static volatile int8_t weatherNotifyPending = -1;
-static volatile bool locationWeatherRefreshPending = false;
-
 static volatile bool bootNetworkRunning = false;
 static volatile bool bootNetworkNeedsBle = false;
 
 // Prevent a new bulk face transfer from overlapping TLS/weather/Wi-Fi scan work.
 bool canStartWfsTransfer() {
-    return !weatherFetchRunning && !WifiService::isScanBusy() && !bootNetworkRunning && !bootNetworkNeedsBle;
+    return WeatherCoordinator::canStartTransfer(WifiService::isScanBusy(),bootNetworkRunning||bootNetworkNeedsBle);
 }
 static bool bootUiReady = false;
-static uint32_t lastLocationWeatherRetryMs = 0;
 
-// Countdown for the Weather face. Negative values are status codes:
-// -1 = Wi-Fi intentionally disabled, -2 = connecting, -3 = fetch in progress.
-/**
- * @brief Implements the get weather refresh countdown seconds operation.
-
- */
-int32_t getWeatherRefreshCountdownSeconds() {
-    if (!wifiEnabled) return -1;
-    if (WiFi.status() != WL_CONNECTED) return -2;
-    if (weatherFetchRunning) return -3;
-
-    const uint32_t elapsed = millis() - lastWeatherFetchMs;
-    if (elapsed >= WEATHER_REFRESH_MS) return 0;
-
-    const uint32_t remainingMs = WEATHER_REFRESH_MS - elapsed;
-    return static_cast<int32_t>((remainingMs + 999UL) / 1000UL);
-}
-
-
-static constexpr uint32_t WEATHER_RETRY_MS = 15000;
-static constexpr uint32_t WEATHER_MANUAL_COOLDOWN_MS = 10000;
+int32_t getWeatherRefreshCountdownSeconds(){return WeatherCoordinator::refreshCountdownSeconds(wifiEnabled,WiFi.status()==WL_CONNECTED);}
 
 void setAutoSleepTimeoutSeconds(uint8_t seconds) {
     SystemManager::setAutoSleepTimeoutSeconds(seconds);
@@ -103,137 +75,9 @@ uint8_t getAutoSleepTimeoutSeconds() {
  */
 void requestLightSleep() { SystemManager::requestSleep(); }
 
+uint8_t requestWeatherFetch(){return WeatherCoordinator::requestManual(wifiEnabled,WiFi.status()==WL_CONNECTED,WifiService::isScanBusy(),bootNetworkRunning||bootNetworkNeedsBle,TransferManager::isBusy());}
+uint8_t requestWeatherFetchForLocation(){return WeatherCoordinator::requestForLocation(wifiEnabled,WiFi.status()==WL_CONNECTED,WifiService::isScanBusy(),bootNetworkRunning||bootNetworkNeedsBle,TransferManager::isBusy());}
 
-// =====================================================
-// WEATHER TASK
-// =====================================================
-
-/**
- * @brief Runs the weather request in a background task and optionally retrieves lunar details afterward.
- * @param parameter Input or state used by this operation.
- */
-static void weatherFetchTask(void *parameter) {
-    (void)parameter;
-
-    Serial.println("[WEATHER] Background fetch started.");
-
-    const bool success = fetchHourlyWeather();
-    if (success) {
-        lastWeatherFetchMs = millis(); // Advance the refresh countdown only after valid data is committed.
-        weatherDataValid = true;
-        weatherFaceInitialized = false; // redraw fresh data on the UI thread
-    }
-
-    // BLE host operations stay on the application-loop thread. The worker
-    // publishes only a small completion code for loop() to notify later.
-    weatherNotifyPending = success ? 1 : 0;
-    Serial.println(success ? "[WEATHER] Weather stage finished." : "[WEATHER] Weather stage failed.");
-
-    // Lunar TLS runs only after Open-Meteo has completed and released its
-    // response/JSON allocations. It is optional and cannot invalidate weather.
-    if (success && wifiEnabled && WiFi.status() == WL_CONNECTED) {
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        Serial.println("[BOOT] Starting deferred lunar stage.");
-        fetchLunarDetails();
-    }
-
-    weatherFetchRunning = false;
-
-    vTaskDelete(nullptr);
-}
-
-// =====================================================
-// SCHEDULE WEATHER FETCH
-// =====================================================
-
-/**
- * @brief Starts one background weather update when Wi-Fi is connected and no update is already running.
- */
-static bool scheduleWeatherFetch() {
-    // Never start an automatic/manual request while Wi-Fi is disabled.
-    if (!wifiEnabled) {
-        Serial.println("[WEATHER] Fetch skipped: Wi-Fi is OFF.");
-        return false;
-    }
-
-    if (WiFi.status() != WL_CONNECTED) {
-        return false;
-    }
-
-    if (weatherFetchRunning || WifiService::isScanBusy() || bootNetworkRunning || bootNetworkNeedsBle ||
-        TransferManager::isBusy()) {
-        return false;
-    }
-
-    weatherFetchRunning = true;
-
-    BaseType_t created = xTaskCreate(
-        weatherFetchTask,
-        "weatherFetch",
-        8192,
-        nullptr,
-        1,
-        nullptr
-    );
-
-    if (created != pdPASS) {
-        weatherFetchRunning = false;
-
-        Serial.println(
-            "[WEATHER] Could not create background task."
-        );
-
-        return false;
-    }
-
-    lastWeatherAttemptMs = millis();
-
-    Serial.println("[WEATHER] Fetch scheduled.");
-
-    return true;
-}
-
-// Manual BLE requests use the same single-flight scheduler as automatic updates.
-// Return: 0=scheduled, 1=already running, 2=Wi-Fi unavailable, 3=cooldown.
-/**
- * @brief Validates a manual weather request and applies the single-flight and cooldown rules.
- */
-uint8_t requestWeatherFetch() {
-    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning || WifiService::isScanBusy() || TransferManager::isBusy()) return 1;
-
-    const uint32_t now = millis();
-    if (lastManualWeatherRequestMs != 0 &&
-        now - lastManualWeatherRequestMs < WEATHER_MANUAL_COOLDOWN_MS) {
-        return 3;
-    }
-
-    if (!scheduleWeatherFetch()) {
-        return weatherFetchRunning ? 1 : 2;
-    }
-
-    lastManualWeatherRequestMs = now;
-    return 0;
-}
-
-/**
- * @brief Requests an immediate weather/timezone refresh after a new phone GPS fix.
- * If another fetch is running, defer one follow-up request until it completes.
- */
-uint8_t requestWeatherFetchForLocation() {
-    locationWeatherRefreshPending = true;
-    lastLocationWeatherRetryMs = 0;
-
-    if (!wifiEnabled || WiFi.status() != WL_CONNECTED) return 2;
-    if (weatherFetchRunning || WifiService::isScanBusy() || TransferManager::isBusy()) return 1;
-
-    if (scheduleWeatherFetch()) {
-        locationWeatherRefreshPending = false;
-        return 0;
-    }
-    // Keep the request pending so the main loop can retry after resources recover.
-    return 2;
-}
 
 // =====================================================
 // ASYNCHRONOUS WI-FI SCAN
@@ -242,20 +86,13 @@ uint8_t requestWeatherFetchForLocation() {
 // Return: 0=started, 1=already busy, 2=network work has priority, 3=start failed.
 uint8_t requestWifiScan() {
     return WifiService::requestScan(
-        weatherFetchRunning,
+        WeatherCoordinator::isFetchRunning(),
         bootNetworkRunning || bootNetworkNeedsBle,
         TransferManager::isBusy());
 }
 
 bool isWifiScanBusy() {
     return WifiService::isScanBusy();
-}
-
-static void serviceWeatherNotification() {
-    const int8_t result = weatherNotifyPending;
-    if (result < 0) return;
-    weatherNotifyPending = -1;
-    sendBLENotification(result ? "WEATHER_OK" : "WEATHER_FAILED");
 }
 
 // WIFI CONTROL
@@ -304,9 +141,7 @@ void toggleWiFi() {
 
         WifiService::resetConnectionMonitor(millis());
         beginTimeService();
-        lastWeatherFetchMs = 0;
-        lastWeatherAttemptMs = 0;
-        lastWeatherRetryMs = 0;
+        WeatherCoordinator::onWifiEnabled();
 
         Serial.println("[WIFI] Enabled; reconnecting with saved credentials.");
     }
@@ -382,14 +217,10 @@ static void bootNetworkTask(void *parameter) {
 
         // Keep TLS stages strictly sequential and prevent the normal loop
         // from scheduling another weather request during this boot phase.
-        weatherFetchRunning = true;
+        WeatherCoordinator::beginBootFetch();
         bootTerminalLog("[WEATHER] Fetching forecast", TFT_YELLOW);
         const bool weatherUpdated = fetchHourlyWeather();
-        if (weatherUpdated) {
-            lastWeatherFetchMs = millis();
-            weatherDataValid = true;
-            weatherFaceInitialized = false;
-        }
+        WeatherCoordinator::finishBootFetch(weatherUpdated);
         bootTerminalLog(weatherUpdated
             ? "[OK] Weather updated and cached"
             : "[INFO] Weather unavailable; cache retained",
@@ -401,7 +232,6 @@ static void bootNetworkTask(void *parameter) {
             fetchLunarDetails();
             bootTerminalLog("[OK] Lunar stage complete", TFT_GREEN);
         }
-        weatherFetchRunning = false;
     } else {
         bootTerminalLog("[INFO] Wi-Fi unavailable; using saved data", TFT_YELLOW);
     }
@@ -457,6 +287,7 @@ void setup() {
 
     const bool cacheLoaded = loadWeatherCache();
     weatherDataValid = cacheLoaded;
+    WeatherCoordinator::begin();
     bootTerminalLog(cacheLoaded
         ? "[OK] Weather cache restored"
         : "[INFO] No weather cache", cacheLoaded ? TFT_GREEN : TFT_YELLOW);
@@ -544,13 +375,14 @@ void loop() {
 
     handleBLECommands();
     serviceBLE();
-    serviceWeatherNotification();
+    WeatherCoordinator::serviceNotification();
+    if(WeatherCoordinator::takeFaceInvalidation())weatherFaceInitialized=false;
     WifiService::serviceScan();
 
     // Automatic sleep is deliberately disabled during an active BLE session.
     // Manual Sleep from the menu still bypasses this connection guard.
     const bool backgroundWorkActive =
-        bootNetworkRunning || bootNetworkNeedsBle || weatherFetchRunning || WifiService::isScanBusy();
+        bootNetworkRunning || bootNetworkNeedsBle || WeatherCoordinator::isFetchRunning() || WifiService::isScanBusy();
     SystemManager::serviceAutoSleep(
         now, getLastButtonActivityMs(), isBLEConnected(),
         backgroundWorkActive, currentScreen == SCREEN_CLOCK);
@@ -584,76 +416,15 @@ void loop() {
         // Refresh IP-based timezone/location and restart NTP after Wi-Fi reconnect.
         // This also adapts the clock and forecast location when travelling.
         beginTimeService();
-        lastWeatherFetchMs = now - WEATHER_REFRESH_MS;
-        lastWeatherAttemptMs = 0;
-        lastWeatherRetryMs = 0;
+        WeatherCoordinator::onWifiConnected(now);
     }
 
     if (wifiLink.justDisconnected) {
         Serial.println("[WIFI] Connection lost.");
     }
 
-    // A GPS update received during an active request is refreshed as soon as
-    // that request releases its TLS/JSON resources. Keep it pending while offline.
-    if (locationWeatherRefreshPending && wifiConnected && !weatherFetchRunning && !WifiService::isScanBusy() &&
-        !TransferManager::isBusy() &&
-        (lastLocationWeatherRetryMs == 0 ||
-         now - lastLocationWeatherRetryMs >= WEATHER_RETRY_MS)) {
-        lastLocationWeatherRetryMs = now;
-        if (scheduleWeatherFetch()) {
-            locationWeatherRefreshPending = false;
-        }
-    }
-
-    // -------------------------------------------------
-    // WEATHER SNAPSHOT
-    // -------------------------------------------------
-
-    const bool hasWeatherData = weatherDataValid;
-
-    // -------------------------------------------------
-    // WEATHER RETRY
-    // -------------------------------------------------
-
-    if (
-        wifiConnected &&
-        !bootNetworkRunning &&
-        !bootNetworkNeedsBle &&
-        !hasWeatherData &&
-        !weatherFetchRunning &&
-        !WifiService::isScanBusy() &&
-        !TransferManager::isBusy() &&
-        (
-            lastWeatherRetryMs == 0 ||
-            now - lastWeatherRetryMs >= WEATHER_RETRY_MS
-        )
-    ) {
-        if (scheduleWeatherFetch()) {
-            lastWeatherRetryMs = now;
-
-            Serial.println(
-                "[WEATHER] Retrying weather fetch..."
-            );
-        }
-    }
-
-    // -------------------------------------------------
-    // PERIODIC WEATHER UPDATE
-    // -------------------------------------------------
-
-    if (
-        wifiConnected &&
-        !bootNetworkRunning &&
-        !bootNetworkNeedsBle &&
-        hasWeatherData &&
-        !weatherFetchRunning &&
-        !WifiService::isScanBusy() &&
-        !TransferManager::isBusy() &&
-        now - lastWeatherFetchMs >= WEATHER_REFRESH_MS &&
-        (lastWeatherAttemptMs == 0 || now - lastWeatherAttemptMs >= WEATHER_RETRY_MS)
-    ) {
-        scheduleWeatherFetch();
-    }
+    const bool hasWeatherData=weatherDataValid;
+    WeatherCoordinator::service(now,wifiEnabled,wifiConnected,hasWeatherData,WifiService::isScanBusy(),bootNetworkRunning||bootNetworkNeedsBle,TransferManager::isBusy());
 
     // -------------------------------------------------
     // MENU ANIMATION
