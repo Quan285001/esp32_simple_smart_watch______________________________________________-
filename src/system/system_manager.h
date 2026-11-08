@@ -14,6 +14,7 @@ enum class PowerState : uint8_t {
 
 void begin();
 void requestSleep();
+void enterLightSleep();
 bool sleepRequested();
 void beginSleep();
 void markSleeping();
