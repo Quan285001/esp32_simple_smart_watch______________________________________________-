@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RENDERER = ROOT / "src/watchface/face_renderer.cpp"
 IMAGE = ROOT / "src/watchface/elements/image.cpp"
+APP_CONTROLLER = ROOT / "src/app/app_controller.cpp"
 CANVAS = ROOT / "src/display/display_canvas.h"
 MANAGER = ROOT / "src/display/display_manager.cpp"
 
@@ -13,10 +14,12 @@ def main() -> int:
     errors = []
     renderer = RENDERER.read_text(encoding="utf-8")
     image = IMAGE.read_text(encoding="utf-8")
+    app_controller = APP_CONTROLLER.read_text(encoding="utf-8")
     canvas = CANVAS.read_text(encoding="utf-8")
     manager = MANAGER.read_text(encoding="utf-8")
 
-    for label, source in (("face renderer", renderer), ("image element", image)):
+    for label, source in (("face renderer", renderer), ("image element", image),
+                          ("app controller", app_controller)):
         if "TFT_eSPI" in source or "tft." in source:
             errors.append(f"{label} depends directly on the TFT_eSPI driver")
         if "display_manager.h" in source:
@@ -35,7 +38,7 @@ def main() -> int:
             print(f"  - {error}")
         return 1
 
-    print("[CANVAS-BOUNDARY] Watch Face renderer and image element use DisplayCanvas.")
+    print("[CANVAS-BOUNDARY] Watch Face renderer, image element and app controller use DisplayCanvas.")
     return 0
 
 
