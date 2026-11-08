@@ -1,7 +1,7 @@
 # Firmware Rebuild — Implementation Status
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
-**Last source audit:** `47aa20b`  
+**Last source audit:** `ff53541`  
 **Scope:** ESP32-C3 firmware, WFS BLE v1, Watch Face renderer, shared Web editor contract.
 
 This document records implementation state. It is not a declaration that the full rebuild prompt is complete.
@@ -72,6 +72,7 @@ This document records implementation state. It is not a declaration that the ful
 - Commit `484cd61`: PlatformIO Build and Pages deployment completed successfully after adding the physical-board regression checklist and clarifying BLE advertising-toggle test cases.
 - Commit `11af28a`: PlatformIO Build and Pages deployment completed successfully after rolling back optional WFS GATT setup failures and releasing the unused RX queue while retaining legacy BLE.
 - Commit `47aa20b`: PlatformIO Build and Pages deployment completed successfully after closing the boot-network worker handoff window; the boot coordinator guard verifies the worker logs before signalling completion and yields a tick before BLE initialization.
+- Commit `ff53541`: PlatformIO Build and Pages deployment completed successfully after keeping the weather worker marked active through its exit memory snapshot, preventing service/auto-sleep logic from treating the worker as finished while it is still logging.
 - No physical ESP32-C3 test is claimed. The user performs board flashing and hardware regression.
 
 ## Migration constraints
