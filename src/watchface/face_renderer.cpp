@@ -43,8 +43,9 @@ bool intersects(const FaceObject& object, int x, int y, int w, int h) {
 }
 
 FaceRenderStatus preflight(const FaceModel& face) {
+    const DisplayCanvas& canvas = getDisplayCanvas();
     if (face.objectCount > FACE_MAX_OBJECTS || face.assetCount > FACE_MAX_ASSETS ||
-        face.canvasWidth != 240 || face.canvasHeight != 240) {
+        face.canvasWidth != canvas.width() || face.canvasHeight != canvas.height()) {
         return FaceRenderStatus::UnsupportedTransform;
     }
     for (uint8_t i = 0; i < face.objectCount; ++i) {
@@ -327,8 +328,10 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
         // lower-z image/shape could overwrite unrelated objects outside it.
         const int clipLeft = x < 0 ? 0 : x;
         const int clipTop = y < 0 ? 0 : y;
-        const int clipRight = x + w > 240 ? 240 : x + w;
-        const int clipBottom = y + h > 240 ? 240 : y + h;
+        const int displayWidth = getDisplayCanvas().width();
+        const int displayHeight = getDisplayCanvas().height();
+        const int clipRight = x + w > displayWidth ? displayWidth : x + w;
+        const int clipBottom = y + h > displayHeight ? displayHeight : y + h;
         if (clipRight <= clipLeft || clipBottom <= clipTop) continue;
 
         getDisplayCanvas().setClipRect(clipLeft, clipTop,

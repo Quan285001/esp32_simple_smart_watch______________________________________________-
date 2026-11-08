@@ -44,6 +44,9 @@ jobs:
       - name: Validate firmware/device compatibility fixture
         run: python scripts/validate_device_compatibility.py
 
+      - name: Validate Watch Face display backend boundary
+        run: python scripts/validate_canvas_boundary.py
+
       - name: Validate Web app assets
         run: python scripts/validate_web.py
 
