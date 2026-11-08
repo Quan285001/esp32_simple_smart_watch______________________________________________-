@@ -37,14 +37,14 @@ bool begin() {
                 activeFace = candidateFace;
                 activeFaceValid = true;
                 activeFaceNeedsFullRender = true;
-                Serial.printf("[FACE] Restored package '%s' (%u objects).\\n",
+                Serial.printf("[FACE] Restored package '%s' (%u objects).\n",
                               activeFace.name, activeFace.objectCount);
                 return true;
             }
         } else {
             packageError = PackageValidationError::Io;
         }
-        Serial.printf("[FACE] Active package rejected: %s.\\n",
+        Serial.printf("[FACE] Active package rejected: %s.\n",
                       packageValidationErrorName(packageError));
         // Do not promote the other slot here. It may contain a package
         // whose transfer completed but whose apply/commit step never did.
@@ -54,11 +54,11 @@ bool begin() {
     if (StorageManager::exists("/face.json")) {
         const FaceParseResult result = loadJsonFile("/face.json");
         if (result) {
-            Serial.printf("[FACE] Loaded raw test design '%s' (%u objects).\\n",
+            Serial.printf("[FACE] Loaded raw test design '%s' (%u objects).\n",
                           activeFace.name, activeFace.objectCount);
             return true;
         }
-        Serial.printf("[FACE] Raw test design rejected: %s (object=%u).\\n",
+        Serial.printf("[FACE] Raw test design rejected: %s (object=%u).\n",
                       faceParseErrorName(result.error), result.objectIndex);
     }
 

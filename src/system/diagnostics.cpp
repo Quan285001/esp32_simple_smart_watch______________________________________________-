@@ -25,7 +25,7 @@ void logMemory(const char* reason) {
         ? static_cast<uint32_t>((static_cast<uint64_t>(m.freeHeap - m.largestFreeBlock) * 1000ULL) / m.freeHeap)
         : 0;
     Serial.printf(
-        "[MEM] %s free=%lu min_free=%lu largest_block=%lu fragmentation=%lu.%01lu%% task_stack_hwm=%lu bytes\\n",
+        "[MEM] %s free=%lu min_free=%lu largest_block=%lu fragmentation=%lu.%01lu%% task_stack_hwm=%lu bytes\n",
         reason != nullptr ? reason : "snapshot",
         static_cast<unsigned long>(m.freeHeap),
         static_cast<unsigned long>(m.minimumFreeHeap),
