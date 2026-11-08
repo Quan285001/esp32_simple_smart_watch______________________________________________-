@@ -16,6 +16,7 @@ class FakeElement {
       set fillStyle(value) { fillStyle = value; },
       get fillStyle() { return fillStyle; },
       clearRect() {},
+      fillRect() {},
       drawImage() {},
       getImageData(_x, _y, width, height) {
         const data = new Uint8ClampedArray(width * height * 4);
