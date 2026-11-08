@@ -42,7 +42,7 @@ This document records implementation state. It is not a declaration that the ful
 ### Power and diagnostics
 
 - Light Sleep entry/wake lifecycle and Auto Sleep idle policy are owned by `SystemManager`, not embedded in the main loop.
-- Runtime diagnostics report free heap, minimum free heap, largest free block, a heap-fragmentation estimate and current-task stack high-water mark.
+- Runtime diagnostics report free heap, minimum free heap, largest free block, a heap-fragmentation estimate and current-task stack high-water mark. The boot-network and weather-fetch workers also emit exit snapshots so their own stack high-water marks are captured after TLS/network work.
 - `main.cpp` is approximately 145 lines; it retains hardware setup and compatibility wrappers while `AppRuntime` owns the main loop.
 
 ## Remaining work

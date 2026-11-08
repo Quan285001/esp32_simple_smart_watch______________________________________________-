@@ -6,6 +6,7 @@
 #include "../app/app_state.h"
 #include "ble_service.h"
 #include "weather_service.h"
+#include "../system/diagnostics.h"
 
 namespace WeatherCoordinator {
 namespace {
@@ -50,6 +51,7 @@ void weatherFetchTask(void* parameter) {
     }
 
     fetchRunning = false;
+    SystemDiagnostics::logMemory("weatherFetch task exit");
     vTaskDelete(nullptr);
 }
 

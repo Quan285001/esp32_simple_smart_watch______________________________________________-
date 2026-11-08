@@ -17,6 +17,7 @@
 #include "../storage/face_storage.h"
 #include "../watchface/face_manager.h"
 #include "../system/system_manager.h"
+#include "../system/diagnostics.h"
 
 extern void bootTerminalLog(const char* msg, uint16_t color);
 
@@ -125,6 +126,7 @@ void networkStartupTask(void* parameter) {
     // cannot overlap either HTTPS/TLS request.
     bootTerminalLog("[OK] Network startup stage complete", TFT_GREEN);
     setState(State::BlePending);
+    SystemDiagnostics::logMemory("bootNetwork task exit");
     vTaskDelete(nullptr);
 }
 

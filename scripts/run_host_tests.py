@@ -109,6 +109,12 @@ subprocess.run(
 
 
 subprocess.run(
+    [sys.executable, str(ROOT / "tests" / "host" / "worker_diagnostics_guard_test.py")],
+    cwd=ROOT,
+    check=True,
+)
+
+subprocess.run(
     ["node", str(ROOT / "tests" / "host" / "device_compatibility_test.cjs")],
     cwd=ROOT,
     check=True,
