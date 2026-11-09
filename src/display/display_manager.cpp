@@ -39,12 +39,13 @@ public:
         if (pixels == nullptr || count == 0) return;
 
         // WFS assets are decoded from RGB565LE bytes into native uint16_t
-        // colour values. On ESP32-C3, TFT_eSPI's normal SPI pushPixels path
-        // sends those native words in RGB565 MSB-first wire order. Enabling
-        // swapBytes selects pushSwapBytePixels(), which swaps the two bytes
-        // again and corrupts the colour. Preserve the caller's setting.
+        // values. Their RAM representation is low-byte first, while the
+        // display expects each RGB565 pixel high-byte first on SPI. On the
+        // ESP32-C3, swapBytes selects TFT_eSPI's pair-reordering SPI helper.
+        // Sprite buffers are different: TFT_eSprite::drawPixel pre-swaps
+        // their stored words, which is why pushSprite() explicitly uses false.
         const bool previousSwapBytes = tft.getSwapBytes();
-        tft.setSwapBytes(false);
+        tft.setSwapBytes(true);
         tft.pushImage(x, y, count, 1, pixels);
         tft.setSwapBytes(previousSwapBytes);
     }
