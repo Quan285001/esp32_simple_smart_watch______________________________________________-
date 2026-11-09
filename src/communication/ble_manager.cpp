@@ -534,10 +534,11 @@ bool beginWfsGatt(BLEServer* server) {
         return false;
     }
 
-    controlRx->setAccessPermissions(ESP_GATT_PERM_WRITE_ENCRYPTED);
-    controlTx->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED);
-    dataRx->setAccessPermissions(ESP_GATT_PERM_WRITE_ENCRYPTED);
-    dataTx->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED);
+    // Keep WFS1 GATT open for direct browser/device connections without pairing.
+    controlRx->setAccessPermissions(ESP_GATT_PERM_WRITE);
+    controlTx->setAccessPermissions(ESP_GATT_PERM_READ);
+    dataRx->setAccessPermissions(ESP_GATT_PERM_WRITE);
+    dataTx->setAccessPermissions(ESP_GATT_PERM_READ);
     controlTx->addDescriptor(new BLE2902());
     dataTx->addDescriptor(new BLE2902());
     controlRx->setCallbacks(new WfsWriteCallbacks(&rxQueue, 0));
