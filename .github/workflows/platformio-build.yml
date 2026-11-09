@@ -58,6 +58,10 @@ jobs:
 
       - name: Check Web app JavaScript syntax
         run: node --check web/app.js
+      - name: Check Device Profile module syntax
+        run: node --check web/device-profile.js
+      - name: Run Device Profile validation and migration tests
+        run: node tests/host/device_profile_test.cjs
 
       - name: Run host-side protocol tests
         run: python scripts/run_host_tests.py
