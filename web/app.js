@@ -274,7 +274,7 @@ async function convertImageToRgb565(object,design){
  const maskCanvas=document.createElement('canvas');maskCanvas.width=240;maskCanvas.height=240;
  const maskCtx=maskCanvas.getContext('2d',{willReadFrequently:true});
  maskCtx.save();maskCtx.beginPath();maskCtx.arc(120,120,120,0,Math.PI*2);maskCtx.clip();
- maskCtx.drawImage(image,x,y,width,height);maskCtx.restore();
+ const fitScale=Math.min(width/image.naturalWidth,height/image.naturalHeight);const drawWidth=image.naturalWidth*fitScale,drawHeight=image.naturalHeight*fitScale;const drawX=x+(width-drawWidth)/2,drawY=y+(height-drawHeight)/2;maskCtx.drawImage(image,drawX,drawY,drawWidth,drawHeight);maskCtx.restore();
  const maskPixels=maskCtx.getImageData(0,0,240,240).data;
  let hasTransparency=false;
  for(let i=3;i<maskPixels.length;i+=4){if(maskPixels[i]!==255){hasTransparency=true;break}}
