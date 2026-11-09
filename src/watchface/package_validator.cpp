@@ -9,6 +9,7 @@
 #include "face_parser.h"
 #include "face_renderer.h"
 #include "../display/display_profile.h"
+#include "../communication/digest.h"
 
 namespace {
 constexpr size_t WFS_HEADER_SIZE = 64;
@@ -32,18 +33,6 @@ uint32_t crc32Iso(const uint8_t* data, size_t length) {
         }
     }
     return crc ^ 0xFFFFFFFFUL;
-}
-
-bool hexToBytes(const char* hex, uint8_t* out, size_t count) {
-    if (hex == nullptr || out == nullptr || strlen(hex) != count * 2) return false;
-    for (size_t i = 0; i < count; ++i) {
-        char pair[3] = {hex[i * 2], hex[i * 2 + 1], '\0'};
-        char* end = nullptr;
-        const unsigned long value = strtoul(pair, &end, 16);
-        if (end == nullptr || *end != '\0' || value > 255) return false;
-        out[i] = static_cast<uint8_t>(value);
-    }
-    return true;
 }
 
 bool digestFileRange(fs::File& file, size_t offset, size_t length, uint8_t output[32]) {
@@ -222,7 +211,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
 
     uint8_t expectedLayoutDigest[32] = {};
     uint8_t actualLayoutDigest[32] = {};
-    if (!hexToBytes(manifest["layoutSha256"] | "", expectedLayoutDigest, 32) ||
+    if (!WfsDigest::parseSha256Hex(manifest["layoutSha256"] | "", expectedLayoutDigest) ||
         !digestFileRange(file, WFS_HEADER_SIZE + manifestLength, layoutLength, actualLayoutDigest) ||
         memcmp(expectedLayoutDigest, actualLayoutDigest, 32) != 0) {
         free(manifestText);
@@ -275,7 +264,7 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
             width == 0 || width > DisplayProfileConfig::MAX_BITMAP_WIDTH ||
             height == 0 || height > DisplayProfileConfig::MAX_BITMAP_HEIGHT ||
             byteLength != width * height * 2U || offset != expectedAssetOffset ||
-            !hexToBytes(assetShaText, expectedAssetDigest, 32)) {
+            !WfsDigest::parseSha256Hex(assetShaText, expectedAssetDigest)) {
             free(manifestText);
             free(layoutText);
             error = PackageValidationError::AssetManifest;
