@@ -60,7 +60,7 @@ if "$('#deviceSettings').onclick=openDeviceProfileDialog" not in app_js:
     errors.append("The Device Profile control must open the profile editor, not show a device identity toast")
 if "function applyDeviceProfile()" not in app_js or "WFSDeviceProfile.migrateObjects" not in app_js:
     errors.append("Applying a profile must run the selected coordinate migration strategy")
-if "device-profile.js" not in parser.assets:
+if not any(asset.endswith("device-profile.js") for asset in parser.assets):
     errors.append("The shared Device Profile editor module must load before the application")
 
 if errors:
