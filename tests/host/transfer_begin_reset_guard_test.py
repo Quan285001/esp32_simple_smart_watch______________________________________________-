@@ -22,4 +22,12 @@ assert busy_check < reset_fields < reset_state < reset_error < request_validatio
 assert "currentError = Error::Busy;" in begin_body
 assert "return false;" in begin_body[busy_check:reset_fields]
 
+abort_start = source.index("void abortSession()")
+abort_end = source.index("\\nSnapshot snapshot()", abort_start)
+abort_body = source[abort_start:abort_end]
+assert "currentTransferId == 0 || !canCancel(currentState)" in abort_body, (
+    "disconnect without an owned transfer must not mutate a failed begin attempt"
+)
+assert abort_body.index("currentTransferId == 0") < abort_body.index("cancel(transferId)")
+
 print("WFS begin-attempt metadata reset guard passed.")
