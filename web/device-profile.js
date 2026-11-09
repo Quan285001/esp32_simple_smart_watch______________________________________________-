@@ -30,14 +30,14 @@ function validate(profile){
  if(raw.profileVersion!==1)errors.push('Unsupported Device Profile version.');
  if(typeof raw.id!=='string'||!raw.id.trim()||raw.id.length>64)errors.push('Profile ID must contain 1 to 64 characters.');
  if(typeof raw.name!=='string'||!raw.name.trim()||raw.name.length>80)errors.push('Profile name must contain 1 to 80 characters.');
- if(!Number.isInteger(Number(rawDisplay.width))||Number(rawDisplay.width)<1||Number(rawDisplay.width)>1024)errors.push('Width must be an integer from 1 to 1024 pixels.');
- if(!Number.isInteger(Number(rawDisplay.height))||Number(rawDisplay.height)<1||Number(rawDisplay.height)>1024)errors.push('Height must be an integer from 1 to 1024 pixels.');
+ if(!Number.isInteger(rawDisplay.width)||rawDisplay.width<1||rawDisplay.width>1024)errors.push('Width must be an integer from 1 to 1024 pixels.');
+ if(!Number.isInteger(rawDisplay.height)||rawDisplay.height<1||rawDisplay.height>1024)errors.push('Height must be an integer from 1 to 1024 pixels.');
  if(!SHAPES.includes(rawDisplay.shape))errors.push('Choose a supported display shape.');
  if(d.shape==='circle'&&d.width!==d.height)errors.push('A circular display must have equal width and height.');
  if(!COLOR_FORMATS.includes(rawDisplay.colorFormat))errors.push('Choose a supported color format.');
- if(![0,90,180,270].includes(Number(rawDisplay.rotation)))errors.push('Rotation must be 0, 90, 180 or 270 degrees.');
+ if(![0,90,180,270].includes(rawDisplay.rotation))errors.push('Rotation must be 0, 90, 180 or 270 degrees.');
  const rawSafe=rawDisplay.safeArea||{},s=d.safeArea;
- for(const key of ['top','right','bottom','left']){const value=rawSafe[key]===undefined?0:Number(rawSafe[key]);if(!Number.isFinite(value)||value<0)errors.push('Safe-area margins must be non-negative numbers.');}
+ for(const key of ['top','right','bottom','left']){const value=rawSafe[key]===undefined?0:rawSafe[key];if(typeof value!=='number'||!Number.isFinite(value)||value<0)errors.push('Safe-area margins must be non-negative numbers.');}
  if(s.left+s.right>=d.width||s.top+s.bottom>=d.height)errors.push('Safe-area margins leave no usable display area.');
  if(!Number.isFinite(d.centerX)||d.centerX<0||d.centerX>d.width)errors.push('Center X must be within the display.');
  if(!Number.isFinite(d.centerY)||d.centerY<0||d.centerY>d.height)errors.push('Center Y must be within the display.');
