@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <BLEDevice.h>
-#include <BLESecurity.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
@@ -26,7 +25,6 @@ static volatile bool clientConnected = false;
 static volatile bool bleEnabled = false;
 static volatile bool advertisingRestartPending = false;
 static bool bleStackInitialized = false;
-static BLESecurity* bleSecurity = nullptr;
 
 class ServerCallbacks final : public BLEServerCallbacks {
     /**
@@ -116,13 +114,6 @@ void beginBLE() {
     Serial.println("[BLE] Initializing stack once...");
     BLEDevice::init("ESP32_Watch_C3");
     BLEDevice::setMTU(247);
-    BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
-    if (bleSecurity == nullptr) {
-        bleSecurity = new BLESecurity();
-        bleSecurity->setAuthenticationMode(ESP_LE_AUTH_BOND);
-        bleSecurity->setCapability(ESP_IO_CAP_NONE);
-        bleSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-    }
     Serial.println("[BLE] Creating server...");
     bleServer = BLEDevice::createServer();
     if (bleServer == nullptr) {
@@ -151,7 +142,7 @@ void beginBLE() {
     }
 
     commandCharacteristic->addDescriptor(new BLE2902());
-    commandCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
+    commandCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE);
     commandCharacteristic->setCallbacks(new CharacteristicCallbacks());
     commandCharacteristic->setValue("READY");
 
