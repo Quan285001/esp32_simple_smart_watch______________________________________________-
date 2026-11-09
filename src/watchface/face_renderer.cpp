@@ -305,7 +305,7 @@ void markAnalogMaskLine(int x0, int y0, int x1, int y1) {
 }
 
 void markAnalogMaskHub(int centerX, int centerY) {
-    // Slightly conservative around TFT_eSPI's filled-circle rasterization so
+    // Slightly conservative around the filled-circle rasterization so
     // no edge pixel from the previous hub can be left behind.
     for (int dy = -4; dy <= 4; ++dy) {
         for (int dx = -4; dx <= 4; ++dx) {
