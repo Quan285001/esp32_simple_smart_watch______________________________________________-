@@ -13,6 +13,8 @@
 namespace TransferManager {
 namespace {
 constexpr size_t MIN_PACKAGE_LENGTH = 64;
+constexpr uint32_t TRANSFER_IDLE_TIMEOUT_MS = 120000;
+WfsTransferSequence::InactivityTimer activityTimer;
 fs::File stagingFile;
 State currentState = State::Idle;
 Error currentError = Error::None;
@@ -29,6 +31,7 @@ uint32_t transferStartedAtMs = 0;
 MemoryMonitor::Snapshot transferStartMemory{};
 
 void fail(Error error) {
+    activityTimer.clear();
     if (stagingFile) {
         stagingFile.flush();
         stagingFile.close();
@@ -49,6 +52,7 @@ void clearTransferFields() {
     verifiedFace = FaceModel{};
     transferStartedAtMs = 0;
     transferStartMemory = {};
+    activityTimer.clear();
 }
 }
 
@@ -111,6 +115,7 @@ bool begin(uint32_t transferId, uint32_t packageLength,
     currentState = State::Receiving;
     currentError = Error::None;
     transferStartedAtMs = millis();
+    activityTimer.start(transferStartedAtMs);
     transferStartMemory = SystemDiagnostics::captureMemory();
     SystemDiagnostics::logMemory("WFS receive begin");
     return true;
@@ -130,6 +135,7 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
     }
     if (decision == WfsTransferSequence::Decision::Duplicate) {
         // ACK a byte-identical retransmission without writing it twice.
+        activityTimer.touch(millis());
         currentError = Error::None;
         return true;
     }
@@ -152,6 +158,7 @@ bool writeChunk(uint32_t transferId, uint32_t chunkIndex,
         return false;
     }
     receivedLength += static_cast<uint32_t>(written);
+    activityTimer.touch(millis());
     currentError = Error::None;
     return true;
 }
@@ -167,6 +174,7 @@ bool finish(uint32_t transferId) {
     }
 
     currentState = State::Verifying;
+    activityTimer.touch(millis());
     const uint32_t verifyStartedAtMs = millis();
     stagingFile.flush();
     stagingFile.close();
@@ -197,12 +205,14 @@ bool finish(uint32_t transferId) {
     if (!valid) {
         Serial.printf("[TRANSFER] Package validation failed: %s.\n",
                       packageValidationErrorName(validationError));
+        activityTimer.clear();
         currentError = Error::PackageInvalid;
         currentState = State::Failed;
         return false;
     }
 
     currentState = State::Verified;
+    activityTimer.touch(millis());
     currentError = Error::None;
     return true;
 }
@@ -214,6 +224,7 @@ bool apply(uint32_t transferId) {
     }
 
     currentState = State::Applying;
+    activityTimer.clear();
     const uint32_t applyStartedAtMs = millis();
     const bool activated = FaceStorage::activateSlot(stagingSlot);
     const bool modelInstalled = activated && FaceManager::setActiveModel(verifiedFace);
@@ -254,6 +265,7 @@ bool cancel(uint32_t transferId) {
         // A rejected cancel must not overwrite the active transfer's error.
         return false;
     }
+    activityTimer.clear();
     if (stagingFile) {
         stagingFile.close();
     }
@@ -265,6 +277,23 @@ bool cancel(uint32_t transferId) {
     currentState = State::Cancelled;
     currentError = Error::None;
     return true;
+}
+
+void service() {
+    if (currentState != State::Receiving && currentState != State::Verified) return;
+    if (!activityTimer.expired(millis(), TRANSFER_IDLE_TIMEOUT_MS)) return;
+
+    const uint32_t expiredTransferId = currentTransferId;
+    if (!cancel(expiredTransferId)) {
+        Serial.printf("[TRANSFER] CRITICAL: inactivity timeout cleanup failed: %s.\\n",
+                      errorName(currentError));
+        return;
+    }
+    currentState = State::Failed;
+    currentError = Error::Timeout;
+    Serial.printf("[TRANSFER] Transfer %lu expired after %lu ms idle; staging slot discarded.\\n",
+                  static_cast<unsigned long>(expiredTransferId),
+                  static_cast<unsigned long>(TRANSFER_IDLE_TIMEOUT_MS));
 }
 
 void abortSession() {
@@ -323,6 +352,7 @@ const char* errorName(Error error) {
         case Error::PackageInvalid: return "PACKAGE_INVALID";
         case Error::ApplyFailed: return "APPLY_FAILED";
         case Error::SessionLost: return "SESSION_LOST";
+        case Error::Timeout: return "TIMEOUT";
         default: return "UNKNOWN";
     }
 }
