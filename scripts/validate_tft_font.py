@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure the browser preview embeds the exact GLCD font used by TFT_eSPI."""
+"""Verify the browser GLCD font and the ESP32-C3 RGB565 SPI byte contract."""
 from pathlib import Path
 import re
 import sys
@@ -44,27 +44,26 @@ if web_bytes != font_bytes:
 
 print("Browser GLCD font exactly matches the installed TFT_eSPI library (256 glyphs).")
 
-# WFS rows are decoded into native little-endian uint16_t values. On ESP32,
-# TFT_eSPI must swap each word before SPI transmission so the panel receives
-# RGB565 MSB first. Sprite buffers have a different storage contract. This
-# source-level check does not claim to verify the physical panel's RGB/BGR mode.
 sprite_path = font_path.parents[1] / "Extensions" / "Sprite.cpp"
 tft_path = font_path.parents[1] / "TFT_eSPI.cpp"
+processor_path = font_path.parents[1] / "Processors" / "TFT_eSPI_ESP32_C3.c"
 display_path = ROOT / "src" / "display" / "display_manager.cpp"
-for required in (sprite_path, tft_path, display_path):
+for required in (sprite_path, tft_path, processor_path, display_path):
     if not required.is_file():
         print(f"ERROR: TFT image transport source not found: {required}")
         sys.exit(1)
 
 sprite_source = sprite_path.read_text(encoding="utf-8", errors="replace")
 tft_source = tft_path.read_text(encoding="utf-8", errors="replace")
+processor_source = processor_path.read_text(encoding="utf-8", errors="replace")
 display_source = display_path.read_text(encoding="utf-8", errors="replace")
 
 sprite_start = sprite_source.find("void TFT_eSprite::pushSprite(int32_t x, int32_t y)")
 if sprite_start < 0:
     print("ERROR: TFT_eSPI 16-bit sprite push implementation is missing")
     sys.exit(1)
-sprite_body = sprite_source[sprite_start:sprite_source.find("\n}", sprite_start) + 2]
+sprite_end = sprite_source.find("\n}", sprite_start)
+sprite_body = sprite_source[sprite_start:sprite_end + 2]
 if "setSwapBytes(false)" not in sprite_body or "_tft->pushImage(" not in sprite_body:
     print("ERROR: TFT_eSPI sprite path contract changed; re-check sprite byte layout")
     sys.exit(1)
@@ -75,35 +74,27 @@ push_start = tft_source.find(
 if push_start < 0:
     print("ERROR: TFT_eSPI mutable 16-bit pushImage implementation is missing")
     sys.exit(1)
-push_body = tft_source[push_start:tft_source.find("\n}", push_start) + 2]
+push_end = tft_source.find("\n}", push_start)
+push_body = tft_source[push_start:push_end + 2]
 if "pushPixels(data" not in push_body:
     print("ERROR: TFT_eSPI pushImage no longer forwards native words to pushPixels")
     sys.exit(1)
 
-processor_path = font_path.parents[1] / "Processors" / "TFT_eSPI_ESP32_C3.c"
-if not processor_path.is_file():
-    print(f"ERROR: ESP32-C3 TFT_eSPI processor source not found: {processor_path}")
-    sys.exit(1)
-processor_source = processor_path.read_text(encoding="utf-8", errors="replace")
-# The ESP32-C3 has distinct parallel and SPI pushPixels implementations.
-# GC9A01 uses the standard 16-bit SPI branch, not the parallel GPIO macros.
-processor_path = font_path.parents[1] / "Processors" / "TFT_eSPI_ESP32_C3.c"
-if not processor_path.is_file():
-    print(f"ERROR: ESP32-C3 TFT_eSPI processor source not found: {processor_path}")
-    sys.exit(1)
-processor_source = processor_path.read_text(encoding="utf-8", errors="replace")
+# GC9A01 uses the normal 16-bit SPI branch. Do not inspect the earlier
+# ESP32-C3 parallel-GPIO implementation: it has different write macros.
 spi_branch_marker = "#elif !defined (SPI_18BIT_DRIVER) && !defined (TFT_PARALLEL_8_BIT)"
 spi_branch_start = processor_source.find(spi_branch_marker)
 if spi_branch_start < 0:
     print("ERROR: ESP32-C3 standard SPI processor branch is missing")
     sys.exit(1)
+
 push_pixels_start = processor_source.find(
     "void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)", spi_branch_start
 )
 if push_pixels_start < 0:
     print("ERROR: ESP32-C3 standard SPI pushPixels implementation is missing")
     sys.exit(1)
-push_pixels_end = processor_source.find("\\n}", push_pixels_start)
+push_pixels_end = processor_source.find("\n}", push_pixels_start)
 push_pixels_body = processor_source[push_pixels_start:push_pixels_end + 2]
 if ("if(_swapBytes)" not in push_pixels_body
         or "pushSwapBytePixels(data_in, len)" not in push_pixels_body
@@ -118,24 +109,30 @@ swap_pixels_start = processor_source.find(
 if swap_pixels_start < 0:
     print("ERROR: ESP32-C3 swapped-byte SPI helper is missing")
     sys.exit(1)
-swap_pixels_end = processor_source.find("\\n}", swap_pixels_start)
+swap_pixels_end = processor_source.find("\n}", swap_pixels_start)
 swap_pixels_body = processor_source[swap_pixels_start:swap_pixels_end + 2]
 if "DAT8TO32(data)" not in swap_pixels_body:
-    print("ERROR: ESP32-C3 swapped-byte SPI helper no longer reverses byte pairs")
+    print("ERROR: ESP32-C3 swapped-byte SPI helper contract changed")
     sys.exit(1)
 
+# RGB565LE payloads are decoded into native uint16_t words. The ESP32-C3
+# standard SPI path already emits those native words in the required order.
+# Enabling swapBytes selects the explicit byte-pair swap helper instead.
 backend_start = display_source.find("void pushRgb565Row(")
-backend_body = display_source[backend_start:display_source.find("\n    }", backend_start) + 6]
+if backend_start < 0:
+    print("ERROR: WFS RGB565 display backend is missing")
+    sys.exit(1)
+backend_end = display_source.find("\n    }", backend_start)
+backend_body = display_source[backend_start:backend_end + 6]
 ordered_calls = [
     "tft.getSwapBytes()",
-    "tft.setSwapBytes(true)",
+    "tft.setSwapBytes(false)",
     "tft.pushImage(x, y, count, 1, pixels)",
     "tft.setSwapBytes(previousSwapBytes)",
 ]
 positions = [backend_body.find(token) for token in ordered_calls]
 if any(position < 0 for position in positions) or positions != sorted(positions):
-    print("ERROR: WFS RGB565 row transport does not preserve TFT_eSPI native-word swap state")
+    print("ERROR: WFS RGB565 row transport does not preserve native SPI word order")
     sys.exit(1)
 
-print("WFS RGB565 native words are byte-swapped to MSB-first SPI order.")
-
+print("WFS RGB565LE native words use the ESP32-C3 normal SPI path (byte swapping disabled).")
