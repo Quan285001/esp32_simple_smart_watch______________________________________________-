@@ -33,6 +33,6 @@ int main() {
     assert(!decodeRgb565LittleEndianRow(encoded, sizeof(encoded), pixels,
                                         static_cast<size_t>(-1)));
 
-    std::cout << "WFS RGB565 little-endian row decoder host tests passed.\\n";
+    std::cout << "WFS RGB565 little-endian row decoder host tests passed.\n";
     return 0;
 }
