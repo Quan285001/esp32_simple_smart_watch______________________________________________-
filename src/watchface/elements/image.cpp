@@ -89,8 +89,6 @@ bool drawImageElementMasked(const FaceModel& face, const FaceObject& object,
     const size_t maskStride = (static_cast<size_t>(maskWidth) + 7U) / 8U;
     for (int screenY = top; screenY < bottom; ++screenY) {
         const int assetY = screenY - y;
-        const int assetLeft = left - x;
-        const int assetRight = right - x;
         bool rowHasPixels = false;
         for (int screenX = left; screenX < right; ++screenX) {
             const size_t index = static_cast<size_t>(screenY) * maskStride +
