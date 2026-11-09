@@ -8,6 +8,9 @@ const custom=Profile.normalize({...base,id:'custom-320x240',name:'Landscape pane
 assert.deepEqual(Profile.validate(custom),[]);
 assert.equal(Profile.compatibleWithCurrentFirmware(custom),false);
 assert.ok(Profile.validate({...custom,display:{...custom.display,width:0}}).some(x=>x.includes('Width')));
+assert.ok(Profile.validate({...custom,display:{...custom.display,width:'320'}}).some(x=>x.includes('Width')));
+assert.ok(Profile.validate({...custom,display:{...custom.display,rotation:'90'}}).some(x=>x.includes('Rotation')));
+assert.ok(Profile.validate({...custom,display:{...custom.display,safeArea:{top:'2',right:0,bottom:0,left:0}}}).some(x=>x.includes('Safe-area')));
 assert.ok(Profile.validate({...custom,display:{...custom.display,shape:'not-a-shape'}}).some(x=>x.includes('shape')));
 assert.ok(Profile.validate({...custom,display:{...custom.display,colorFormat:'RGBA'}}).some(x=>x.includes('color format')));
 assert.ok(Profile.validate({...custom,display:{...custom.display,rotation:45}}).some(x=>x.includes('Rotation')));
