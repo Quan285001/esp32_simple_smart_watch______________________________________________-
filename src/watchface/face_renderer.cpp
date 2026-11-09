@@ -196,7 +196,7 @@ bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
             break;
         case FaceElementType::Weather:
             if (!weather.valid) {
-                snprintf(value, sizeof(value), "unavailable:%s", object.text);
+                snprintf(value, sizeof(value), "unavailable:%.244s", object.text);
             } else {
                 snprintf(value, sizeof(value), "%d|%s|%u|%u",
                          weather.currentTemp, weather.conditionText,
