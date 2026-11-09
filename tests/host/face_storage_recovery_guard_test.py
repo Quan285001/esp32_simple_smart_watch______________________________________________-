@@ -66,6 +66,9 @@ assert "if (restored)" in restore
 assert "markStorageUnavailable();" in restore
 activate_start = face_storage.index("bool activateSlot(")
 activate = face_storage[activate_start:]
+assert "bool rollbackVerified = false;" in activate
+assert "rollbackVerified = !prefs.isKey(ACTIVE_SLOT_KEY);" in activate
+assert "if (!rollbackVerified)" in activate
 assert "markStorageUnavailable();" in activate
 unavailable_start = face_storage.index("void markStorageUnavailable()")
 unavailable_end = face_storage.index("}", unavailable_start)
