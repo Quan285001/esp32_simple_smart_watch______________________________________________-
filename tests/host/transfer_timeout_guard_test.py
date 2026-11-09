@@ -16,7 +16,12 @@ assert "activityTimer.expired(millis(), TRANSFER_IDLE_TIMEOUT_MS)" in TRANSFER
 assert "currentState != State::Receiving && currentState != State::Verified" in TRANSFER
 assert "currentError = Error::Timeout;" in TRANSFER
 assert 'case Error::Timeout: return "TIMEOUT";' in TRANSFER
-assert "TransferManager::service();" in BLE
+service_start = BLE.index("void serviceWfsBle()")
+queued_data = BLE.find("if (packet.channel == 1)", service_start)
+timeout_service = BLE.find("TransferManager::service();", service_start)
+assert queued_data >= 0 and timeout_service > queued_data, (
+    "queued BLE chunks must refresh transfer activity before idle timeout is serviced"
+)
 assert "class InactivityTimer" in SEQUENCE
 assert "static_cast<uint32_t>(now - lastActivity_) >= timeoutMs" in SEQUENCE
 
