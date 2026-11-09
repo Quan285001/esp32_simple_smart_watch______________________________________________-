@@ -25,15 +25,17 @@ function normalize(profile){
  return p;
 }
 function validate(profile){
- const p=normalize(profile),d=p.display,errors=[];
- if(!Number.isInteger(d.width)||d.width<1||d.width>1024)errors.push('Width must be an integer from 1 to 1024 pixels.');
- if(!Number.isInteger(d.height)||d.height<1||d.height>1024)errors.push('Height must be an integer from 1 to 1024 pixels.');
- if(!SHAPES.includes(d.shape))errors.push('Choose a supported display shape.');
+ const raw=profile&&typeof profile==='object'?profile:{},rawDisplay=raw.display&&typeof raw.display==='object'?raw.display:{};
+ const p=normalize(raw),d=p.display,errors=[];
+ if(typeof raw.name!=='string'||!raw.name.trim())errors.push('Profile name is required.');
+ if(!Number.isInteger(Number(rawDisplay.width))||Number(rawDisplay.width)<1||Number(rawDisplay.width)>1024)errors.push('Width must be an integer from 1 to 1024 pixels.');
+ if(!Number.isInteger(Number(rawDisplay.height))||Number(rawDisplay.height)<1||Number(rawDisplay.height)>1024)errors.push('Height must be an integer from 1 to 1024 pixels.');
+ if(!SHAPES.includes(rawDisplay.shape))errors.push('Choose a supported display shape.');
  if(d.shape==='circle'&&d.width!==d.height)errors.push('A circular display must have equal width and height.');
- if(!COLOR_FORMATS.includes(d.colorFormat))errors.push('Choose a supported color format.');
- if(![0,90,180,270].includes(d.rotation))errors.push('Rotation must be 0, 90, 180 or 270 degrees.');
- const s=d.safeArea;
- for(const key of ['top','right','bottom','left'])if(!Number.isFinite(s[key])||s[key]<0)errors.push('Safe-area margins must be non-negative numbers.');
+ if(!COLOR_FORMATS.includes(rawDisplay.colorFormat))errors.push('Choose a supported color format.');
+ if(![0,90,180,270].includes(Number(rawDisplay.rotation)))errors.push('Rotation must be 0, 90, 180 or 270 degrees.');
+ const rawSafe=rawDisplay.safeArea||{},s=d.safeArea;
+ for(const key of ['top','right','bottom','left']){const value=rawSafe[key]===undefined?0:Number(rawSafe[key]);if(!Number.isFinite(value)||value<0)errors.push('Safe-area margins must be non-negative numbers.');}
  if(s.left+s.right>=d.width||s.top+s.bottom>=d.height)errors.push('Safe-area margins leave no usable display area.');
  if(!Number.isFinite(d.centerX)||d.centerX<0||d.centerX>d.width)errors.push('Center X must be within the display.');
  if(!Number.isFinite(d.centerY)||d.centerY<0||d.centerY>d.height)errors.push('Center Y must be within the display.');
@@ -49,7 +51,7 @@ function migrateObjects(objects,from,to,strategy){
    if(Number.isFinite(t.width))t.width=t.width*sx;
    if(Number.isFinite(t.y))t.y=t.y*sy;
    if(Number.isFinite(t.height))t.height=t.height*sy;
-   if(copy.textStyle){if(Number.isFinite(copy.textStyle.scaleX))copy.textStyle.scaleX=copy.textStyle.scaleX*sx;if(Number.isFinite(copy.textStyle.scaleY))copy.textStyle.scaleY=copy.textStyle.scaleY*sy}
+   if(copy.textStyle){copy.textStyle.fontSize=(Number(copy.textStyle.fontSize)||16)*sy;copy.textStyle.scaleX=(Number(copy.textStyle.scaleX)||1)*(sx/sy);if(Number.isFinite(copy.textStyle.letterSpacing))copy.textStyle.letterSpacing*=sx;if(Number.isFinite(copy.textStyle.scaleY))copy.textStyle.scaleY=copy.textStyle.scaleY}
   }
   copy.transform=t;return copy;
  });
