@@ -100,6 +100,28 @@ int main() {
     assert(canvas.rows[1].pixels[0] == 0x001F);
     assert(canvas.rows[1].pixels[1] == 0xFFFF);
 
+    // Orange and cyan golden pixels exercise the complete storage -> decoder
+    // -> DisplayCanvas path, not just the standalone byte decoder.
+    packageBytes = {
+        0x00, 0xF8, 0xE0, 0x07, 0x20, 0xFD, // red, green, orange
+        0x1F, 0x00, 0xFF, 0xFF, 0xFF, 0x07  // blue, white, cyan
+    };
+    face = makeFace(0, 12);
+    face.assets[0].width = 3;
+    face.assets[0].height = 2;
+    object = makeImageObject();
+    object.transform.width = 3;
+    canvas.rows.clear();
+    assert(drawImageElement(face, object));
+    assert(canvas.rows.size() == 2);
+    assert(canvas.rows[0].pixels.size() == 3);
+    assert(canvas.rows[0].pixels[0] == 0xF800);
+    assert(canvas.rows[0].pixels[1] == 0x07E0);
+    assert(canvas.rows[0].pixels[2] == 0xFD20);
+    assert(canvas.rows[1].pixels[0] == 0x001F);
+    assert(canvas.rows[1].pixels[1] == 0xFFFF);
+    assert(canvas.rows[1].pixels[2] == 0x07FF);
+
     // Reject malformed metadata and file ranges before touching the canvas.
     canvas.rows.clear();
     face = makeFace(0, 7);
