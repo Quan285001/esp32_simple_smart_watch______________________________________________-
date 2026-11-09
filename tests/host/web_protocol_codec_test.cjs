@@ -57,12 +57,12 @@ const sandbox = {
 };
 vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
-  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, renderAnalogClockPreview, roundFirmwarePixel, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
+  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, sendFrameAndWait: wfsSendFrameAndWait, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, renderAnalogClockPreview, roundFirmwarePixel, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
   sandbox,
   { filename: 'web/app.js' },
 );
 
-const { state, encode, decode, waitFor, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, renderAnalogClockPreview, roundFirmwarePixel, setPreviewText, renderWeatherPreview, crc32, hex } = sandbox.__wfsCodecTest;
+const { state, encode, decode, waitFor, sendFrameAndWait, buildPackage, sendFrame: wfsSendFrame, renderShapePreview, renderAnalogClockPreview, roundFirmwarePixel, setPreviewText, renderWeatherPreview, crc32, hex } = sandbox.__wfsCodecTest;
 const writes = { control: [], data: [] };
 state.wfs = { txSequence: 7, sessionId: 0x12345678, pending: new Map(), controlRx: { writeValueWithResponse: async frame => writes.control.push(frame) }, dataRx: { writeValueWithResponse: async frame => writes.data.push(frame) } };
 state.schema = JSON.parse(fs.readFileSync(path.join(root, 'shared/schemas/watch-face.schema.json'), 'utf8'));
@@ -92,6 +92,25 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
     /data payload exceeds 224-byte limit/);
   console.log('WFS Web BLE characteristic payload-boundary tests passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
+
+(async () => {
+  const originalWrite = state.wfs.controlRx.writeValueWithResponse;
+  state.wfs.controlRx.writeValueWithResponse = async () => {
+    throw Error('simulated GATT write failure');
+  };
+  await assert.rejects(
+    sendFrameAndWait(0x05, new Uint8Array(), 0x06, 60000),
+    /simulated GATT write failure/,
+    'a failed GATT write must reject the request'
+  );
+  assert.equal(state.wfs.pending.size, 0,
+    'a failed GATT write must cancel and remove its response waiter');
+  state.wfs.controlRx.writeValueWithResponse = originalWrite;
+  console.log('WFS Web failed-write waiter cleanup tests passed.');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
 
 (async () => {
   const pendingAck = waitFor(0x23, 60000);
