@@ -140,7 +140,7 @@ const fakeImageDocument = {
             pixels[i + 1] = 165;
             pixels[i + 2] = 0;
             pixels[i + 3] = imageSandbox.transparentPixel &&
-              !fillStyle && i === 40 ? 0 : 255;
+              !fillStyle && i === (imageSandbox.transparentPixelIndex ?? 10) * 4 ? 0 : 255;
           }
           return { data: pixels };
         },
@@ -210,6 +210,11 @@ imageSandbox.convert(cropObject, cropDesign).then(async (converted) => {
   if (!transparentOverlayRejected) {
     throw new Error('Transparent image pixels overlapping a lower layer must be rejected');
   }
+  imageSandbox.transparentPixelIndex = 0;
+  await imageSandbox.convert(overlayObject, {
+    canvas: { backgroundColor: '#000000' },
+    objects: [lowerLayer, overlayObject],
+  });
   imageSandbox.transparentPixel = false;
   console.log('WFS browser image crop, alpha-overlap and orange RGB565LE pipeline tests passed.');
 }).catch(error => {
