@@ -139,3 +139,5 @@ body[data-view]:not([data-view="editor"]) .sidebar [data-editor-tools]{display:n
 .profile-dialog-actions span{flex:1}
 .profile-dialog-status{padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
 @media(max-width:520px){.profile-dialog form{padding:15px}.profile-form-grid{gap:0 8px}.profile-dialog-actions{flex-wrap:wrap}.profile-dialog-actions span{display:none}.profile-dialog-actions button{flex:1}}
+
+.safe-area-guides{position:absolute;z-index:2147483000;box-sizing:border-box;border:1px dashed #f4c86a;pointer-events:none;background:#f4c86a0b}
