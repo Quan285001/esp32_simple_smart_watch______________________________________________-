@@ -425,7 +425,10 @@ bool parseObject(JsonObjectConst source, FaceObject& target) {
         !style["strokeWidth"].is<int>() &&
         !style["strokeWidth"].is<unsigned int>()) return false;
     const float strokeWidth = style["strokeWidth"] | 0.0f;
-    if (!isfinite(strokeWidth) || strokeWidth < 0.0f || strokeWidth > 64.0f) return false;
+    // The renderer implements stroke as a one-pixel on/off outline, not an
+    // arbitrary-width stroke. Reject fractional or wider values at the parser
+    // boundary instead of silently truncating them into a different design.
+    if (!isfinite(strokeWidth) || (strokeWidth != 0.0f && strokeWidth != 1.0f)) return false;
     target.strokeWidth = static_cast<uint8_t>(strokeWidth);
     if (style.containsKey("cornerRadius") &&
         !style["cornerRadius"].is<float>() && !style["cornerRadius"].is<int>()) return false;
