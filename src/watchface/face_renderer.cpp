@@ -537,9 +537,9 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
         }
         if (w <= 0 || h <= 0) continue;
 
-        // Clear only the dynamic element's bounds. A TFT viewport clips
-        // every intersecting layer to that same region; without this, a large
-        // lower-z image/shape could overwrite unrelated objects outside it.
+        // Restore only the dirty region. A TFT viewport clips every
+        // intersecting layer to that same region so lower-z content is restored
+        // before the dynamic object and higher-z overlays are repainted.
         const int clipLeft = x < 0 ? 0 : x;
         const int clipTop = y < 0 ? 0 : y;
         const int displayWidth = getDisplayCanvas().width();
