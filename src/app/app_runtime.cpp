@@ -222,7 +222,10 @@ void loop() {
 
         if (FaceManager::hasActiveFace()) {
             static int lastCustomFaceSecond = -1;
-            if (cachedTime.tm_sec != lastCustomFaceSecond) {
+            // A newly applied/restored face must be drawn immediately, even
+            // when the current second has not changed since the previous face.
+            if (cachedTime.tm_sec != lastCustomFaceSecond ||
+                FaceManager::needsFullRender()) {
                 const uint32_t renderStartedUs = micros();
                 const FaceRenderStatus status = FaceManager::renderActiveDynamic(cachedTime, getWeatherSnapshot());
                 const uint32_t renderDurationUs = micros() - renderStartedUs;
