@@ -18,11 +18,11 @@
 
 ## Software verification baseline
 
-The current code baseline `39c4a55edc004c57a2cace06df0cc59e7097bb34` passed:
-- PlatformIO Build workflow run [42577483237](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483237), including shared schema/profile/canvas checks, Web asset/syntax checks, full host protocol/transfer/parser/renderer tests, ESP32-C3 build and firmware artifact upload.
-- Pages deployment run [42577483245](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483245).
+The current code baseline `39157c68939708d8e3410bde5980866235e4e916` passed:
+- PlatformIO Build workflow run [42578621977](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42578621977), including shared schema/profile/canvas checks, Web asset/syntax checks, full host protocol/transfer/parser/renderer tests, ESP32-C3 build and firmware artifact upload.
+- Pages deployment run [42578621242](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42578621242).
 
-The firmware artifact from that run is a time-limited GitHub Actions artifact named `esp32-c3-firmware`. A newer source or documentation commit requires its own workflow run before it can be called green.
+The firmware artifact from that run is a time-limited GitHub Actions artifact named `esp32-c3-firmware` (artifact ID `13655913958`, expires 2026-11-23). Download it from the workflow run's **Artifacts** section. No physical-board test is implied.
 
 ## Execution policy
 
