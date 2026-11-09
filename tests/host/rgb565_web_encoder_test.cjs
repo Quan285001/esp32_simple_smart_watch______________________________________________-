@@ -25,6 +25,65 @@ for (const [character, expected] of [
   const actual = font.slice(character.charCodeAt(0) * 10, character.charCodeAt(0) * 10 + 10);
   if (actual !== expected) throw new Error('GLCD glyph mismatch for ' + JSON.stringify(character));
 }
+const glyphStart = source.indexOf('function setPreviewText(');
+if (glyphStart < 0) throw new Error('Pixel-grid preview renderer is missing');
+const glyphBrace = source.indexOf('{', glyphStart);
+const glyphEnd = source.indexOf('\n}', glyphBrace);
+if (glyphBrace < 0 || glyphEnd < 0) throw new Error('Pixel-grid preview renderer is malformed');
+const glyphFunction = source.slice(glyphStart, glyphEnd + 2);
+const fontDeclaration = source.match(/const TFT_FONT1_GLYPHS='[0-9a-f]+';/);
+if (!fontDeclaration) throw new Error('Firmware GLCD font table is missing');
+const drawCalls = [];
+const fakeDocument = {
+  createElement(tag) {
+    if (tag !== 'canvas') return { style: {}, append() {} };
+    return {
+      style: {}, width: 0, height: 0,
+      getContext() {
+        return {
+          imageSmoothingEnabled: true, fillStyle: '',
+          fillRect(...args) { drawCalls.push(args); },
+        };
+      },
+    };
+  },
+};
+const glyphSandbox = {
+  document: fakeDocument,
+  TextEncoder,
+  roundFirmwarePixel(value) { return Math.floor(Number(value) + 0.5); },
+};
+vm.runInNewContext(fontDeclaration[0] + '\n' + glyphFunction +
+  '\nglobalThis.draw = setPreviewText;', glyphSandbox);
+const preview = { append(bitmap) { this.bitmap = bitmap; } };
+glyphSandbox.draw(preview, 'A',
+  { fontSize: 8, textAlign: 'left', fill: '#fff', fontWeight: 400 },
+  { width: 12, height: 8 });
+if (preview.bitmap.width !== 12 || preview.bitmap.height !== 8) {
+  throw new Error('Preview bitmap must use the device object pixel dimensions');
+}
+const expectedGlyphRuns = [
+  [2, 0, 1, 1],
+  [1, 1, 1, 1], [3, 1, 1, 1],
+  [0, 2, 1, 1], [4, 2, 1, 1],
+  [0, 3, 1, 1], [4, 3, 1, 1],
+  [0, 4, 5, 1],
+  [0, 5, 1, 1], [4, 5, 1, 1],
+  [0, 6, 1, 1], [4, 6, 1, 1],
+];
+if (JSON.stringify(drawCalls) !== JSON.stringify(expectedGlyphRuns)) {
+  throw new Error('GLCD A glyph rasterization differs from firmware pixel runs: ' +
+    JSON.stringify(drawCalls));
+}
+drawCalls.length = 0;
+const scaledPreview = { append(bitmap) { this.bitmap = bitmap; } };
+glyphSandbox.draw(scaledPreview, 'A',
+  { fontSize: 16, textAlign: 'center', fill: '#fff', fontWeight: 400 },
+  { width: 24, height: 16 });
+if (drawCalls[0]?.[0] !== 10 || drawCalls[0]?.[1] !== 0 ||
+    drawCalls[0]?.[2] !== 2 || drawCalls[0]?.[3] !== 2) {
+  throw new Error('Scaled and centered GLCD glyph does not follow firmware pixel rounding');
+}
 const cases = [
   ['black', 0, 0, 0, 0x0000],
   ['white', 255, 255, 255, 0xffff],
