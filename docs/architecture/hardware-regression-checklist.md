@@ -55,7 +55,9 @@ The boot-network and weather-fetch tasks should also emit `bootNetwork task exit
 
 - [ ] Enable Bluetooth from the menu and discover `ESP32_Watch_C3`.
 - [ ] Connect from the Web editor and complete the WFS v1 Hello/HelloAck handshake.
+- [ ] Confirm OS pairing/bonding and encrypted access to protected characteristics. Note that current Just Works mode encrypts the link but does not provide MITM protection.
 - [ ] Read capabilities, device status and face status.
+- [ ] Send a fresh HELLO (session ID zero) during an active test transfer; verify the previous cancellable transfer is aborted before a new session is accepted.
 - [ ] Confirm the compact element list includes `t,dc,ac,d,w,s,i` and weather-condition support is reported as `wc=1`.
 - [ ] Disconnect and reconnect at least 10 times.
 - [ ] Confirm advertising resumes after disconnect when Bluetooth is enabled.
@@ -69,7 +71,10 @@ The boot-network and weather-fetch tasks should also emit `bootNetwork task exit
 
 Use a known-good small project first, then a project containing one RGB565 image.
 
-- [ ] Upload a valid project; verify TransferBegin, chunk ACKs, digest/package verification and Apply.
+- [ ] Upload a valid small project; verify TransferBegin, sequential chunk ACKs, digest/package verification and explicit Apply.
+- [ ] Upload an opaque image-bearing project; confirm RGB565 rendering, positioning, clipping and colors on the round panel.
+- [ ] Confirm transparent overlay images that require alpha compositing are rejected by Web preflight.
+- [ ] If practical, force or simulate one lost DATA_ACK; verify the exact same DATA frame is retried and the chunk is not written twice.
 - [ ] Capture `[PERF] WFS receive=... verify=... bytes=... heap_start=... heap_after=... min_heap_drop=...` and `[PERF] WFS apply=... total=...` logs; record the timings and heap values.
 - [ ] Confirm the new face becomes active only after Apply succeeds.
 - [ ] Start another upload and cancel it; verify a cancellation event is emitted only when cancellation actually succeeds.
@@ -78,7 +83,8 @@ Use a known-good small project first, then a project containing one RGB565 image
 - [ ] Reconnect and upload a fresh project; verify the inactive slot can be reused.
 - [ ] Try an invalid digest or malformed package; verify it is rejected and the previously active face remains intact.
 - [ ] Reboot after a successful Apply; verify the committed face is restored.
-- [ ] Reboot after an interrupted transfer; verify the previously committed face is restored.
+- [ ] Reboot after an interrupted transfer; verify the previously committed face is restored when one exists. On a first install with no committed face, verify the built-in fallback is used.
+- [ ] Test a malformed transfer ID/package length/digest type; verify rejection occurs before storage reservation and the active face remains unchanged.
 
 ## 6. Resource arbitration
 
@@ -93,6 +99,9 @@ Use a known-good small project first, then a project containing one RGB565 image
 - [ ] Enter Light Sleep from the menu.
 - [ ] Wake using the physical BOOT button.
 - [ ] Repeat sleep/wake at least five times.
+- [ ] Verify automatic Light Sleep occurs only on the clock screen after the configured idle timeout.
+- [ ] Verify Auto Sleep is suppressed while BLE is connected or background network/scan work is active.
+- [ ] Verify manual sleep shuts down Wi-Fi/BLE and wake leaves both radios off until explicitly enabled.
 - [ ] Test BLE `SLEEP_ON` and physical-button wake.
 - [ ] After wake, verify the clock, display and BLE stack can be reinitialized.
 - [ ] Verify Wi-Fi and Bluetooth toggles still work after wake.
@@ -121,4 +130,4 @@ For any failure, preserve:
 - Latest `[MEM]` snapshots
 - Whether the board reset, froze, lost display output or merely rejected a command
 
-**Hardware status:** not yet tested by CI. The board owner performs these checks and supplies the captured logs.
+**Hardware status:** pending physical-board execution. CI cannot perform these checks. The board owner must record the date, firmware commit, results, and captured logs before marking Phase 7 complete.
