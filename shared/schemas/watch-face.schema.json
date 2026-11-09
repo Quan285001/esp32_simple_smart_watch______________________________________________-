@@ -67,7 +67,9 @@
         "shape": {
           "enum": [
             "circle",
+            "square",
             "rectangle",
+            "rounded-square",
             "rounded-rectangle"
           ]
         },
@@ -218,7 +220,11 @@
           "maxLength": 64
         },
         "textAlign": {
-          "enum": ["left", "center", "right"]
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
         },
         "fontWeight": {
           "enum": [
