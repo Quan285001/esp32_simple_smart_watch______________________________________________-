@@ -127,6 +127,7 @@ int main() {
     face.objects[1].dataFormat[0]='H'; face.objects[1].dataFormat[1]='H';
     face.objects[1].dataFormat[2]=':'; face.objects[1].dataFormat[3]='m';
     face.objects[1].dataFormat[4]='m';
+    face.objects[1].showSeconds=true;
     face.objects[2]=baseObject(FaceElementType::Shape,"outside");
     face.objects[2].transform.x=0; face.objects[2].transform.y=0;
     face.objects[2].transform.width=10; face.objects[2].transform.height=10;
@@ -135,13 +136,23 @@ int main() {
     assert(canvas.clipCalls==1 && canvas.resetCalls==1);
     assert(canvas.calls.size()==5);
     assert(canvas.calls[0]=="clip" && canvas.calls[1]=="fill" &&
-           canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05" && canvas.calls[4]=="reset-clip");
+           canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05:09" && canvas.calls[4]=="reset-clip");
     assert(canvas.clipX==50 && canvas.clipY==50 && canvas.clipW==100 && canvas.clipH==30);
 
     // An unchanged minute-only clock must not clear/repaint its region.
     canvas.reset();
     assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
     assert(canvas.calls.empty());
+
+    // A seconds tick should redraw only the changed second digits, not the
+    // entire 100-pixel-wide digital clock region.
+    timeInfo.tm_sec=10;
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.clipCalls==1 && canvas.clipW>0 && canvas.clipW<100);
+    assert(canvas.clipX>50 && canvas.clipX<150);
+    assert(canvas.calls[3]=="text:13:05:10");
+    timeInfo.tm_sec=9;
 
     // Dynamic redraw must restore intersecting layers above the changing element.
     assert(renderWatchFace(face,timeInfo,weather)==FaceRenderStatus::Ok); // invalidate cache for the next face
