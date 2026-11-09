@@ -15,6 +15,9 @@ assert "decodeRgb565LittleEndianRow" in RGB565_HEADER
 assert "encodedLength != pixelCount * 2U" in RGB565_HEADER
 
 PACKAGE_VALIDATOR = (ROOT / "src" / "watchface" / "package_validator.cpp").read_text(encoding="utf-8")
+assert '#include "../communication/digest.h"' in PACKAGE_VALIDATOR
+assert PACKAGE_VALIDATOR.count("WfsDigest::parseSha256Hex(") == 2
+assert "hexToBytes(" not in PACKAGE_VALIDATOR
 assert "bool isIntegerJsonNumber(JsonVariantConst value)" in PACKAGE_VALIDATOR
 for field in ("width", "height", "byteLength", "offset"):
     assert f'isIntegerJsonNumber(asset["{field}"])' in PACKAGE_VALIDATOR, (
