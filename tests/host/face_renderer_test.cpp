@@ -90,6 +90,9 @@ int main() {
     canvas.reset();
     assert(renderWatchFace(face,timeInfo,weather)==FaceRenderStatus::Ok);
     assert(canvas.calls.size()==2 && canvas.calls[0]=="clear" && canvas.calls[1]=="text:01:05:09 PM");
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.calls.empty()); // the initial full render already seeded the text cache
 
     face.objects[0]=baseObject(FaceElementType::Date,"date");
     const char* dateFormat="ddd, DD MMM YYYY";
