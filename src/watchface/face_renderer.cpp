@@ -504,7 +504,10 @@ FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInf
     sortObjectIndices(face, order);
     for (uint8_t i = 0; i < face.objectCount; ++i) {
         const FaceObject& object = face.objects[order[i]];
-        if (!drawObject(face, object, timeInfo, weather)) return FaceRenderStatus::AssetReadFailed;
+        if (!drawObject(face, object, timeInfo, weather)) {
+            invalidateDynamicTextCache();
+            return FaceRenderStatus::AssetReadFailed;
+        }
         if (object.visible && object.type == FaceElementType::AnalogClock) {
             int centerX = 0, centerY = 0, endpointX[3] = {}, endpointY[3] = {};
             if (calculateAnalogHandEndpoints(object, timeInfo, centerX, centerY, endpointX, endpointY) &&
@@ -587,7 +590,12 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
             }
         }
         getDisplayCanvas().resetClip();
-        if (!drawOk) return FaceRenderStatus::AssetReadFailed;
+        if (!drawOk) {
+            // A failed layer can leave pixels in any dynamic region partially
+            // restored. Force all dynamic elements to retry on the next tick.
+            invalidateDynamicTextCache();
+            return FaceRenderStatus::AssetReadFailed;
+        }
 
         if (dynamicObject.type != FaceElementType::AnalogClock) {
             commitDynamicTextCache(order[i], dynamicObject, timeInfo, weather);
