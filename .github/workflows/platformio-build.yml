@@ -65,6 +65,9 @@ jobs:
       - name: Build ESP32-C3 firmware
         run: pio run -e c3_clock
 
+      - name: Verify browser GLCD font matches TFT_eSPI
+        run: python scripts/validate_tft_font.py
+
       - name: Run Watch Face parser host tests
         run: python scripts/run_face_parser_tests.py
       - name: Run Watch Face renderer host tests
