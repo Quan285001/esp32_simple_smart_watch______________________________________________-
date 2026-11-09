@@ -274,3 +274,14 @@ Set limits only after measuring actual flash filesystem capacity and worst-case 
 - [ ] Run physical ESP32-C3 regression tests.
 
 The first eight items are source-inspection findings. The final three remain unverified and must not be marked passed until executed.
+
+## Phase 0 follow-up — Device Profile blocker addressed in software
+
+The original audit found that `#deviceSettings` only displayed a toast. That behavior has been replaced by the Phase 2 Device Profile editor documented in [phase-2-device-profile-editor.md](./phase-2-device-profile-editor.md).
+
+Verified software evidence:
+- Device Profile editor module syntax and profile validation/migration tests passed.
+- Web smoke/asset checks passed, including guards that the editor opens and canvas geometry uses the active profile dimensions.
+- Shared schema checks, device compatibility checks, host protocol/transfer tests, PlatformIO ESP32-C3 build, font parity validator, parser tests and renderer tests passed in workflow run [42663304664](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42663304664).
+
+The fix is a browser-side design/profile editor. It does not add a new physical display backend or make the ESP32-C3 firmware accept custom resolutions. The firmware target remains 240 × 240 circular RGB565. Physical-board validation is still pending.
