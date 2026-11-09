@@ -9,6 +9,22 @@ if (bodyStart < 0 || bodyEnd < 0) throw new Error('RGB565LE encoder helper is ma
 const helper = source.slice(start, bodyEnd + 2);
 const sandbox = {};
 vm.runInNewContext(helper + '\nglobalThis.encode = writeRgb888AsRgb565LE;', sandbox);
+const fontMatch = source.match(/const TFT_FONT1_GLYPHS='([0-9a-f]+)'/);
+if (!fontMatch || fontMatch[1].length !== 2560) {
+  throw new Error('Firmware GLCD font table must contain exactly 256 five-byte glyphs');
+}
+const font = fontMatch[1];
+for (const [character, expected] of [
+  [' ', '0000000000'],
+  ['0', '3e5149453e'],
+  ['A', '7c1211127c'],
+  ['a', '2054547840'],
+  [':', '0000140000'],
+  ['?', '0201590906'],
+]) {
+  const actual = font.slice(character.charCodeAt(0) * 10, character.charCodeAt(0) * 10 + 10);
+  if (actual !== expected) throw new Error('GLCD glyph mismatch for ' + JSON.stringify(character));
+}
 const cases = [
   ['black', 0, 0, 0, 0x0000],
   ['white', 255, 255, 255, 0xffff],
