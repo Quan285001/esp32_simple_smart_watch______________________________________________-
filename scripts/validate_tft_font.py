@@ -80,7 +80,7 @@ if "pushPixels(data" not in push_body:
     sys.exit(1)
 
 backend_start = display_source.find("void pushRgb565Row(")
-backend_body = display_source[backend_start:display_source.find("\\n    }", backend_start) + 6]
+backend_body = display_source[backend_start:display_source.find("\n    }", backend_start) + 6]
 ordered_calls = [
     "tft.getSwapBytes()",
     "tft.setSwapBytes(false)",
