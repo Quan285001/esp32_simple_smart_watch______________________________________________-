@@ -121,27 +121,31 @@ const fakeImageDocument = {
   createElement(tag) {
     if (tag !== 'canvas') throw new Error('Unexpected DOM element: ' + tag);
     const canvas = { width: 0, height: 0 };
-    let compositedBackground = false;
-    canvas.getContext = () => ({
-      fillStyle: '',
-      fillRect() { compositedBackground = true; },
-      save() {},
-      beginPath() {},
-      arc(...args) { clipArcs.push(args); },
-      clip() {},
-      restore() {},
-      drawImage(...args) { imageDraws.push(args); },
-      getImageData(x, y, width, height) {
-        const pixels = new Uint8ClampedArray(width * height * 4);
-        for (let i = 0; i < pixels.length; i += 4) {
-          pixels[i] = 255;
-          pixels[i + 1] = 165;
-          pixels[i + 2] = 0;
-          pixels[i + 3] = imageSandbox.transparentPixel && !compositedBackground && i === 0 ? 0 : 255;
-        }
-        return { data: pixels };
-      },
-    });
+    canvas.getContext = () => {
+      let fillStyle = '';
+      return {
+        set fillStyle(value) { fillStyle = value; },
+        get fillStyle() { return fillStyle; },
+        fillRect() {},
+        save() {},
+        beginPath() {},
+        arc(...args) { clipArcs.push(args); },
+        clip() {},
+        restore() {},
+        drawImage(...args) { imageDraws.push(args); },
+        getImageData(x, y, width, height) {
+          const pixels = new Uint8ClampedArray(width * height * 4);
+          for (let i = 0; i < pixels.length; i += 4) {
+            pixels[i] = 255;
+            pixels[i + 1] = 165;
+            pixels[i + 2] = 0;
+            pixels[i + 3] = imageSandbox.transparentPixel &&
+              fillStyle === 'rgba(0,0,0,1)' && i === 0 ? 0 : 255;
+          }
+          return { data: pixels };
+        },
+      };
+    };
     return canvas;
   },
 };
