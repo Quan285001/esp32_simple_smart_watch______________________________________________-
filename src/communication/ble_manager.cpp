@@ -561,6 +561,7 @@ void applyPendingSessionReset() {
 
 void serviceWfsBle() {
     applyPendingSessionReset();
+    TransferManager::service();
     const uint32_t dropped = __atomic_exchange_n(&queueDrops, 0, __ATOMIC_RELAXED);
     if (dropped) Serial.printf("[WFS] RX queue dropped %lu frame(s).\n", static_cast<unsigned long>(dropped));
 
