@@ -138,6 +138,32 @@ int main() {
            canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05" && canvas.calls[4]=="reset-clip");
     assert(canvas.clipX==50 && canvas.clipY==50 && canvas.clipW==100 && canvas.clipH==30);
 
+    // Dynamic redraw must restore intersecting layers above the changing element.
+    face=baseFace(); face.objectCount=3;
+    face.objects[0]=baseObject(FaceElementType::Shape,"lower");
+    face.objects[0].transform.x=50; face.objects[0].transform.y=50;
+    face.objects[0].transform.width=100; face.objects[0].transform.height=30;
+    face.objects[0].transform.zIndex=0;
+    face.objects[1]=baseObject(FaceElementType::DigitalClock,"dynamic");
+    face.objects[1].transform.x=50; face.objects[1].transform.y=50;
+    face.objects[1].transform.width=100; face.objects[1].transform.height=30;
+    face.objects[1].transform.zIndex=1;
+    face.objects[1].dataFormat[0]='H'; face.objects[1].dataFormat[1]='H';
+    face.objects[1].dataFormat[2]=':'; face.objects[1].dataFormat[3]='m';
+    face.objects[1].dataFormat[4]='m';
+    face.objects[2]=baseObject(FaceElementType::Text,"upper");
+    face.objects[2].transform.x=50; face.objects[2].transform.y=50;
+    face.objects[2].transform.width=100; face.objects[2].transform.height=30;
+    face.objects[2].transform.zIndex=2;
+    face.objects[2].text[0]='T'; face.objects[2].text[1]='o';
+    face.objects[2].text[2]='p';
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.calls.size()==6);
+    assert(canvas.calls[0]=="clip" && canvas.calls[1]=="fill" &&
+           canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05" &&
+           canvas.calls[4]=="text:Top" && canvas.calls[5]=="reset-clip");
+
     std::cout << "WFS Face renderer host tests passed.\n";
     return 0;
 }
