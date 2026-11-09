@@ -11,7 +11,8 @@ assert "decodeRgb565LittleEndianRow(encodedRow, rowBytes, row, asset->width)" in
 assert "uint8_t encodedRow[DisplayProfileConfig::MAX_BITMAP_WIDTH * 2]" in SOURCE
 
 RGB565_HEADER = (ROOT / "src" / "watchface" / "elements" / "image_rgb565.h").read_text(encoding="utf-8")
-assert "decodeRgb565LittleEndianRow" in RGB565_HEADER\nassert "encodedLength != pixelCount * 2U" in RGB565_HEADER
+assert "decodeRgb565LittleEndianRow" in RGB565_HEADER
+assert "encodedLength != pixelCount * 2U" in RGB565_HEADER
 
 PACKAGE_VALIDATOR = (ROOT / "src" / "watchface" / "package_validator.cpp").read_text(encoding="utf-8")
 assert "bool isIntegerJsonNumber(JsonVariantConst value)" in PACKAGE_VALIDATOR
