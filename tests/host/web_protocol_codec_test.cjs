@@ -42,6 +42,7 @@ class FakeElement {
 }
 
 class FakeImage {
+  constructor() { this.naturalWidth = 1; this.naturalHeight = 1; }
   set src(value) { this.source = value; }
   decode() { return Promise.resolve(); }
 }
@@ -375,7 +376,7 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
   const transparentOverlay = structuredClone(transparentBottom);
   transparentOverlay.objects.unshift({
     id: 'underlay', type: 'shape', name: 'Underlay', shape: 'rect',
-    transform: { x: 0, y: 0, width: 20, height: 20, anchor: 'top-left', zIndex: -1 },
+    transform: { x: 100, y: 100, width: 20, height: 20, anchor: 'top-left', zIndex: -1 },
     style: { fill: '#ffffff' },
   });
   transparentOverlay.objects[1].transform.zIndex = 0;
