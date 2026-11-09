@@ -19,8 +19,9 @@ assert 'case Error::Timeout: return "TIMEOUT";' in TRANSFER
 service_start = BLE.index("void serviceWfsBle()")
 queued_data = BLE.find("if (packet.channel == 1)", service_start)
 timeout_service = BLE.find("TransferManager::service();", service_start)
-assert queued_data >= 0 and timeout_service > queued_data, (
-    "queued BLE chunks must refresh transfer activity before idle timeout is serviced"
+queue_drain_check = BLE.find("uxQueueMessagesWaiting(rxQueue) == 0", service_start)
+assert queued_data >= 0 and queue_drain_check > queued_data and timeout_service > queue_drain_check, (
+    "all queued BLE chunks must be drained before idle timeout is serviced"
 )
 assert "class InactivityTimer" in SEQUENCE
 assert "static_cast<uint32_t>(now - lastActivity_) >= timeoutMs" in SEQUENCE
