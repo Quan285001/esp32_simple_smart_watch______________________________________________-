@@ -43,6 +43,7 @@ assert "frame.sessionId != 0" in hello
 assert "TransferManager::abortSession();" in hello
 assert hello.index("TransferManager::abortSession();") < hello.index("sessionId = esp_random();")
 assert "transfer_begin_fields_invalid" in control
+assert "payload_sha256_invalid" in control
 assert "transferIdValue.is<uint32_t>()" in control
 assert "packageLengthValue.is<uint32_t>()" in control
 for action in ("TransferEnd", "Apply", "Cancel"):
