@@ -266,7 +266,9 @@ bool cancel(uint32_t transferId) {
 }
 
 void abortSession() {
-    if (!canCancel(currentState)) return;
+    // A failed begin() can leave State::Failed without owning a transfer.
+    // Do not rewrite that request error as SessionLost or cancel transfer ID 0.
+    if (currentTransferId == 0 || !canCancel(currentState)) return;
     const uint32_t transferId = currentTransferId;
     if (!cancel(transferId)) {
         // A disconnect must release the transfer lock even if cleanup failed.
