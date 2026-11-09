@@ -350,8 +350,11 @@ void handleControlPacket(const WfsPacket& packet) {
                 sendError(0x0023, "negotiated_mtu_too_small");
                 break;
             }
-            if (!WfsDigest::parseSha256Hex(digestText, digest) ||
-                !TransferManager::begin(transferId, packageLength, digest, designId)) {
+            if (!WfsDigest::parseSha256Hex(digestText, digest)) {
+                sendError(0x0022, "payload_sha256_invalid");
+                break;
+            }
+            if (!TransferManager::begin(transferId, packageLength, digest, designId)) {
                 sendError(0x0023, TransferManager::errorName(TransferManager::snapshot().error));
                 break;
             }
