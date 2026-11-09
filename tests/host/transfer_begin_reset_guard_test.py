@@ -30,4 +30,14 @@ assert "currentTransferId == 0 || !canCancel(currentState)" in abort_body, (
 )
 assert abort_body.index("currentTransferId == 0") < abort_body.index("cancel(transferId)")
 
+cleanup_failure = abort_body.index("if (!cancel(transferId))")
+session_lost = abort_body.index("currentError = Error::SessionLost;")
+cleanup_return = abort_body.index("return;", cleanup_failure)
+assert cleanup_failure < cleanup_return < session_lost, (
+    "disconnect cleanup failures must retain their concrete error instead of "
+    "being overwritten by SessionLost"
+)
+assert "errorName(currentError)" in abort_body
+
+
 print("WFS begin-attempt metadata reset guard passed.")
