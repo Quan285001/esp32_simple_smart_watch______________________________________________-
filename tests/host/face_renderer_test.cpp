@@ -181,6 +181,26 @@ int main() {
            canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05" &&
            canvas.calls[4]=="text:Top" && canvas.calls[5]=="reset-clip");
 
+    // Analog clock updates should repaint only the union of old/new hand bounds.
+    face=baseFace(); face.objectCount=1;
+    face.objects[0]=baseObject(FaceElementType::AnalogClock,"analog");
+    face.objects[0].transform.x=70; face.objects[0].transform.y=70;
+    face.objects[0].transform.width=100; face.objects[0].transform.height=100;
+    timeInfo.tm_hour=13; timeInfo.tm_min=5; timeInfo.tm_sec=9;
+    canvas.reset();
+    assert(renderWatchFace(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.calls.empty()); // no hand movement, no redraw
+    timeInfo.tm_sec=10;
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.clipCalls==1 && canvas.resetCalls==1);
+    assert(canvas.clipW>0 && canvas.clipW<100);
+    assert(canvas.clipH>0 && canvas.clipH<100);
+    assert(canvas.calls.front()=="clip" && canvas.calls.back()=="reset-clip");
+    timeInfo.tm_sec=9;
+
     std::cout << "WFS Face renderer host tests passed.\n";
     return 0;
 }
