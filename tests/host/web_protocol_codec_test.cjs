@@ -7,7 +7,7 @@ const { TextEncoder, TextDecoder } = require('node:util');
 let fakeImageAlpha = 255;
 
 class FakeElement {
-  constructor(tagName) { this.tagName = tagName; this.attributes = {}; this.style = {}; this.children = []; }
+  constructor(tagName) { this.tagName = tagName; this.attributes = {}; this.style = {}; this.children = []; this.width = 0; this.height = 0; this.fillRects = []; }
   setAttribute(name, value) { this.attributes[name] = value; }
   append(child) { this.children.push(child); }
   getContext() {
@@ -16,8 +16,13 @@ class FakeElement {
       set fillStyle(value) { fillStyle = value; },
       get fillStyle() { return fillStyle; },
       clearRect() {},
-      fillRect() {},
+      fillRect(...args) { this.fillRects?.push(args); },
       drawImage() {},
+      save() {},
+      restore() {},
+      beginPath() {},
+      arc() {},
+      clip() {},
       getImageData(_x, _y, width, height) {
         const data = new Uint8ClampedArray(width * height * 4);
         for (let i = 0; i < data.length; i += 4) {
@@ -156,28 +161,41 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
 
 (async () => {
   const textPreview = new FakeElement('div');
-  setPreviewText(textPreview, '12:34', { scaleX: 1.2, scaleY: 0.8, textAlign: 'right' });
-  assert.equal(textPreview.children[0].style.overflow, 'hidden',
-    'text preview must clip glyphs to the configured object bounds');
-  assert.equal(textPreview.children[0].style.justifyContent, 'flex-end',
-    'text preview alignment must match the firmware text alignment');
-  assert.equal(textPreview.children[0].children[0].textContent, '12:34');
+  setPreviewText(textPreview, '12:34',
+    { fontSize: 16, scaleX: 1.2, scaleY: 0.8, textAlign: 'right' },
+    { width: 120, height: 32 });
+  const textBitmap = textPreview.children[0];
+  assert.equal(textBitmap.tagName, 'canvas',
+    'text preview must use a bitmap canvas instead of browser font rendering');
+  assert.equal(textBitmap.width, 120);
+  assert.equal(textBitmap.height, 32,
+    'text preview bitmap must match the rounded firmware object dimensions');
+  assert.equal(textBitmap.style.imageRendering, 'pixelated');
+  assert.ok(textBitmap.getContext().fillRects.length > 0,
+    'text preview must rasterize actual firmware glyph pixels');
 
   const weatherPreview = new FakeElement('div');
   renderWeatherPreview(weatherPreview, { weatherFields: ['temperature', 'condition'] },
     { fontSize: 40, scaleX: 1, scaleY: 1, textAlign: 'center' });
   assert.equal(weatherPreview.children.length, 2,
     'combined weather preview must use separate temperature and condition rows');
-  assert.equal(weatherPreview.children[0].children[0].children[0].textContent, '27 C');
-  assert.equal(weatherPreview.children[1].children[0].children[0].textContent, 'Cloudy');
-  assert.match(weatherPreview.children[1].style.fontSize, /cqw$/,
+  const temperatureBitmap = weatherPreview.children[0].children[0];
+  const conditionBitmap = weatherPreview.children[1].children[0];
+  assert.equal(temperatureBitmap.tagName, 'canvas');
+  assert.equal(conditionBitmap.tagName, 'canvas');
+  assert.equal(temperatureBitmap.height, 139);
+  assert.equal(conditionBitmap.height, 125);
+  const maxGlyphHeight = bitmap => Math.max(...bitmap.getContext().fillRects.map(rect => rect[3]));
+  assert.ok(maxGlyphHeight(conditionBitmap) < maxGlyphHeight(temperatureBitmap),
     'condition preview must use the smaller firmware text size');
 
   const conditionOnly = new FakeElement('div');
   renderWeatherPreview(conditionOnly, { weatherFields: ['condition'] },
     { fontSize: 16, scaleX: 1, scaleY: 1, textAlign: 'center' });
-  assert.equal(conditionOnly.children[0].children[0].textContent, 'Cloudy',
-    'condition-only weather preview must not show temperature');
+  assert.equal(conditionOnly.children[0].tagName, 'canvas',
+    'condition-only weather preview must render a device-font bitmap');
+  assert.equal(conditionOnly.children[0].width, 240);
+  assert.ok(conditionOnly.children[0].getContext().fillRects.length > 0);
   console.log('WFS Web text clipping and weather preview parity tests passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
 
