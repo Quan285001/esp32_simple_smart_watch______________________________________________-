@@ -340,11 +340,14 @@ async function convertImageToRgb565(object,design){
  // that are not actually rendered, or miss alpha after a different scale.
  const alphaCanvas=document.createElement('canvas');alphaCanvas.width=outputWidth;alphaCanvas.height=outputHeight;
  const alphaCtx=alphaCanvas.getContext('2d',{willReadFrequently:true});
- alphaCtx.fillStyle='rgba(0,0,0,1)';alphaCtx.fillRect(0,0,outputWidth,outputHeight);
  alphaCtx.save();alphaCtx.beginPath();alphaCtx.arc(120-left,120-top,120,0,Math.PI*2);alphaCtx.clip();
  alphaCtx.drawImage(image,drawX-left,drawY-top,drawWidth,drawHeight);alphaCtx.restore();
  const sourcePixels=alphaCtx.getImageData(0,0,outputWidth,outputHeight).data;let hasTransparency=false;
- for(let i=3;i<sourcePixels.length;i+=4){if(sourcePixels[i]!==255){hasTransparency=true;break}}
+ for(let i=3,pixel=0;i<sourcePixels.length;i+=4,pixel++){
+  const pixelX=left+(pixel%outputWidth)+0.5-120;
+  const pixelY=top+Math.floor(pixel/outputWidth)+0.5-120;
+  if(pixelX*pixelX+pixelY*pixelY<120*120&&sourcePixels[i]!==255){hasTransparency=true;break}
+ }
  if(hasTransparency&&object.visible!==false&&hasUnderlyingLayer)
   throw Error(object.name+': transparent overlay images are not supported yet; place the transparent image below every other visible layer');
  const canvas=document.createElement('canvas');canvas.width=outputWidth;canvas.height=outputHeight;
