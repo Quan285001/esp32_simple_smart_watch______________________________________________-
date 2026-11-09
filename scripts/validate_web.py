@@ -28,7 +28,7 @@ for asset in parser.assets:
         continue
     if not (ROOT / asset).is_file():
         errors.append(f"Missing frontend asset: {asset}")
-required_ids = {"watchCanvas", "quickAddSelect", "quickAddBtn", "objectList", "inspector", "templateGrid", "libraryGrid", "connectBtn", "saveBtn", "exportBtn", "importBtn", "imageInput", "jsonInput", "designName", "bgColor", "toast", "legacyStatus", "syncTimeBtn", "syncWeatherBtn", "sleepWatchBtn", "sendLocationBtn", "scanWifiBtn", "saveWifiBtn", "saveAutoSleepBtn", "settingsTopBtn", "undoBtn", "redoBtn", "themeLight", "themeDark", "themeSystem", "languageSelect", "autoSaveToggle"}
+required_ids = {"watchCanvas", "quickAddSelect", "quickAddBtn", "objectList", "inspector", "templateGrid", "libraryGrid", "connectBtn", "saveBtn", "exportBtn", "importBtn", "imageInput", "jsonInput", "designName", "bgColor", "toast", "legacyStatus", "syncTimeBtn", "syncWeatherBtn", "sleepWatchBtn", "sendLocationBtn", "scanWifiBtn", "saveWifiBtn", "saveAutoSleepBtn", "settingsTopBtn", "undoBtn", "redoBtn", "themeLight", "themeDark", "themeSystem", "languageSelect", "autoSaveToggle", "deviceProfileDialog", "profilePresetSelect", "profileName", "profileWidth", "profileHeight", "profileShape", "profileRotation", "profileColorFormat", "profileScaleStrategy", "profileCompatibilityStatus", "profileExportBtn", "profileImportBtn", "profileImportInput"}
 missing = sorted(required_ids - parser.ids)
 if missing:
     errors.append("Missing required UI ids: " + ", ".join(missing))
@@ -49,6 +49,20 @@ if "setPreviewText(el,objectText(o),s,t)" not in app_js:
     errors.append("Text preview must use the firmware-rounded object dimensions")
 if "renderWeatherPreview(el,o,s,t)" not in app_js:
     errors.append("Weather preview must use the firmware object geometry")
+
+if "function renderCanvas()" not in app_js or "state.design.canvas.width" not in app_js or "state.design.canvas.height" not in app_js:
+    errors.append("Canvas rendering must use the active Device Profile dimensions")
+if "roundFirmwarePixel(t.x)/width*100" not in app_js or "roundFirmwarePixel(t.y)/height*100" not in app_js:
+    errors.append("Canvas object placement must be normalized against profile width and height")
+if "logicalWidth/Math.max(1,canvas.clientWidth)" not in app_js or "logicalHeight/Math.max(1,canvas.clientHeight)" not in app_js:
+    errors.append("Pointer dragging must convert screen coordinates using the active canvas dimensions")
+if "$('#deviceSettings').onclick=openDeviceProfileDialog" not in app_js:
+    errors.append("The Device Profile control must open the profile editor, not show a device identity toast")
+if "function applyDeviceProfile()" not in app_js or "WFSDeviceProfile.migrateObjects" not in app_js:
+    errors.append("Applying a profile must run the selected coordinate migration strategy")
+if "device-profile.js" not in parser.assets:
+    errors.append("The shared Device Profile editor module must load before the application")
+
 if errors:
     print("\n".join("ERROR: " + e for e in errors))
     sys.exit(1)
