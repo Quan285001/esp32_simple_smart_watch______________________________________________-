@@ -17,6 +17,33 @@ enum class Decision : uint8_t {
 
 // Pure stop-and-wait sequencing policy. The caller commits only after the
 // corresponding bytes have been written successfully to the staging file.
+class InactivityTimer {
+public:
+    void start(uint32_t now) {
+        lastActivity_ = now;
+        armed_ = true;
+    }
+
+    void touch(uint32_t now) {
+        if (armed_) lastActivity_ = now;
+        else start(now);
+    }
+
+    void clear() {
+        lastActivity_ = 0;
+        armed_ = false;
+    }
+
+    bool expired(uint32_t now, uint32_t timeoutMs) const {
+        return armed_ && timeoutMs > 0 &&
+               static_cast<uint32_t>(now - lastActivity_) >= timeoutMs;
+    }
+
+private:
+    uint32_t lastActivity_ = 0;
+    bool armed_ = false;
+};
+
 class Receiver {
 public:
     void reset() {
