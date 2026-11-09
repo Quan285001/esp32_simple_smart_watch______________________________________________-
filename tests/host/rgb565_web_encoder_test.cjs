@@ -121,9 +121,10 @@ const fakeImageDocument = {
   createElement(tag) {
     if (tag !== 'canvas') throw new Error('Unexpected DOM element: ' + tag);
     const canvas = { width: 0, height: 0 };
+    let compositedBackground = false;
     canvas.getContext = () => ({
       fillStyle: '',
-      fillRect() {},
+      fillRect() { compositedBackground = true; },
       save() {},
       beginPath() {},
       arc(...args) { clipArcs.push(args); },
@@ -132,12 +133,11 @@ const fakeImageDocument = {
       drawImage(...args) { imageDraws.push(args); },
       getImageData(x, y, width, height) {
         const pixels = new Uint8ClampedArray(width * height * 4);
-        const alphaOnlyCanvas = canvas.width === 240 && canvas.height === 240;
         for (let i = 0; i < pixels.length; i += 4) {
           pixels[i] = 255;
-          pixels[i + 1] = alphaOnlyCanvas ? 0 : 165;
+          pixels[i + 1] = 165;
           pixels[i + 2] = 0;
-          pixels[i + 3] = 255;
+          pixels[i + 3] = imageSandbox.transparentPixel && !compositedBackground && i === 0 ? 0 : 255;
         }
         return { data: pixels };
       },
@@ -183,7 +183,31 @@ imageSandbox.convert(cropObject, cropDesign).then((converted) => {
     throw new Error('Cropped source image placement/aspect ratio is incorrect: ' +
       JSON.stringify(outputDraw));
   }
-  console.log('WFS browser image crop and orange RGB565LE pipeline tests passed.');
+  // Alpha inspection must use the final 30x30 crop rather than a 240x240
+  // proxy, and must reject only when transparent output overlaps a lower layer.
+  imageSandbox.transparentPixel = true;
+  const lowerLayer = {
+    id: 'lower-layer', type: 'shape', visible: true,
+    transform: { x: 0, y: 0, width: 240, height: 240, zIndex: 0 },
+  };
+  const overlayObject = {
+    id: 'overlay-image', assetId: 'source-image', name: 'overlay-test', visible: true,
+    transform: { x: -10, y: 100, width: 40, height: 30, zIndex: 0 },
+  };
+  let transparentOverlayRejected = false;
+  try {
+    await imageSandbox.convert(overlayObject, {
+      canvas: { backgroundColor: '#000000' },
+      objects: [lowerLayer, overlayObject],
+    });
+  } catch (error) {
+    transparentOverlayRejected = String(error.message).includes('transparent overlay images');
+  }
+  if (!transparentOverlayRejected) {
+    throw new Error('Transparent image pixels overlapping a lower layer must be rejected');
+  }
+  imageSandbox.transparentPixel = false;
+  console.log('WFS browser image crop, alpha-overlap and orange RGB565LE pipeline tests passed.');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;
