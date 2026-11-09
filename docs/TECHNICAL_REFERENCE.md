@@ -1,26 +1,24 @@
 # Technical Reference — ESP32-C3 Watch Face Studio
 
-**Document status:** implementation reference for the working branch `rebuild/watch-face-studio-v2`.  
-**Hardware target:** ESP32-C3 DevKitM-1 + GC9A01 240×240 circular TFT.  
-**Firmware environment:** PlatformIO `c3_clock`, Arduino framework, espressif32 6.9.0.  
-**Audience:** firmware, Web Editor, protocol and hardware-test contributors.
-
-> This document describes the current implementation and its verified boundaries. A successful host test or CI build is not evidence of physical-board behavior. Items marked hardware-pending must be verified on the actual ESP32-C3.
+**Working branch:** `rebuild/watch-face-studio-v2`  
+**Hardware target:** ESP32-C3 DevKitM-1 + GC9A01 240×240 circular TFT  
+**Firmware:** PlatformIO `c3_clock`, Arduino, `espressif32@6.9.0`  
+**Verification boundary:** host tests and CI compilation are not physical-board verification.
 
 ## 1. System overview
 
-The product consists of four cooperating parts:
+The system has four parts:
 
-1. **ESP32-C3 firmware** — owns the display, button input, clock/weather UI, BLE services, transfer state machine and persistent storage.
-2. **Watch Face Studio Web Editor** — edits declarative watch-face documents, previews them, stores source images in browser IndexedDB, validates against the connected device, builds a portable project or device package, and communicates through Web Bluetooth.
-3. **Shared contracts** — JSON schemas, device profile/capability definitions, package format and BLE protocol definitions.
-4. **Verification** — host-side C++/JavaScript/Python tests plus GitHub Actions PlatformIO build and Pages deployment. Physical integration remains a separate test stage.
+1. **Firmware** owns the display, BOOT input, built-in clock/weather/menu UI, BLE services, Watch Face runtime, power policy and persistent storage.
+2. **Watch Face Studio** is a browser editor in root `index.html` with implementation in `web/app.js` and `web/device-compatibility.js`. It edits declarative designs, previews them, stores projects/assets in IndexedDB, packages them and communicates over Web Bluetooth.
+3. **Shared contracts** are in `shared/schemas/` and `shared/capabilities/`; binary package and BLE wire contracts are specified under `docs/`.
+4. **Verification** combines C++/JavaScript/Python host tests, schema/profile checks, PlatformIO firmware build and GitHub Pages deployment. Board tests remain manual.
 
-The firmware target is intentionally narrow: one 240×240 RGB565 circular display, one BOOT button, clock/weather/menu functions and optional Watch Face customization. It is not a generic multi-watch operating system.
+This is a single-target experimental watch, not a generic multi-vendor smartwatch OS.
 
 ## 2. Hardware and build contract
 
-### 2.1 Hardware mapping
+### 2.1 Wiring
 
 | Signal | ESP32-C3 GPIO |
 |---|---:|
@@ -32,26 +30,18 @@ The firmware target is intentionally narrow: one 240×240 RGB565 circular displa
 | BOOT button | 9 |
 | TFT MISO | Not connected |
 
-Display: 240×240, GC9A01, SPI, RGB565. The active shared profile ID is `esp32-c3-gc9a01-240`.
+Display: GC9A01, 240×240, SPI, RGB565. Active profile ID: `esp32-c3-gc9a01-240`.
 
-### 2.2 Toolchain
+### 2.2 Toolchain and commands
 
-The canonical build configuration is `platformio.ini`:
+The canonical configuration is `platformio.ini`:
 
-- Environment: `c3_clock`
-- Platform: `espressif32@6.9.0`
-- Board: `esp32-c3-devkitm-1`
-- Framework: Arduino
-- Partition table: `huge_app.csv`
-- Monitor/upload baud: 115200
-- TFT_eSPI: `^2.5.43`
-- Adafruit GFX: `^1.13.0`
-- ArduinoJson: `^7.2.2`
-- TFT compatibility patch: `scripts/patch_tft_c3.py`
-
-Wi-Fi credentials are local-only in `src/secrets.h`; that file is gitignored. Create it from the example in the root README. Never commit real credentials.
-
-### 2.3 Common commands
+- Environment `c3_clock`, board `esp32-c3-devkitm-1`
+- Arduino framework, `espressif32@6.9.0`
+- Partition table `huge_app.csv`
+- TFT_eSPI `^2.5.43`, Adafruit GFX `^1.13.0`, ArduinoJson `^7.2.2`
+- TFT C3 compatibility patch: `scripts/patch_tft_c3.py`
+- Serial monitor: 115200 baud
 
 ```sh
 pio run -e c3_clock
@@ -65,317 +55,261 @@ python scripts/validate_canvas_boundary.py
 python scripts/validate_web.py
 ```
 
-Use the VS Code PlatformIO toolbar or the commands above. CI executes the repository's configured checks and firmware build. The hardware owner must perform upload and board regression separately.
+Local Wi-Fi credentials belong in gitignored `src/secrets.h`. Never commit credentials. CI creates a temporary build-only configuration; this does not validate a user's local network.
 
-## 3. Firmware architecture and ownership
+## 3. Firmware architecture
 
-The application follows a single-loop orchestration model. BLE callbacks are deliberately short and must not perform storage, package parsing, rendering, network operations or blocking waits.
+The Arduino `setup()` remains in `src/main.cpp`; `src/app/app_runtime.cpp` owns `loop()` and main-loop scheduling.
 
-| Area | Primary files | Responsibility |
+| Subsystem | Primary source | Responsibility |
 |---|---|---|
-| Startup and loop | `src/main.cpp`, `src/app/app_runtime.*` | Hardware setup, app-loop scheduling and service dispatch |
-| App state/UI | `src/app/app_controller.*`, `app_state.*` | Screen transitions and app state |
-| Boot | `src/app/boot_coordinator.*` | Restore persistent state and coordinate bounded startup network work |
-| Display | `src/display/display_manager.*`, `display_canvas.h`, `display_profile.h` | Own the TFT instance, display lifecycle, drawing boundary and active profile |
-| Input | `src/input/button_manager.*` | Debounce and short/double/long press events |
-| Built-in faces | `src/face/face_*.cpp` | Clock, weather, menu and information screens |
-| Watch Face model | `src/watchface/face_model.h` | Fixed-capacity in-memory model |
-| Watch Face parser | `src/watchface/face_parser.*` | Bounded JSON decode and field validation |
-| Watch Face renderer | `src/watchface/face_renderer.*`, `elements/image.*` | Render validated models through DisplayCanvas |
-| Package validation | `src/watchface/package_validator.*` | Validate WFS1 header, hashes, manifest, layout, assets and capabilities |
-| Face activation | `src/watchface/face_manager.*` | Load and render the active custom face |
-| BLE | `src/communication/ble_manager.*`, `protocol.*`, `ble_service.*` | Legacy and WFS GATT lifecycle, frame codec and event servicing |
-| Commands | `src/communication/command_handler.*`, `src/services/ble_command_handler.cpp` | Legacy and structured command dispatch |
-| Transfer | `src/communication/transfer_manager.*`, `transfer_sequence.h` | Receive sequencing, staging, verification, apply and cancellation |
-| Storage | `src/storage/storage_manager.*`, `face_storage.*` | SPIFFS access and committed two-slot selector |
-| Connectivity | `src/services/wifi_service.*`, `ble_service.*` | Wi-Fi and BLE service operations |
-| Weather/time | `src/services/weather_service.*`, `weather_coordinator.*`, `time_service.*` | Forecast, cache coordination and time synchronization |
-| Power/diagnostics | `src/system/system_manager.*`, `diagnostics.*`, `memory_monitor.*` | Light Sleep lifecycle, Auto Sleep and bounded telemetry |
+| App/UI | `src/app/` | Screens, state, menu and runtime orchestration |
+| Boot | `src/app/boot_coordinator.*` | Persistent restore and ordered startup network work |
+| Display | `src/display/` | TFT owner, canvas abstraction and compile-time display profile |
+| Input | `src/input/button_manager.*` | BOOT debounce and short/double/long events |
+| Built-in faces | `src/face/` | Clock, weather, menu and information screens |
+| Watch Face | `src/watchface/` | Fixed-capacity model, parser, renderer, package validator and face manager |
+| BLE protocol | `src/communication/` | Legacy/WFS GATT, framing, transfer and structured commands |
+| Storage | `src/storage/` | SPIFFS access and two-slot active-face commit pointer |
+| Connectivity | `src/services/wifi_service.*`, `ble_service.*` | Wi-Fi and BLE lifecycle |
+| Weather/time | `src/services/weather_*.{cpp,h}`, `time_service.*` | Forecast, cache, refresh coordination and time sync |
+| Power/diagnostics | `src/system/` | Light Sleep, Auto Sleep and bounded memory/task telemetry |
 
 ### 3.1 Runtime invariants
 
-- One application loop owns service scheduling and UI rendering.
-- DisplayManager owns the physical TFT instance. Watch Face rendering uses DisplayCanvas; built-in legacy face code still has a transitional global TFT dependency.
-- BLE callbacks copy bounded bytes into queues. They do not parse JSON, write flash or call TransferManager.
-- WFS connect/disconnect changes are represented by a session-generation reset request. The application loop applies the reset and rejects packets queued under an old generation.
-- Wi-Fi scan, weather fetch, credential changes, location updates and WFS transfer use explicit resource arbitration to avoid overlapping radio/storage work.
-- Background tasks have bounded lifetimes and report memory snapshots before exit.
-- No full-screen secondary framebuffer is introduced by the Watch Face renderer.
+- The application loop owns service scheduling and UI rendering.
+- BLE GATT callbacks copy bounded frames into a FreeRTOS queue. They do not parse JSON, access SPIFFS, call TransferManager or render.
+- The application loop validates frames and performs transfer/storage work.
+- Connect/disconnect callbacks advance a receive-generation counter. Queued packets from an old generation are discarded before processing.
+- BLE teardown deinitializes the host/controller before deleting queues that callbacks can reference.
+- Weather fetch, Wi-Fi scan/configuration, location changes, boot work and WFS transfer use resource arbitration.
+- No full-screen secondary framebuffer is allocated for Watch Face rendering.
+- DisplayManager owns the physical TFT. Watch Face elements render through DisplayCanvas; built-in legacy screens and the boot terminal still have transitional direct TFT access.
 
-## 4. Display and Watch Face model
+## 4. Device profile and Watch Face renderer
 
-### 4.1 Active device profile
+The authoritative profile is `shared/capabilities/esp32-c3-gc9a01-240.json`, checked against `src/display/display_profile.h`.
 
-The authoritative profile is `shared/capabilities/esp32-c3-gc9a01-240.json`, checked against firmware constants in `src/display/display_profile.h`.
-
-| Property | Current limit |
+| Property | Current target |
 |---|---:|
-| Canvas | 240 × 240 |
-| Shape | Circle |
-| Color format | RGB565 |
+| Canvas | 240 × 240, circular |
+| Pixel format | RGB565 |
 | Maximum objects | 16 |
-| Maximum assets | 16 |
-| Maximum bitmap width/height | 240 × 240 |
-| Maximum source image asset (profile nominal) | 115,200 bytes |
-| Firmware layout JSON limit | 16 KiB |
-| Firmware manifest JSON limit | 8 KiB |
+| Maximum image assets | 16 |
+| Maximum bitmap dimensions | 240 × 240 |
+| Layout JSON limit | 16 KiB |
+| Manifest JSON limit | 8 KiB |
 
-The profile is compile-time selected. It is not a runtime multi-display abstraction.
-
-### 4.2 Supported object types
-
-The current firmware model includes:
+Supported element types:
 
 - Text
 - Digital clock
 - Analog clock
 - Date
-- Weather
-- Shape
+- Weather temperature and condition
+- Rectangle, circle, rounded rectangle and line
 - Image (RGB565 little-endian)
 
-WFS capability negotiation advertises the supported element set using compact codes: `t,dc,ac,d,w,s,i`. Weather condition text is separately advertised using `wc=1`.
+The renderer uses fixed-capacity model data and dirty-region redraw. Dynamic objects invalidate their previous/new bounds; intersecting objects are redrawn in z-order to avoid stale pixels. Image rows are streamed from package storage to the canvas; the firmware does not decode a full PNG/JPEG bitmap.
 
-A schema may describe a wider editor vocabulary than the target device can render. The Web compatibility layer must use the connected device's negotiated capabilities and reject unsupported designs before upload. Schema-valid does not automatically mean device-compatible.
+### 4.1 Device limitations
 
-### 4.3 Rendering constraints
-
-- Object count and asset count are fixed-capacity.
-- Current device path is RGB565, with image rows streamed from package storage.
 - Alpha blending is not implemented; opacity must be exactly 1.0.
-- Corner radius is integral, 0–255, and meaningful only for rounded-rectangle shapes.
-- Advanced transforms, arbitrary fonts, glyph atlas overrides, transparent compositing, compressed PNG/JPEG decode and several advanced widget types are not device features.
-- Web fonts/preview are not guaranteed pixel-identical to the device font renderer. Physical comparison is still required.
-- Dynamic redraw uses dirty-region invalidation and redraws intersecting objects in z-order to avoid stale pixels.
+- Arbitrary rotation and arbitrary font families are unsupported.
+- Current font-weight support is regular 400 and semibold 600.
+- Rounded-rectangle corner radius is an integer in the supported byte range; non-rounded shapes cannot carry a nonzero radius.
+- Weather custom-face fields are limited to temperature and condition.
+- Compressed PNG/JPEG are browser import formats only. The device package contains raw RGB565 little-endian pixels.
+- Browser fonts/previews are not guaranteed pixel-identical to firmware fonts.
+- The profile is compile-time selected. Runtime display switching and alternate display backends are not implemented.
 
-## 5. Web Editor and project files
+Schema-valid does not imply device-compatible. The Web preflight must validate against the connected device's negotiated profile and capabilities before building a package.
 
-### 5.1 Source design vs portable project vs device package
+## 5. Web editor and project persistence
 
-These are three different representations:
+The root `index.html` loads `web/app.js`, `web/device-compatibility.js` and `web/styles.css`.
 
-1. **Watch Face JSON** — declarative design document validated by `shared/schemas/watch-face.schema.json`.
-2. **Portable project** — `.wfsproject.json`, containing the design and referenced original source images. It is a browser/editor backup and interchange format.
-3. **WFS1 device package** — binary `.wface` container with manifest, layout and device-ready RGB565 assets. This is what firmware accepts.
+Three formats must remain distinct:
 
-Never send the portable JSON project envelope directly to the firmware package validator.
+1. **Watch Face JSON** — declarative design validated by `shared/schemas/watch-face.schema.json`.
+2. **Portable project** — `.wfsproject.json`; contains the design plus original source image data URLs. See `docs/architecture/portable-project-format.md`.
+3. **WFS1 device package** — binary `.wface` container containing manifest, layout and device-ready RGB565 assets. This is the only representation sent to firmware.
 
-### 5.2 Browser storage
-
-Source images are stored in IndexedDB and referenced by asset ID. Portable project import validates the envelope, validates the design, verifies that each image reference resolves exactly once, then persists assets transactionally before loading the design. Legacy raw JSON import remains supported, but its referenced images must already exist in the current browser's IndexedDB.
-
-### 5.3 Device preflight
+Original images are stored in IndexedDB and referenced by asset ID. Portable import validates the envelope/design/references, persists assets transactionally and loads the design only after persistence succeeds. Legacy raw Watch Face JSON remains importable if its image references already exist locally.
 
 Before upload, Web must:
-1. Validate the document against the shared schema.
-2. Read device capabilities from the live WFS connection.
-3. Validate profile ID, canvas/resource limits, element types, weather features and renderer constraints.
-4. Resolve source image references from IndexedDB.
-5. Convert source images to RGB565 little-endian and enforce dimensions/size limits.
-6. Build the WFS1 container and calculate integrity digests.
-7. Transfer only after the device accepts TransferBegin.
+1. Validate the design schema.
+2. Read live device capabilities.
+3. Check profile, canvas, object/asset limits, supported elements and renderer constraints.
+4. Resolve source images from IndexedDB.
+5. Convert images to RGB565 little-endian and enforce limits.
+6. Build the WFS1 package and calculate SHA-256/CRC fields.
+7. Start a transfer only after the device accepts the reservation.
 
-The Web compatibility module is `web/device-compatibility.js`; Web protocol and package building are in `web/app.js`.
+Web Bluetooth requires a supported browser and secure context (HTTPS or localhost).
 
-## 6. WFS1 package format
+## 6. WFS1 package and persistent installation
 
-The package is a deterministic binary container, not ZIP and not executable code.
+Normative package details are in `docs/package/wface-v1.md`.
 
-### 6.1 Fixed header
+- Fixed 64-byte little-endian header; magic `WFS1`, format version 1.
+- Header contains manifest/layout lengths, asset count, payload length, payload SHA-256, header CRC32 and reserved bytes.
+- Payload order: UTF-8 manifest, UTF-8 layout, then raw asset bytes.
+- Manifest/layout/asset digests and offsets are validated; trailing bytes, duplicate IDs, invalid references, malformed metadata and unsupported capabilities are rejected.
+- Payload SHA-256 is the digest sent in TRANSFER_BEGIN and is parsed as exactly 64 hexadecimal characters.
 
-All integers are little-endian. Header size is 64 bytes.
+The `huge_app.csv` partition gives SPIFFS a nominal 0xE0000-byte partition; actual usable space is lower and is read at runtime.
 
-| Offset | Size | Field |
-|---:|---:|---|
-| 0 | 4 | Magic `WFS1` |
-| 4 | 2 | Package version (1) |
-| 6 | 2 | Header size (64) |
-| 8 | 4 | Manifest length |
-| 12 | 4 | Layout length |
-| 16 | 2 | Asset count |
-| 18 | 2 | Flags (zero in v1) |
-| 20 | 4 | Payload length |
-| 24 | 32 | SHA-256 of entire payload |
-| 56 | 4 | Header CRC32/ISO-HDLC over bytes 0–55 |
-| 60 | 4 | Reserved (zero) |
+### 6.1 Two-slot transaction
 
-Payload order: UTF-8 manifest JSON, UTF-8 layout JSON, then raw asset bytes in manifest order. Total file length must equal 64 + payload length. Trailing bytes are invalid.
+`FaceStorage` uses two package slots and an NVS active-slot pointer as the commit record:
 
-### 6.2 Asset encoding
+1. Protect the current active slot and reserve the inactive slot.
+2. Remove only the inactive slot and stream incoming bytes into it.
+3. Flush/close the writer, reopen the stored file and validate package/header/digests/schema/assets/capabilities.
+4. Apply only from the Verified state.
+5. Persist and read back the new active-slot pointer.
+6. Install the validated in-memory model.
+7. If model installation fails, restore the exact previous pointer; on first install, rollback removes the pointer.
+8. If rollback cannot be verified, disable storage until reinitialization and log a critical diagnostic.
 
-Current image encoding is `image/rgb565` / `rgb565le`: two bytes per pixel, little-endian RGB565, no compression. PNG/JPEG are browser import formats only; firmware does not decode them. Asset offsets are relative to the start of the asset region after manifest and layout. Length, bounds, ordering, non-overlap, uniqueness and digests are validated.
+Boot trusts only the NVS commit pointer. A missing, invalid or dangling pointer does not promote the other slot; the built-in face is used. Automatic fallback to the previous slot is intentionally not implemented because the other slot may be an interrupted staging package. Runtime free-space checks are mandatory because two maximum-sized packages may not fit.
 
-See `docs/package/wface-v1.md` for the complete normative package specification.
+## 7. BLE services and WFS protocol
 
-## 7. BLE communication
+The existing legacy text service is retained while the Web client migrates.
 
-### 7.1 Services
+### 7.1 GATT identifiers
 
-Legacy BLE service remains available during migration:
+Legacy:
+- Device name: `ESP32_Watch_C3` (Web filter prefix `ESP32_Watch`)
+- Service: `4fafc201-1fb5-459e-8fcc-c5c9c331914b`
+- Characteristic: `beb5483e-36e1-4688-b7f5-ea07361b26a8`
 
-- Service UUID: `4fafc201-1fb5-459e-8fcc-c5c9c331914b`
-- Characteristic UUID: `beb5483e-36e1-4688-b7f5-ea07361b26a8`
-- Device name currently used by the hardware checklist: `ESP32_Watch_C3`
-
-WFS v1 service:
-
+WFS v1:
 - Service: `f2c6b100-2f3a-4c1b-9d70-8e4a5c6b7100`
 - Control RX: `f2c6b101-2f3a-4c1b-9d70-8e4a5c6b7100`
 - Control TX: `f2c6b102-2f3a-4c1b-9d70-8e4a5c6b7100`
 - Data RX: `f2c6b103-2f3a-4c1b-9d70-8e4a5c6b7100`
 - Data TX: `f2c6b104-2f3a-4c1b-9d70-8e4a5c6b7100`
 
-The Web client requests both services during the compatibility period.
+Protected characteristics require encrypted access. BLE bonding is configured with IO capability NONE (Just Works): the link is encrypted, but MITM protection is not provided. This is not strong user/device authentication; production hardening requires a reviewed authorization/pairing UX and physical security testing.
 
-### 7.2 Frame format
+### 7.2 Frame envelope
 
-WFS v1 frame header is 16 bytes:
+All fields are little-endian. Header is 16 bytes:
 
 | Offset | Size | Field |
 |---:|---:|---|
-| 0 | 2 | Magic `WF` |
-| 2 | 1 | Major version |
-| 3 | 1 | Minor version |
+| 0 | 2 | Magic `WF` (0x57, 0x46) |
+| 2 | 1 | Major version (1) |
+| 3 | 1 | Minor version (0) |
 | 4 | 1 | Message type |
-| 5 | 1 | Flags (zero in v1) |
+| 5 | 1 | Flags (must be zero) |
 | 6 | 2 | Sequence |
 | 8 | 4 | Session ID |
 | 12 | 2 | Payload length |
 | 14 | 2 | CRC16/CCITT-FALSE over bytes 0–13 |
+| 16 | N | Payload |
 
-Control JSON payload is limited to 220 bytes. Complete DATA frame limit is 240 bytes; DATA payload reserves 8 bytes for transfer ID and chunk index, leaving at most 216 package bytes per chunk before connection-negotiated constraints. Web must use the chunk limit reported by the device, not assume a fixed ATT size.
+Control payload limit is 220 bytes. Data frame limit is 240 bytes total, so its payload limit is 224 bytes. The DATA payload reserves 8 bytes for transfer ID and chunk index, leaving at most 216 package bytes.
 
-Message types include HELLO/HELLO_ACK, GET_CAPABILITIES/CAPABILITIES, GET_STATUS/STATUS, COMMAND/RESPONSE/EVENT, TRANSFER_BEGIN/READY, DATA/DATA_ACK, TRANSFER_END/VERIFY_RESULT, APPLY/APPLY_RESULT, CANCEL, TRANSFER_PROGRESS, PING/PONG and ERROR.
+A single sequence space is shared across each direction's Control/Data characteristics. The device validates the incoming control/data sequence in the application loop. DATA accepts the next sequence or an exact retry of the last accepted DATA frame. A repeated HELLO must use session ID zero; it aborts any cancellable transfer from the previous session before issuing a new session ID.
 
-### 7.3 Transfer behavior
+### 7.3 Handshake and capabilities
 
-- One active transfer at a time; current Web path uses stop-and-wait chunk ACKs.
-- Each DATA chunk has transfer ID and monotonically increasing chunk index.
-- Duplicate last-accepted chunks are acknowledged without writing twice; out-of-order chunks are rejected.
-- Transfer completion requires exact length and digest verification, package/schema/capability validation, then explicit Apply.
-- The inactive slot is staged; active package is not modified during reception.
-- Disconnect/session loss invalidates the staging session; reconnect starts a fresh transfer rather than resuming stale chunks.
-- A successful GATT write is not proof that the application accepted the command.
-- Retry/reconnect resume is not promised by the current v1 uploader.
+1. Web subscribes to Control TX and Data TX notifications.
+2. Web sends HELLO with `minMajor`, `maxMajor`, and client name; HELLO uses session ID zero.
+3. Device replies HELLO_ACK with `major`, `minor`, `device`, and nonzero `session`.
+4. Web requests CAPABILITIES and STATUS; it may request FACE_STATUS.
+5. Web performs compatibility preflight before enabling upload.
 
-Full message schemas and field definitions are in `docs/protocol/protocol-v1-draft.md`.
+CAPABILITIES JSON keys:
+- `sv`, `pv`: schema/package versions
+- `pid`: device profile ID
+- `cw`, `ch`, `cs`: canvas width/height/shape
+- `bw`, `bh`: maximum bitmap width/height
+- `obj`, `assets`: object/asset limits
+- `json`: layout JSON limit
+- `img`: image support flag
+- `el`: compact element list `t,dc,ac,d,w,s,i`
+- `wc`: weather-condition support
+- `upload`: upload availability
+- `chunk`: maximum package bytes per DATA chunk
+- `stage`: current inactive-slot staging capacity
 
-## 8. Storage and recovery model
+STATUS includes Wi-Fi/BLE state, weather validity/temperature, current screen, Auto Sleep seconds, power state and free heap. FACE_STATUS includes active face identity, transfer state/progress and SPIFFS usage/free bytes.
 
-SPIFFS is mounted through StorageManager. Two fixed paths are used:
+### 7.4 Transfer transaction
 
-- Slot A: `/face_a.wfs`
-- Slot B: `/face_b.wfs`
+Firmware transfer states are `Idle`, `Receiving`, `Verifying`, `Verified`, `Applying`, `Complete`, `Failed`, `Cancelled`.
 
-NVS namespace `face`, key `active`, is the commit pointer. The pointer, not file existence or file timestamp, determines the active package.
+1. TRANSFER_BEGIN reserves inactive storage and returns TRANSFER_READY with transfer ID/chunk size.
+2. DATA carries `transferId:uint32`, `chunkIndex:uint32`, and 1–216 bytes.
+3. Web uses stop-and-wait and waits for a DATA_ACK for every chunk. It retries the same frame up to three attempts on timeout. Firmware recognizes an identical retransmission of the last accepted chunk and does not write it twice.
+4. TRANSFER_END flushes/closes and validates the package, returning VERIFY_RESULT.
+5. APPLY is a separate explicit operation; APPLY_RESULT reports whether the face was activated.
+6. CANCEL is accepted only for cancellable states. A disconnect requests deferred cleanup in the app loop. Failed cleanup preserves its concrete error and logs a critical diagnostic.
 
-### 8.1 Installation transaction
+DATA_ACK is 14 bytes: transfer ID (4), last accepted chunk index (4), total bytes written (4), status byte (1; zero is success), reserved byte (1).
 
-1. Determine committed active slot and inactive staging slot.
-2. Check storage capacity while preserving active package.
-3. Stream incoming bytes into inactive slot.
-4. Flush and close the staging writer.
-5. Reopen and validate exact package length, SHA-256, manifest/layout/assets, capabilities and renderer compatibility.
-6. Mark transfer Verified.
-7. On explicit Apply, persist the new active-slot pointer and read it back.
-8. Only report success after pointer read-back succeeds.
+A disconnect/reconnect does not resume a previous transfer. Session-generation checks reject stale queued packets; the transfer is cancelled/cleaned up where possible. A new upload starts from byte zero with a new transfer ID.
 
-On activation failure, the transfer manager attempts to restore the previous pointer. If the previous state was no active custom face, rollback removes the pointer and verifies absence. If rollback cannot be verified, FaceStorage marks itself unavailable until reinitialization to prevent further writes under ambiguous metadata.
+### 7.5 Error behavior
 
-### 8.2 Boot recovery policy
+Errors are returned as bounded JSON with numeric code and a safe message. The implementation distinguishes frame/session/sequence errors, malformed control JSON/fields, resource-busy, transfer reservation, chunk, and cancel failures. The numeric code set is implementation-specific in this initial version; use the returned message and TransferManager error name rather than assuming every planned draft code is emitted.
 
-Boot selects only the slot named by the NVS pointer, and only if that file exists. It does **not** promote the other slot when the pointer is missing, invalid or points to a missing file. The other slot may contain a partial package from an interrupted transfer; file existence is not proof of commitment.
+## 8. Legacy commands and resource arbitration
 
-If the committed package cannot be loaded/validated, the custom face is rejected and built-in face remains the safe path. The old slot is retained, but automatic fallback to it is not implemented because current metadata does not prove its transaction state.
+Legacy commands remain available, including:
+- `SYNC_TIME:<epoch>`
+- `SYNC_WEATHER`
+- `GPS:<lat>,<lon>`
+- `SCAN_WIFI`
+- `WIFI:<ssid>,<pass>`
+- `SLEEP_ON`, `SLEEP_OFF`
+- Auto Sleep get/set commands
 
-### 8.3 What is and is not verified
+The WFS v1 Command message is currently a structured dispatch path, but not every draft command/event type is implemented. Do not assume message IDs imply full command coverage.
 
-Host policy/guard tests cover selector behavior, staging/active-slot separation, transfer ordering, flush/close-before-verify, apply gating and rollback source invariants. They do not emulate actual NVS/SPIFFS torn writes, power removal, flash wear or filesystem corruption. Those require a fault-injection harness or physical-board testing and must not be reported as already tested.
+Wi-Fi scan, weather fetch, startup work, location/credential updates and WFS transfer use explicit arbitration. Weather fetch is deferred while a WFS transfer is active; WFS transfer is rejected while conflicting resource work is active. BLE callbacks never perform blocking network work.
 
-## 9. Connectivity, weather and power
+## 9. Power and diagnostics
 
-- Default forecast location: Ho Chi Minh City, latitude 10.8231, longitude 106.6297.
-- Weather provider: Open-Meteo.
-- Time zone: `Asia/Ho_Chi_Minh`; NTP server `pool.ntp.org`; UTC offset +7.
-- Weather refresh interval: 30 minutes when Wi-Fi is enabled and connected.
-- WeatherCoordinator serializes fetch work, manages boot/manual/periodic/location refresh and notifies BLE clients.
-- WifiService owns saved credential configuration, asynchronous scan lifecycle and connection transition monitoring.
-- BootCoordinator restores persisted location, clock checkpoint, auto-sleep setting and weather cache before coordinating bounded startup network work.
-- SystemManager owns Auto Sleep and Light Sleep state transitions.
-- Radio/resource arbitration prevents conflicting network operations and WFS flash staging.
+- Auto Light Sleep applies only on the clock screen after the configured idle period (15 seconds default).
+- Auto Sleep is suppressed while BLE is connected or background work is active.
+- Manual Light Sleep is available from the menu. Before sleep, Wi-Fi and BLE are shut down; the GC9A01 remains initialized but the panel is blanked. GPIO9 wakes the ESP32-C3.
+- After wake, the clock is redrawn and radios remain off until explicitly enabled.
 
-Security limitation: weather HTTPS currently uses `setInsecure()`; certificate validation is a known hardening item. BLE pairing/authentication policy is prototype-grade and must not be considered security hardened.
+Diagnostics include free heap, minimum free heap, largest free block, fragmentation estimate and current-task stack high-water mark. Worker-task snapshots are emitted before task exit. WFS transfer logs include receive/verify/apply durations, byte count and heap snapshots. ESP-IDF stack high-water values are reported in bytes.
 
-## 10. Diagnostics and resource budgeting
+## 10. Verification and release boundary
 
-Serial diagnostics include:
-- `[MEM]`: free heap, minimum free heap, largest free block, fragmentation estimate and current task stack high-water mark.
-- `[PERF] WFS receive`: receive/verify duration, package bytes and heap snapshots/delta.
-- `[PERF] WFS apply`: apply and total duration.
-- Slow renderer diagnostics: frames taking at least 8 ms are logged with rate limiting.
+Host suite: `python scripts/run_host_tests.py`. It includes protocol golden-frame, transfer sequencing/lifecycle, digest parser, storage policy, BLE/session guards, project/image import, device compatibility, image element/RGB565, parser and renderer tests.
 
-ESP-IDF stack high-water values are reported in bytes in this build; do not multiply them as if they were vanilla FreeRTOS stack words.
+The PlatformIO GitHub Actions workflow checks shared schemas, device compatibility, canvas/profile boundaries, Web assets/JavaScript, host tests, the ESP32-C3 firmware build and artifact upload. Pages deployment is a separate workflow.
 
-Previous recorded link-time baseline was approximately 31.6% static RAM and 57.3% application flash. This is historical and must be refreshed from the current artifact; it is not a runtime free-heap measurement. Do not reduce worker stack sizes without real worst-case hardware measurements and a safety margin.
+A green workflow proves only those checks and compilation passed for its commit. It does not prove physical BLE pairing, browser interoperability, TFT appearance, actual heap margin, SPIFFS fault tolerance, weather TLS behavior or sleep/wake stability.
 
-## 11. Test and CI strategy
+## 11. Known limitations and hardware-pending work
 
-### Host-side checks
+1. Only ESP32-C3 + GC9A01/TFT_eSPI is implemented.
+2. Built-in legacy UI/boot terminal still has direct TFT access outside the canvas boundary.
+3. Browser/firmware font pixel parity requires physical comparison.
+4. Alpha blending, rotation, arbitrary fonts, compressed image decoding and advanced weather bindings are unsupported.
+5. BLE Just Works pairing has no MITM protection.
+6. Actual SPIFFS/NVS fault injection and power-loss behavior have not been demonstrated.
+7. Physical browser-to-device handshake, transfer, image rendering, reconnect, repeated sleep/wake and long-run stability remain unverified.
 
-The `tests/host` suite includes:
-- C++ protocol codec and golden frame tests.
-- C++ Watch Face parser tests with Arduino stubs.
-- C++ display canvas contract tests.
-- C++ storage and transfer policy tests.
-- JavaScript Web protocol codec tests.
-- Web device compatibility tests.
-- Python source guards for app runtime, boot coordinator, BLE lifecycle/queue teardown, WFS session epochs, Wi-Fi/radio arbitration, worker diagnostics and storage recovery invariants.
+Use `docs/architecture/hardware-regression-checklist.md` after flashing. Never mark hardware integration complete from source review or CI alone.
 
-Run the complete suite with `python scripts/run_host_tests.py`.
+## 12. Document map
 
-### GitHub Actions
-
-The PlatformIO workflow validates shared schemas, display profile/canvas boundaries, Web scripts and host tests, then compiles the ESP32-C3 firmware and publishes a build artifact. Pages deployment validates/publishes the Web app separately.
-
-A green CI run proves the configured checks and compilation passed for that commit. It does not prove BLE interoperability, TFT visual quality, runtime heap headroom, SPIFFS fault tolerance or sleep/wake behavior on a physical board.
-
-### Hardware-only verification
-
-Use `docs/architecture/hardware-regression-checklist.md` after flashing. It covers:
-- cold boot and serial baseline;
-- clock/weather/menu/button and redraw;
-- Wi-Fi/NTP/weather cache;
-- BLE discovery, handshake, reconnect and legacy command compatibility;
-- WFS transfer, cancellation, disconnect, digest failure and reboot;
-- resource arbitration;
-- Light Sleep wake and repeated cycles;
-- runtime heap/stack snapshots.
-
-## 12. Known limitations and release gates
-
-The following are explicit limitations, not silently assumed features:
-
-1. Only ESP32-C3 + GC9A01/TFT_eSPI is implemented; no alternate display backend is validated.
-2. Built-in clock/weather/menu/boot-terminal code retains transitional direct TFT access.
-3. Web font rendering and firmware font rendering are not pixel-identical.
-4. Alpha blending, rotation, arbitrary fonts, glyph atlases, compressed image decoding and advanced widgets are unsupported on-device.
-5. Weather objects in custom faces expose only currently implemented temperature/condition bindings; the richer forecast remains in the built-in weather UI.
-6. Runtime profile switching and generic multi-device support are not implemented.
-7. Actual flash/NVS fault injection and power-loss recovery have not been demonstrated.
-8. Physical ESP32-C3 browser-to-device upload, reconnect, sleep/wake and long-run stability remain pending.
-9. Weather TLS certificate validation and stronger BLE security are future hardening work.
-
-Do not mark the hardware integration phase complete until the board checklist has been run and logs/results recorded. Do not mark release complete until documentation, clean build, host regression, hardware regression and known-issue review are complete.
-
-## 13. Document map
-
-- `README.md` — quick start, wiring, build/upload and user operation.
-- `docs/architecture/rebuild-implementation-status.md` — implementation status and remaining tasks.
-- `docs/architecture/phase-1-architecture-contract.md` — module ownership and lifecycle contract.
-- `docs/architecture/phase-2-display-canvas.md` — renderer/display boundary.
-- `docs/architecture/hardware-regression-checklist.md` — physical-board test plan.
-- `docs/protocol/protocol-v1-draft.md` — BLE protocol normative details.
-- `docs/package/wface-v1.md` — WFS1 binary package specification.
-- `docs/architecture/portable-project-format.md` — portable editor project format.
-- `shared/schemas/` — shared JSON schemas.
-- `shared/capabilities/esp32-c3-gc9a01-240.json` — active device capability profile.
+- `README.md` — quick start and user operation
+- `docs/README.md` — document index
+- `docs/architecture/phase-completion-matrix.md` — phase acceptance
+- `docs/architecture/rebuild-implementation-status.md` — implementation and CI record
+- `docs/architecture/hardware-regression-checklist.md` — physical test plan
+- `docs/protocol/protocol-v1-draft.md` — WFS BLE v1 wire contract
+- `docs/package/wface-v1.md` — binary package specification
+- `docs/architecture/portable-project-format.md` — editor project envelope
