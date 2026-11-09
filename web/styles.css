@@ -42,7 +42,10 @@
 :root[data-theme="light"] .main{background:transparent}
 :root[data-theme="light"] .rightbar{background:#f7f9fb}
 :root[data-theme="light"] .object-row button{color:#536073}
-/* Keep the selection frame and resize handles visible outside the clipped circular preview. */\n.canvas-stage{overflow:visible}\n.selected-object-overlay{z-index:2147483647;overflow:visible}\n.resize-handle{position:absolute;width:10px;height:10px;border:2px solid #fff;background:var(--accent);border-radius:3px;z-index:9999;touch-action:none}
+/* Keep the selection frame and resize handles visible outside the clipped circular preview. */
+.canvas-stage{overflow:visible}
+.selected-object-overlay{z-index:2147483647;overflow:visible}
+.resize-handle{position:absolute;width:10px;height:10px;border:2px solid #fff;background:var(--accent);border-radius:3px;z-index:9999;touch-action:none}
 .resize-handle.nw{left:-5px;top:-5px;cursor:nwse-resize}
 .resize-handle.ne{right:-5px;top:-5px;cursor:nesw-resize}
 .resize-handle.sw{left:-5px;bottom:-5px;cursor:nesw-resize}
