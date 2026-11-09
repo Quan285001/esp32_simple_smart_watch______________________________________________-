@@ -13,6 +13,8 @@ assert.ok(Profile.validate({...custom,display:{...custom.display,colorFormat:'RG
 assert.ok(Profile.validate({...custom,display:{...custom.display,rotation:45}}).some(x=>x.includes('Rotation')));
 assert.ok(Profile.validate({...custom,display:{...custom.display,safeArea:{top:'bad',right:0,bottom:0,left:0}}}).some(x=>x.includes('Safe-area')));
 assert.ok(Profile.validate({...custom,name:'   '} ).some(x=>x.includes('name')));
+assert.ok(Profile.validate({...custom,profileVersion:2}).some(x=>x.includes('version')));
+assert.ok(Profile.validate({...custom,id:''}).some(x=>x.includes('ID')));
 assert.ok(Profile.validate({...custom,display:{...custom.display,shape:'circle'}}).some(x=>x.includes('equal width')));
 assert.ok(Profile.validate({...custom,display:{...custom.display,safeArea:{top:200,bottom:50,left:0,right:0}}}).some(x=>x.includes('no usable')));
 const objects=[{id:'a',transform:{x:20,y:30,width:100,height:50},textStyle:{scaleX:1,scaleY:1}}];
