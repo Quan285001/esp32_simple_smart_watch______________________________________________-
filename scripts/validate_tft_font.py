@@ -90,19 +90,27 @@ if not processor_header_path.is_file():
     print(f"ERROR: ESP32-C3 TFT_eSPI processor header not found: {processor_header_path}")
     sys.exit(1)
 processor_header = processor_header_path.read_text(encoding="utf-8", errors="replace")
-write16_start = processor_header.find("#define tft_Write_16(C)")
-if write16_start < 0:
+write16_definitions = re.findall(
+    r"#define\\s+tft_Write_16\\(C\\)(.*?)(?=\\n\\s*#define\\s+tft_Write_16S\\(C\\))",
+    processor_header,
+    re.DOTALL,
+)
+if not write16_definitions:
     print("ERROR: ESP32-C3 TFT_eSPI 16-bit write macro is missing")
     sys.exit(1)
-write16_end = processor_header.find("#define tft_Write_16S", write16_start)
-if write16_end < 0:
-    print("ERROR: ESP32-C3 TFT_eSPI swapped-write macro boundary is missing")
-    sys.exit(1)
-write16_body = processor_header[write16_start:write16_end]
-msb_position = write16_body.find("(C) >> 8")
-lsb_position = write16_body.find("(C) >> 0")
-if msb_position < 0 or lsb_position < 0 or msb_position > lsb_position:
-    print("ERROR: ESP32-C3 TFT_eSPI no longer transmits RGB565 MSB before LSB")
+# TFT_eSPI defines several conditional variants: SSD1963, PSEUDO_16_BIT,
+# and the regular 16-bit parallel path. Validate the regular variant rather
+# than accidentally stopping at the first conditional definition.
+regular_write16 = next(
+    (
+        body for body in write16_definitions
+        if "(C) >> 8" in body and "(C) >> 0" in body
+        and body.find("(C) >> 8") < body.find("(C) >> 0")
+    ),
+    None,
+)
+if regular_write16 is None:
+    print("ERROR: ESP32-C3 TFT_eSPI regular 16-bit path does not write RGB565 MSB before LSB")
     sys.exit(1)
 push_pixels_start = processor_source.find("void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)")
 if push_pixels_start < 0:
