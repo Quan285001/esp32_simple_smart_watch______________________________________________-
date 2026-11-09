@@ -328,17 +328,19 @@ async function convertImageToRgb565(object,design){
   const t=candidate.transform||{};
   const lowerOrder=(t.zIndex??0)<imageZ||((t.zIndex??0)===imageZ&&index<imagePosition);
   const candidateRect={x:Number(t.x)||0,y:Number(t.y)||0,width:Number(t.width)||0,height:Number(t.height)||0};
-  const overlapsImage=candidateRect.x<visibleImageRect.x+visibleImageRect.width&&
-   candidateRect.x+candidateRect.width>visibleImageRect.x&&
-   candidateRect.y<visibleImageRect.y+visibleImageRect.height&&
-   candidateRect.y+candidateRect.height>visibleImageRect.y;
-  return lowerOrder&&overlapsImage&&intersectsRoundDisplay(candidateRect)&&intersectsRoundDisplay(visibleImageRect);
+  const overlapLeft=Math.max(candidateRect.x,visibleImageRect.x);
+  const overlapTop=Math.max(candidateRect.y,visibleImageRect.y);
+  const overlapRight=Math.min(candidateRect.x+candidateRect.width,visibleImageRect.x+visibleImageRect.width);
+  const overlapBottom=Math.min(candidateRect.y+candidateRect.height,visibleImageRect.y+visibleImageRect.height);
+  const overlapRect={x:overlapLeft,y:overlapTop,width:overlapRight-overlapLeft,height:overlapBottom-overlapTop};
+  return lowerOrder&&overlapRect.width>0&&overlapRect.height>0&&intersectsRoundDisplay(overlapRect);
  });
  // Inspect alpha at the exact output raster size and placement. Scaling every
  // source to an unrelated 240x240 square can report transparency in pixels
  // that are not actually rendered, or miss alpha after a different scale.
  const alphaCanvas=document.createElement('canvas');alphaCanvas.width=outputWidth;alphaCanvas.height=outputHeight;
  const alphaCtx=alphaCanvas.getContext('2d',{willReadFrequently:true});
+ alphaCtx.fillStyle='rgba(0,0,0,1)';alphaCtx.fillRect(0,0,outputWidth,outputHeight);
  alphaCtx.save();alphaCtx.beginPath();alphaCtx.arc(120-left,120-top,120,0,Math.PI*2);alphaCtx.clip();
  alphaCtx.drawImage(image,drawX-left,drawY-top,drawWidth,drawHeight);alphaCtx.restore();
  const sourcePixels=alphaCtx.getImageData(0,0,outputWidth,outputHeight).data;let hasTransparency=false;
