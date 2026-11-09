@@ -30,7 +30,7 @@ Display format is RGB565. The active device profile is `esp32-c3-gc9a01-240`.
 Requirements: VS Code + PlatformIO, a USB data cable and the appropriate USB driver.
 
 1. Clone the repository and open it in VS Code.
-2. Create the local Wi-Fi credential file `src/secrets.h` if your checkout/build requires it:
+2. Create the required local Wi-Fi credential file `src/secrets.h` before building (`src/config.h` includes it):
 
    ```cpp
    #pragma once
