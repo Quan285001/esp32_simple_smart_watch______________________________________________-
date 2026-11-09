@@ -89,3 +89,18 @@ assert "->start()" not in disconnect
 assert "->stop()" not in disconnect
 
 print("BLE session generation and teardown ordering guard tests passed.")
+
+# The smartwatch BLE transport is intentionally open: no pairing/bonding or
+# encrypted GATT permissions are required for Windows/Web Bluetooth clients.
+assert "BLESecurity" not in source
+assert "setEncryptionLevel" not in source
+assert "ESP_LE_AUTH_BOND" not in source
+assert "ESP_GATT_PERM_READ_ENCRYPTED" not in source
+assert "ESP_GATT_PERM_WRITE_ENCRYPTED" not in source
+assert "ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE" in source
+assert "ESP_GATT_PERM_READ_ENCRYPTED" not in manager
+assert "ESP_GATT_PERM_WRITE_ENCRYPTED" not in manager
+assert "ESP_GATT_PERM_READ" in manager
+assert "ESP_GATT_PERM_WRITE" in manager
+
+print("BLE open-access policy guard tests passed.")
