@@ -139,6 +139,23 @@ subprocess.run(
     check=True,
 )
 
+IMAGE_ELEMENT_TEST = ROOT / "tests" / "host" / "image_element_test.cpp"
+IMAGE_ELEMENT_SOURCE = ROOT / "src" / "watchface" / "elements" / "image.cpp"
+
+with tempfile.TemporaryDirectory(prefix="wfs-image-element-test-") as tmp:
+    binary = Path(tmp) / "image_element_test"
+    subprocess.run(
+        ["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+         "-I", str(ROOT / "tests" / "host" / "stubs"),
+         "-I", str(ROOT / "src" / "display"),
+         "-I", str(ROOT / "src" / "storage"),
+         "-I", str(ROOT / "src" / "watchface" / "elements"),
+         str(IMAGE_ELEMENT_TEST), str(IMAGE_ELEMENT_SOURCE), "-o", str(binary)],
+        cwd=ROOT,
+        check=True,
+    )
+    subprocess.run([str(binary)], cwd=ROOT, check=True)
+
 RGB565_TEST = ROOT / "tests" / "host" / "image_rgb565_test.cpp"
 
 with tempfile.TemporaryDirectory(prefix="wfs-rgb565-test-") as tmp:
