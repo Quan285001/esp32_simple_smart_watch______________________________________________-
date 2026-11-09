@@ -576,9 +576,12 @@ void serviceWfsBle() {
         }
     }
 
-    // Process queued chunks first. A packet that arrived just before the
-    // timeout boundary must refresh activity before an idle session expires.
-    TransferManager::service();
+    // Process every queued packet before expiring an idle transfer. The
+    // loop intentionally handles only a bounded number per pass, so a valid
+    // chunk may still be waiting behind the current batch.
+    if (rxQueue == nullptr || uxQueueMessagesWaiting(rxQueue) == 0) {
+        TransferManager::service();
+    }
 }
 
 void requestWfsSessionReset() {
