@@ -151,7 +151,7 @@ int main() {
     assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
     assert(canvas.clipCalls==1 && canvas.clipW>0 && canvas.clipW<100);
     assert(canvas.clipX>50 && canvas.clipX<150);
-    assert(canvas.calls[3]=="text:13:05:10");
+    assert(canvas.calls.size()==4 && canvas.calls[2]=="text:13:05:10");
     timeInfo.tm_sec=9;
 
     // Dynamic redraw must restore intersecting layers above the changing element.
