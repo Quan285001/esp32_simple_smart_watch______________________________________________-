@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
 const { TextEncoder, TextDecoder } = require('node:util');
 let fakeImageAlpha = 255;
+let fakeImagePalette = null;
 
 class FakeElement {
   constructor(tagName) { this.tagName = tagName; this.attributes = {}; this.style = {}; this.children = []; this.width = 0; this.height = 0; this.fillRects = []; }
@@ -27,7 +28,11 @@ class FakeElement {
       getImageData(_x, _y, width, height) {
         const data = new Uint8ClampedArray(width * height * 4);
         for (let i = 0; i < data.length; i += 4) {
-          data[i] = 255;
+          const pixelIndex = (i / 4) % width;
+          const color = fakeImagePalette?.[pixelIndex % fakeImagePalette.length] || [255, 0, 0];
+          data[i] = color[0];
+          data[i + 1] = color[1];
+          data[i + 2] = color[2];
           data[i + 3] = fillStyle ? 255 : fakeImageAlpha;
         }
         return { data };
@@ -331,6 +336,29 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
     [0, 248, 0, 248], 'image conversion must emit little-endian RGB565 pixels');
   assert.equal(imageLayout.objects[0].assetId, imageManifest.assets[0].assetId);
   assert.equal(imageLayout.objects[1].assetId, imageManifest.assets[1].assetId);
+
+  // Exercise the complete browser image conversion path with distinct channel
+  // values so RGB/BGR swaps and RGB565 byte-order regressions are observable.
+  fakeImagePalette = [
+    [255, 0, 0],    // red -> F800 -> 00 F8
+    [0, 255, 0],    // green -> 07E0 -> E0 07
+    [0, 0, 255],    // blue -> 001F -> 1F 00
+    [255, 165, 0],  // orange -> FD20 -> 20 FD
+  ];
+  const paletteDesign = structuredClone(imageDesign);
+  paletteDesign.objects = [paletteDesign.objects[0]];
+  paletteDesign.objects[0].transform.width = 4;
+  paletteDesign.objects[0].transform.height = 1;
+  const palettePackage = await buildPackage(paletteDesign);
+  const paletteBytes = new Uint8Array(await palettePackage.blob.arrayBuffer());
+  const paletteHeader = new DataView(paletteBytes.buffer, paletteBytes.byteOffset, 64);
+  const paletteManifestLength = paletteHeader.getUint32(8, true);
+  const paletteLayoutLength = paletteHeader.getUint32(12, true);
+  const palettePayload = paletteBytes.slice(64 + paletteManifestLength + paletteLayoutLength);
+  assert.deepEqual(Array.from(palettePayload.slice(0, 8)),
+    [0x00, 0xF8, 0xE0, 0x07, 0x1F, 0x00, 0x20, 0xFD],
+    'full browser image conversion must preserve RGB channels and RGB565LE byte order');
+  fakeImagePalette = null;
 
   fakeImageAlpha = 0;
   const transparentBottom = structuredClone(imageDesign);
