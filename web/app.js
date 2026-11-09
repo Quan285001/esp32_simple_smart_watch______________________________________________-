@@ -279,6 +279,12 @@ function designCompatibilityErrors(design,caps){
  }
  return [...new Set(errors)];
 }
+// Canonical WFS wire format: RGB888 input -> RGB565 little-endian bytes.
+function writeRgb888AsRgb565LE(red,green,blue,output,offset){
+ const rgb565=((red>>3)<<11)|((green>>2)<<5)|(blue>>3);
+ output[offset]=rgb565&0xff;
+ output[offset+1]=(rgb565>>8)&0xff;
+}
 async function convertImageToRgb565(object,design){
  const source=state.images.find(a=>a.id===object.assetId);
  if(!source)throw Error(object.name+': image source not found');
@@ -322,8 +328,7 @@ async function convertImageToRgb565(object,design){
  const rgba=ctx.getImageData(0,0,outputWidth,outputHeight).data;
  const bytes=new Uint8Array(outputWidth*outputHeight*2);
  for(let i=0,p=0;i<rgba.length;i+=4,p+=2){
-  const r=rgba[i]>>3,g=rgba[i+1]>>2,b=rgba[i+2]>>3;
-  const rgb565=(r<<11)|(g<<5)|b;bytes[p]=rgb565&255;bytes[p+1]=(rgb565>>8)&255;
+  writeRgb888AsRgb565LE(rgba[i],rgba[i+1],rgba[i+2],bytes,p);
  }
  return {x:left,y:top,width:outputWidth,height:outputHeight,bytes};
 }
