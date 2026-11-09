@@ -149,6 +149,7 @@
 </div>
 <nav class="mobile-tabs"><button data-nav="editor" class="active">✳ Editor</button><button data-nav="templates">▦ Templates</button><button data-nav="library">▣ Designs</button><button data-nav="device">⌚ Device</button><button data-nav="settings">⚙ Settings</button></nav>
 </div>
+<input id="profileImportInput" class="hidden" type="file" accept="application/json,.json">
 <input id="imageInput" class="hidden" type="file" accept="image/*">
 <input id="jsonInput" class="hidden" type="file" accept="application/json,.json">
 <dialog id="deviceProfileDialog" class="profile-dialog" aria-labelledby="deviceProfileTitle">
@@ -171,7 +172,7 @@
    <label class="field profile-wide">WHEN DIMENSIONS CHANGE<select id="profileScaleStrategy"><option value="scale">Scale object positions and sizes proportionally</option><option value="keep">Keep existing pixel coordinates</option></select></label>
   </div>
   <p class="profile-dialog-status" id="profileCompatibilityStatus" role="status">Custom profiles are available for design and preview. Firmware upload remains limited to capabilities advertised by the connected device.</p>
-  <footer class="profile-dialog-actions"><button class="btn ghost" id="deviceProfileReset" type="button">Reset fields</button><span></span><button class="btn" id="deviceProfileCancel" type="button">Cancel</button><button class="btn primary" id="deviceProfileApply" type="button">Apply profile</button></footer>
+  <footer class="profile-dialog-actions"><button class="btn ghost" id="deviceProfileReset" type="button">Reset fields</button><button class="btn ghost" id="profileExportBtn" type="button">Export</button><button class="btn ghost" id="profileImportBtn" type="button">Import</button><span></span><button class="btn" id="deviceProfileCancel" type="button">Cancel</button><button class="btn primary" id="deviceProfileApply" type="button">Apply profile</button></footer>
  </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
