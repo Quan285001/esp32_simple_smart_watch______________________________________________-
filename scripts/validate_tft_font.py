@@ -44,9 +44,10 @@ if web_bytes != font_bytes:
 
 print("Browser GLCD font exactly matches the installed TFT_eSPI library (256 glyphs).")
 
-# The WFS image backend must follow the same native-word byte-order contract
-# as TFT_eSPI's own 16-bit sprite push path. This is a source-level check only;
-# it does not claim to verify the physical panel's RGB/BGR configuration.
+# WFS rows are decoded into native little-endian uint16_t values. On ESP32,
+# TFT_eSPI must swap each word before SPI transmission so the panel receives
+# RGB565 MSB first. Sprite buffers have a different storage contract. This
+# source-level check does not claim to verify the physical panel's RGB/BGR mode.
 sprite_path = font_path.parents[1] / "Extensions" / "Sprite.cpp"
 tft_path = font_path.parents[1] / "TFT_eSPI.cpp"
 display_path = ROOT / "src" / "display" / "display_manager.cpp"
@@ -65,7 +66,7 @@ if sprite_start < 0:
     sys.exit(1)
 sprite_body = sprite_source[sprite_start:sprite_source.find("\n}", sprite_start) + 2]
 if "setSwapBytes(false)" not in sprite_body or "_tft->pushImage(" not in sprite_body:
-    print("ERROR: TFT_eSPI sprite path no longer documents native-word push semantics")
+    print("ERROR: TFT_eSPI sprite path contract changed; re-check sprite byte layout")
     sys.exit(1)
 
 push_start = tft_source.find(
@@ -79,11 +80,25 @@ if "pushPixels(data" not in push_body:
     print("ERROR: TFT_eSPI pushImage no longer forwards native words to pushPixels")
     sys.exit(1)
 
+processor_path = font_path.parents[1] / "Processors" / "TFT_eSPI_ESP32_C3.c"
+if not processor_path.is_file():
+    print(f"ERROR: ESP32-C3 TFT_eSPI processor source not found: {processor_path}")
+    sys.exit(1)
+processor_source = processor_path.read_text(encoding="utf-8", errors="replace")
+push_pixels_start = processor_source.find("void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)")
+if push_pixels_start < 0:
+    print("ERROR: ESP32-C3 TFT_eSPI pushPixels implementation is missing")
+    sys.exit(1)
+push_pixels_body = processor_source[push_pixels_start:processor_source.find("\n}", push_pixels_start) + 2]
+if "_swapBytes" not in push_pixels_body or "tft_Write_16(*data)" not in push_pixels_body or "spi.writePattern(data" not in push_pixels_body:
+    print("ERROR: ESP32-C3 TFT_eSPI pushPixels byte-swap contract changed")
+    sys.exit(1)
+
 backend_start = display_source.find("void pushRgb565Row(")
 backend_body = display_source[backend_start:display_source.find("\n    }", backend_start) + 6]
 ordered_calls = [
     "tft.getSwapBytes()",
-    "tft.setSwapBytes(false)",
+    "tft.setSwapBytes(true)",
     "tft.pushImage(x, y, count, 1, pixels)",
     "tft.setSwapBytes(previousSwapBytes)",
 ]
@@ -92,5 +107,5 @@ if any(position < 0 for position in positions) or positions != sorted(positions)
     print("ERROR: WFS RGB565 row transport does not preserve TFT_eSPI native-word swap state")
     sys.exit(1)
 
-print("WFS RGB565 transport matches TFT_eSPI's native 16-bit sprite push convention.")
+print("WFS RGB565 native words are byte-swapped to MSB-first SPI order.")
 
