@@ -266,13 +266,9 @@ bool analogHandsUnchanged(uint8_t objectIndex, const FaceObject& object,
     dirtyWidth = maxX - minX + padding * 2 + 1;
     dirtyHeight = maxY - minY + padding * 2 + 1;
 
-    strncpy(entry.objectId, object.id, sizeof(entry.objectId) - 1);
-    entry.objectId[sizeof(entry.objectId) - 1] = '\0';
-    entry.centerX = centerX;
-    entry.centerY = centerY;
-    memcpy(entry.endpointX, endpointX, sizeof(endpointX));
-    memcpy(entry.endpointY, endpointY, sizeof(endpointY));
-    entry.valid = true;
+    // Do not commit the new endpoints here. The caller updates this cache
+    // only after the clipped redraw succeeds, so a failed draw cannot make
+    // the next frame incorrectly believe stale pixels are already current.
     return false;
 }
 
@@ -562,6 +558,21 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
         }
         getDisplayCanvas().resetClip();
         if (!drawOk) return FaceRenderStatus::AssetReadFailed;
+
+        if (dynamicObject.type == FaceElementType::AnalogClock) {
+            int centerX = 0, centerY = 0, endpointX[3] = {}, endpointY[3] = {};
+            if (calculateAnalogHandEndpoints(dynamicObject, timeInfo,
+                                             centerX, centerY, endpointX, endpointY)) {
+                AnalogHandCacheEntry& entry = analogHandCache[order[i]];
+                strncpy(entry.objectId, dynamicObject.id, sizeof(entry.objectId) - 1);
+                entry.objectId[sizeof(entry.objectId) - 1] = '\0';
+                entry.centerX = centerX;
+                entry.centerY = centerY;
+                memcpy(entry.endpointX, endpointX, sizeof(endpointX));
+                memcpy(entry.endpointY, endpointY, sizeof(endpointY));
+                entry.valid = true;
+            }
+        }
     }
     return FaceRenderStatus::Ok;
 }
