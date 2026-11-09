@@ -45,12 +45,17 @@ const templateEnd = appSource.indexOf('\nfunction blankDesign', templateStart);
 assert.ok(templateStart >= 0 && templateEnd > templateStart,
   'built-in templates must remain extractable for compatibility checks');
 const templateContext = {};
+let templateObjectId = 0;
+templateContext.uid = () => 'template-object-' + (++templateObjectId);
 vm.runInNewContext(appSource.slice(templateStart, templateEnd) +
-  '\nglobalThis.templates = templates;', templateContext);
+  '\nglobalThis.templates = templates; globalThis.fromTemplate = fromTemplate;', templateContext);
 const supportedTemplateTypes = new Set([
   'text', 'digital-clock', 'analog-clock', 'date', 'weather', 'shape', 'image'
 ]);
 for (const template of templateContext.templates) {
+  const generatedDesign = templateContext.fromTemplate(template);
+  assert.deepEqual(errorsFor(generatedDesign), [],
+    template.name + ': generated built-in design must pass device compatibility preflight');
   for (const object of template.objects) {
     assert.ok(supportedTemplateTypes.has(object.type),
       template.name + ': unsupported built-in element type ' + object.type);
