@@ -140,7 +140,7 @@ const fakeImageDocument = {
             pixels[i + 1] = 165;
             pixels[i + 2] = 0;
             pixels[i + 3] = imageSandbox.transparentPixel &&
-              !fillStyle && i === 0 ? 0 : 255;
+              !fillStyle && i === 40 ? 0 : 255;
           }
           return { data: pixels };
         },
