@@ -274,6 +274,7 @@ bool cancel(uint32_t transferId) {
         currentError = Error::FileOpenFailed;
         return false;
     }
+    stagingSlot = FaceStorage::INVALID_SLOT;
     currentState = State::Cancelled;
     currentError = Error::None;
     return true;
@@ -285,13 +286,13 @@ void service() {
 
     const uint32_t expiredTransferId = currentTransferId;
     if (!cancel(expiredTransferId)) {
-        Serial.printf("[TRANSFER] CRITICAL: inactivity timeout cleanup failed: %s.\\n",
+        Serial.printf("[TRANSFER] CRITICAL: inactivity timeout cleanup failed: %s.\n",
                       errorName(currentError));
         return;
     }
     currentState = State::Failed;
     currentError = Error::Timeout;
-    Serial.printf("[TRANSFER] Transfer %lu expired after %lu ms idle; staging slot discarded.\\n",
+    Serial.printf("[TRANSFER] Transfer %lu expired after %lu ms idle; staging slot discarded.\n",
                   static_cast<unsigned long>(expiredTransferId),
                   static_cast<unsigned long>(TRANSFER_IDLE_TIMEOUT_MS));
 }
