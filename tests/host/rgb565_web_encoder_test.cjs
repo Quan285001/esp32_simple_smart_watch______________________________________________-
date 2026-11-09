@@ -102,4 +102,90 @@ for (const [name, r, g, b, expected] of cases) {
       ', got bytes [' + bytes[0].toString(16) + ',' + bytes[1].toString(16) + ']');
   }
 }
-console.log('WFS browser RGB888 -> RGB565LE golden colour tests passed.');
+
+const imageFunctionStart = source.indexOf('async function convertImageToRgb565(');
+if (imageFunctionStart < 0) throw new Error('Browser image conversion function is missing');
+const imageFunctionBrace = source.indexOf('{', imageFunctionStart);
+const imageFunctionEnd = source.indexOf('\n}', imageFunctionBrace);
+if (imageFunctionBrace < 0 || imageFunctionEnd < 0) {
+  throw new Error('Browser image conversion function is malformed');
+}
+const imageFunction = source.slice(imageFunctionStart, imageFunctionEnd + 2);
+const imageDraws = [];
+const clipArcs = [];
+const fakeImage = class {
+  constructor() { this.naturalWidth = 10; this.naturalHeight = 10; }
+  async decode() {}
+};
+const fakeImageDocument = {
+  createElement(tag) {
+    if (tag !== 'canvas') throw new Error('Unexpected DOM element: ' + tag);
+    const canvas = { width: 0, height: 0 };
+    canvas.getContext = () => ({
+      fillStyle: '',
+      fillRect() {},
+      save() {},
+      beginPath() {},
+      arc(...args) { clipArcs.push(args); },
+      clip() {},
+      restore() {},
+      drawImage(...args) { imageDraws.push(args); },
+      getImageData(x, y, width, height) {
+        const pixels = new Uint8ClampedArray(width * height * 4);
+        const alphaOnlyCanvas = canvas.width === 240 && canvas.height === 240;
+        for (let i = 0; i < pixels.length; i += 4) {
+          pixels[i] = 255;
+          pixels[i + 1] = alphaOnlyCanvas ? 0 : 165;
+          pixels[i + 2] = 0;
+          pixels[i + 3] = 255;
+        }
+        return { data: pixels };
+      },
+    });
+    return canvas;
+  },
+};
+const imageSandbox = {
+  state: { images: [{ id: 'source-image', data: 'data:image/mock;base64,AA==', name: 'orange.png' }] },
+  Image: fakeImage,
+  document: fakeImageDocument,
+  writeRgb888AsRgb565LE: sandbox.encode,
+};
+vm.runInNewContext(imageFunction + '\nglobalThis.convert = convertImageToRgb565;', imageSandbox);
+const cropObject = {
+  id: 'image-object', assetId: 'source-image', name: 'crop-test', visible: true,
+  transform: { x: -10, y: 100, width: 40, height: 30, zIndex: 0 },
+};
+const cropDesign = {
+  canvas: { backgroundColor: '#000000' },
+  objects: [cropObject],
+};
+imageSandbox.convert(cropObject, cropDesign).then((converted) => {
+  if (converted.x !== 0 || converted.y !== 100 ||
+      converted.width !== 30 || converted.height !== 30) {
+    throw new Error('Image crop must use the visible display intersection: ' +
+      JSON.stringify({ x: converted.x, y: converted.y,
+        width: converted.width, height: converted.height }));
+  }
+  if (converted.bytes.length !== 30 * 30 * 2) {
+    throw new Error('Cropped image byte length does not match RGB565 dimensions');
+  }
+  for (let i = 0; i < converted.bytes.length; i += 2) {
+    if (converted.bytes[i] !== 0x20 || converted.bytes[i + 1] !== 0xfd) {
+      throw new Error('Orange source pixels were not encoded as RGB565LE at offset ' + i);
+    }
+  }
+  const circle = clipArcs.find(args => args[0] === 120 && args[1] === 20 && args[2] === 120);
+  if (!circle) throw new Error('Image conversion did not clip to the circular watch aperture');
+  const outputDraw = imageDraws[1];
+  if (!outputDraw || outputDraw[1] !== -5 || outputDraw[2] !== 0 ||
+      outputDraw[3] !== 30 || outputDraw[4] !== 30) {
+    throw new Error('Cropped source image placement/aspect ratio is incorrect: ' +
+      JSON.stringify(outputDraw));
+  }
+  console.log('WFS browser image crop and orange RGB565LE pipeline tests passed.');
+}).catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
