@@ -33,7 +33,7 @@ class FakeElement {
           data[i] = color[0];
           data[i + 1] = color[1];
           data[i + 2] = color[2];
-          data[i + 3] = fillStyle ? 255 : fakeImageAlpha;
+          data[i + 3] = fillStyle === 'rgba(0,0,0,1)' ? fakeImageAlpha : (fillStyle ? 255 : fakeImageAlpha);
         }
         return { data };
       },
