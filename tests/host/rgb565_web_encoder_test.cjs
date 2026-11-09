@@ -164,7 +164,7 @@ const cropDesign = {
   canvas: { backgroundColor: '#000000' },
   objects: [cropObject],
 };
-imageSandbox.convert(cropObject, cropDesign).then((converted) => {
+imageSandbox.convert(cropObject, cropDesign).then(async (converted) => {
   if (converted.x !== 0 || converted.y !== 100 ||
       converted.width !== 30 || converted.height !== 30) {
     throw new Error('Image crop must use the visible display intersection: ' +
