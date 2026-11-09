@@ -63,7 +63,7 @@ sprite_start = sprite_source.find("void TFT_eSprite::pushSprite(int32_t x, int32
 if sprite_start < 0:
     print("ERROR: TFT_eSPI 16-bit sprite push implementation is missing")
     sys.exit(1)
-sprite_body = sprite_source[sprite_start:sprite_source.find("\\n}", sprite_start) + 2]
+sprite_body = sprite_source[sprite_start:sprite_source.find("\n}", sprite_start) + 2]
 if "setSwapBytes(false)" not in sprite_body or "_tft->pushImage(" not in sprite_body:
     print("ERROR: TFT_eSPI sprite path no longer documents native-word push semantics")
     sys.exit(1)
@@ -74,7 +74,7 @@ push_start = tft_source.find(
 if push_start < 0:
     print("ERROR: TFT_eSPI mutable 16-bit pushImage implementation is missing")
     sys.exit(1)
-push_body = tft_source[push_start:tft_source.find("\\n}", push_start) + 2]
+push_body = tft_source[push_start:tft_source.find("\n}", push_start) + 2]
 if "pushPixels(data" not in push_body:
     print("ERROR: TFT_eSPI pushImage no longer forwards native words to pushPixels")
     sys.exit(1)
