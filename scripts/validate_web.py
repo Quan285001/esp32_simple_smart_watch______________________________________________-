@@ -1,5 +1,6 @@
 from html.parser import HTMLParser
 from pathlib import Path
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +34,15 @@ if missing:
     errors.append("Missing required UI ids: " + ", ".join(missing))
 if not (ROOT / "shared/schemas/watch-face.schema.json").is_file():
     errors.append("Shared watch-face schema is missing")
+
+app_js = (ROOT / "web/app.js").read_text(encoding="utf-8")
+font_match = re.search(r"const TFT_FONT1_GLYPHS='([0-9a-f]+)'", app_js)
+if not font_match or len(font_match.group(1)) != 2560:
+    errors.append("Firmware GLCD font table must contain all 256 five-byte glyphs")
+if "new TextEncoder().encode(value)" not in app_js or "TFT_FONT1_GLYPHS.slice(offset+column*2" not in app_js:
+    errors.append("Web text preview must use the firmware's byte-based GLCD glyph lookup")
+if "ctx.imageSmoothingEnabled=false" not in app_js:
+    errors.append("Web text preview must keep bitmap glyphs pixel-aligned")
 if errors:
     print("\n".join("ERROR: " + e for e in errors))
     sys.exit(1)
