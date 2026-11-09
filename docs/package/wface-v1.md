@@ -1,19 +1,19 @@
-# Watch Face Package Format — WFS1 / .wface
+# Watch Face Package Format — WFS1 / `.wface`
 
-**Status:** WFS1 container, firmware validator/transfer path and Web package builder exist in source. Current-branch PlatformIO CI build and host tests are verified; physical Web-to-BLE-to-device transfer is not yet verified. See `docs/architecture/rebuild-implementation-status.md` for current implementation status.  
-**Target:** ESP32-C3, GC9A01 240×240, SPIFFS staging storage.
+**Status:** Web package builder, firmware package validator, RGB565 image pipeline and transactional BLE transfer/apply path are implemented. Host package/parser/image tests and ESP32-C3 PlatformIO build pass in CI. Physical browser-to-watch transfer and image rendering remain hardware-pending.  
+**Target:** ESP32-C3, GC9A01 240×240, SPIFFS inactive-slot staging.
 
-## 1. Decision
+A WFS1 package is a declarative design container. It is not executable code and contains no C++/bytecode.
 
-Use a small custom streaming container instead of ZIP.
+## 1. Representations
 
-Reasons:
-- The firmware must validate and write package bytes incrementally.
-- A ZIP implementation would require central-directory handling and decompression policy on a memory-constrained MCU.
-- The current design only needs two JSON documents plus raw device-ready assets.
-- The browser can assemble a Blob from header, manifest, layout and asset byte arrays without a ZIP dependency.
+Do not confuse these formats:
 
-The .wface extension is a transportable binary container. It is not executable code.
+1. Watch Face JSON — editor design document.
+2. `.wfsproject.json` — portable editor project containing the design and original source images.
+3. `.wface` — WFS1 device package containing a manifest, device-compatible layout and RGB565 image assets.
+
+Only the third format is accepted by the firmware package validator.
 
 ## 2. Container layout
 
@@ -21,29 +21,28 @@ All integers are little-endian. The fixed header is exactly 64 bytes.
 
 | Offset | Size | Field | Rule |
 |---:|---:|---|---|
-| 0 | 4 | Magic | ASCII WFS1 |
-| 4 | 2 | Package format version | 1 |
+| 0 | 4 | Magic | ASCII `WFS1` |
+| 4 | 2 | Package version | 1 |
 | 6 | 2 | Header size | 64 |
-| 8 | 4 | Manifest length | UTF-8 JSON byte length |
-| 12 | 4 | Layout length | UTF-8 JSON byte length |
-| 16 | 2 | Asset count | Must equal manifest assets length |
+| 8 | 4 | Manifest length | UTF-8 JSON bytes |
+| 12 | 4 | Layout length | UTF-8 JSON bytes |
+| 16 | 2 | Asset count | Must equal manifest asset count |
 | 18 | 2 | Flags | Must be zero in v1 |
-| 20 | 4 | Payload length | Manifest + layout + all asset bytes |
-| 24 | 32 | Payload SHA-256 | Digest of the complete payload bytes |
+| 20 | 4 | Payload length | Manifest + layout + asset bytes |
+| 24 | 32 | Payload SHA-256 | Digest of all payload bytes |
 | 56 | 4 | Header CRC32 | CRC-32/ISO-HDLC over bytes 0–55 |
 | 60 | 4 | Reserved | Must be zero |
 
-Payload order is deterministic:
+Payload order:
+1. `manifest.json` UTF-8 bytes (no BOM);
+2. `layout.json` UTF-8 bytes (no BOM);
+3. raw assets in manifest order.
 
-1. manifest.json bytes (UTF-8, no BOM);
-2. layout.json bytes (UTF-8, no BOM);
-3. raw asset bytes in the same order as manifest.assets.
+The exact package length is `64 + payloadLength`. Trailing bytes are rejected.
 
-Total package length must equal 64 + payloadLength exactly. Trailing bytes are rejected.
+## 3. Manifest and layout
 
-## 3. Manifest
-
-Example:
+Example manifest:
 
 ```json
 {
@@ -53,7 +52,7 @@ Example:
   "schemaVersion": 1,
   "deviceProfileId": "esp32-c3-gc9a01-240",
   "requiredCapabilities": ["clock.digital", "text.basic"],
-  "layoutSha256": "lowercase-hex-sha256",
+  "layoutSha256": "64-hex-character-sha256",
   "assets": [
     {
       "assetId": "asset_background",
@@ -63,73 +62,110 @@ Example:
       "height": 240,
       "byteLength": 115200,
       "offset": 0,
-      "sha256": "lowercase-hex-sha256"
+      "sha256": "64-hex-character-sha256"
     }
   ]
 }
 ```
 
-Asset offset is relative to the first byte after manifest and layout. The absolute package offset is:
+Asset `offset` is relative to the first byte after manifest and layout. Absolute package offset:
 
+```
 64 + manifestLength + layoutLength + asset.offset
+```
 
-Asset entries must be ordered by ascending offset, non-overlapping, contiguous, and wholly inside payloadLength. Asset IDs must be unique. Layout assetId references must resolve to exactly one manifest entry.
+Validation requires:
+- unique asset IDs;
+- integer JSON values for width, height, byteLength and offset;
+- width/height within the active device bitmap limits;
+- `byteLength == width × height × 2`;
+- ascending, contiguous, non-overlapping asset ranges fully inside payload;
+- every layout asset reference resolves to exactly one manifest asset;
+- manifest asset count matches header asset count;
+- manifest `layoutSha256` matches exact layout bytes;
+- each asset digest and complete payload digest match;
+- each parsed element's required capability is declared and supported by the active device.
 
-## 4. Initial asset encoding
+Manifest and layout are parsed with bounded sizes and nesting limits. The current target limits are 8 KiB manifest and 16 KiB layout JSON. The shared schema/profile and live CAPABILITIES response remain authoritative for object/asset/bitmap limits.
 
-Initial device bitmap encoding:
-- mediaType: image/rgb565
-- encoding: rgb565le
-- RGB565 pixels in little-endian byte order
-- no compression in v1
-- dimensions and byteLength must agree exactly (width × height × 2)
+## 4. Asset encoding
 
-The Web package builder must resize/crop to target bounds, convert colors, and optionally dither before packaging. The firmware must stream rows/tiles from storage; it must not allocate a full-screen decoded bitmap plus a second full-screen buffer.
+The implemented device asset type is:
+- `mediaType: image/rgb565`
+- `encoding: rgb565le`
+- two bytes per pixel, RGB565 little-endian
+- no compression in WFS1
+- exact dimensions and byte length required
 
-PNG/JPEG are browser import formats only. Firmware support for compressed PNG/JPEG is not implied.
+The Web editor imports browser-supported source images, applies target sizing/cropping and converts them to RGB565 before packaging. The firmware does not decode PNG/JPEG. Image rows are streamed from package storage to the canvas; no full-screen decompressed bitmap buffer is required.
 
-Glyph atlas assets will use a separate explicit encoding and metadata contract in a later compatible package revision; do not overload the RGB565 asset type.
+Transparent source images that would require alpha compositing over visible lower layers are rejected during preflight because firmware alpha blending is not implemented. Fully opaque images and images without visible lower-layer compositing are eligible.
+
+Glyph atlases and compressed asset formats require a separately versioned encoding contract; do not overload the RGB565 asset type.
 
 ## 5. Integrity and validation
 
 - Header CRC32 detects malformed header fields.
-- Payload SHA-256 covers manifest, layout and every asset byte in the exact payload order.
-- layoutSha256 covers the exact layout.json UTF-8 bytes.
-- Each asset SHA-256 covers its exact raw bytes.
-- Firmware must check declared lengths before reading or allocating.
-- The parser must reject unknown major package versions, nonzero v1 flags, invalid offsets, duplicate IDs, missing asset references, malformed JSON, schema errors, unsupported capabilities and checksum mismatches.
+- Payload SHA-256 covers manifest, layout and all asset bytes in exact payload order.
+- `layoutSha256` covers exact layout JSON UTF-8 bytes.
+- Each asset SHA-256 covers exact raw asset bytes.
+- The BLE TRANSFER_BEGIN field `payloadSha256` is exactly 64 hexadecimal characters and must match the payload digest.
+- Firmware rejects invalid lengths, unsupported major package versions, nonzero v1 flags/reserved values, malformed JSON, invalid offsets, duplicate/missing asset references, unsupported capabilities and checksum mismatches.
 
-The manifest and layout must be parsed with bounded sizes and a bounded nesting depth. Package limits are supplied by runtime capabilities and available staging capacity, not guessed by the Web app.
+The Web app performs schema/device compatibility preflight before upload. Firmware independently validates the received package; Web preflight is not a security boundary.
 
-## 6. Atomic installation
+## 6. Storage and atomic installation
 
-The existing huge_app partition table provides a nominal 0xE0000-byte SPIFFS partition. Actual usable space is lower due to filesystem metadata and must be read from SPIFFS at runtime.
+The current `huge_app.csv` partition provides a nominal 0xE0000-byte SPIFFS partition. Usable space is lower due to filesystem metadata and must be queried at runtime.
 
-Use two package slots:
-- active slot;
-- inactive slot used for the next transfer.
+Two package slots are used:
+- active slot: selected by the NVS active-slot commit pointer;
+- inactive slot: staging target for the next package.
 
-The inactive slot may be overwritten only after the active slot is identified and protected. If the complete new package cannot fit while preserving the active package, reject the transfer before receiving bytes.
+Transfer setup records the exact active and inactive slot reservation, calculates capacity using current free space plus reclaimable inactive-slot bytes, removes only the inactive slot and opens it for writing. The active slot is protected throughout reception.
 
-Commit sequence:
-1. reserve inactive slot;
-2. stream package into inactive slot;
-3. validate header and exact total length;
-4. validate payload, layout and asset digests;
-5. parse and validate schema/capability requirements;
-6. verify the stored bytes can be read back;
-7. atomically persist the active-slot selector in NVS;
-8. report the active design ID and package digest;
-9. retain the previous slot for rollback until a later confirmed boot policy permits cleanup.
+Installation sequence:
+1. reserve the inactive slot;
+2. receive sequential chunks and flush writes;
+3. flush/close the staging writer;
+4. reopen the package and verify exact length, header, payload, manifest, layout, assets and capabilities;
+5. transition to Verified;
+6. on explicit APPLY, persist the new active-slot pointer and read it back;
+7. install the already validated in-memory FaceModel;
+8. if model installation fails, restore the previous active pointer; on first install, remove the pointer;
+9. if rollback cannot be verified, disable FaceStorage until reinitialization and emit a critical diagnostic.
 
-Power loss before step 7 leaves the old slot active. After step 7, boot verifies only the slot named by the persisted NVS commit pointer. If that committed package is missing or invalid, the custom face is rejected and the built-in face is used. The firmware does not automatically promote the other slot: it may contain a partial package from a later interrupted transfer, and the current metadata does not prove that it is safe to activate. The previous slot remains untouched, but automatic fallback to it is not implemented.
+Power loss before the pointer commit leaves the old slot selected. Boot trusts only the slot named by the NVS pointer. If the pointer is absent/invalid or the selected package is missing/invalid, the custom face is rejected and the built-in face is used. The other slot is never automatically promoted because it may contain an incomplete staging package. Automatic fallback to the previous slot is not implemented.
 
-The two-slot scheme cannot guarantee that two maximum-sized packages fit in the SPIFFS partition. Runtime capacity checks are mandatory.
+Two maximum-sized packages are not guaranteed to fit simultaneously. The transfer must be rejected before reception if the inactive slot cannot hold the new package while preserving the active slot.
 
-## 7. Open implementation details
+## 7. Transfer and diagnostics
 
-- Implement CRC32 and incremental SHA-256 using APIs available in the pinned ESP32 Arduino/ESP-IDF toolchain.
-- Confirm exact SPIFFS usable capacity and write/rename behavior on the physical board.
-- Decide package metadata limits after measuring worst-case manifest and layout parse heap.
-- Add binary golden fixtures and corruption tests.
-- Implement the Web exporter using IndexedDB asset resolution and streaming Blob assembly.
+WFS transfer is stop-and-wait:
+- TRANSFER_BEGIN reserves storage and returns the negotiated chunk size.
+- DATA carries an 8-byte transfer ID/chunk-index prefix and 1–216 package bytes.
+- DATA_ACK confirms the last accepted chunk and cumulative byte count.
+- An exact retry of the last accepted chunk is acknowledged without writing twice.
+- TRANSFER_END triggers package verification.
+- APPLY is separate and required to activate the face.
+- CANCEL/disconnect cleanup removes the inactive staging file when possible.
+
+Serial diagnostics include receive/verify/apply durations, package byte count and heap snapshots. These measurements need to be collected on the physical board; CI does not provide runtime heap evidence.
+
+## 8. Implementation and hardware verification
+
+Host tests cover:
+- Web WFS1 header/payload/digest generation;
+- little-endian RGB565 conversion and image dimensions;
+- duplicate asset IDs and transparent overlay preflight;
+- firmware RGB565 decode and image element storage-to-canvas behavior;
+- parser/package constraints and transfer sequencing.
+
+Still hardware-pending:
+- actual SPIFFS usable capacity and fragmentation behavior;
+- interrupted writes and power loss during transfer/apply;
+- repeated real BLE upload/cancel/disconnect/reconnect;
+- visual image alignment and rendering on the GC9A01;
+- runtime heap margin for large image-bearing packages.
+
+See `docs/architecture/hardware-regression-checklist.md` before declaring the package path physically validated.
