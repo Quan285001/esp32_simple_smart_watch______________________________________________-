@@ -19,6 +19,23 @@ assert busy_check < reset_fields < reset_state < reset_error < request_validatio
     "begin() must preserve active sessions, then clear stale attempt metadata "
     "before validating a new request"
 )
+reservation = begin_body.index("previousActiveSlot = FaceStorage::activeSlot();")
+staging_reservation = begin_body.index("stagingSlot = FaceStorage::inactiveSlot();", reservation)
+remove_staging = begin_body.index("FaceStorage::removeSlot(stagingSlot)")
+open_staging = begin_body.index('FaceStorage::openSlot(stagingSlot, "w")')
+assert reservation < staging_reservation < remove_staging < open_staging, (
+    "the active and staging slots must be reserved before modifying the inactive slot"
+)
+assert "clearTransferFields();" not in begin_body[open_staging:], (
+    "opening the staging file must not erase its reserved slot metadata"
+)
+assert "stagingSlot = FaceStorage::inactiveSlot();" not in begin_body[open_staging:], (
+    "transfer setup must retain the exact slot used to open the staging file"
+)
+assert "previousActiveSlot = FaceStorage::activeSlot();" not in begin_body[open_staging:], (
+    "rollback must retain the exact pre-transfer active slot"
+)
+
 assert "currentError = Error::Busy;" in begin_body
 assert "return false;" in begin_body[busy_check:reset_fields]
 
