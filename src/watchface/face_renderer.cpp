@@ -144,6 +144,57 @@ void formatTime(char* out, size_t capacity, const FaceObject& object,
     if (twelveHour) appendText(out, capacity, suffix);
 }
 
+struct DynamicTextCacheEntry {
+    char objectId[FACE_ID_CAPACITY];
+    char value[FACE_TEXT_CAPACITY];
+    bool valid;
+};
+
+DynamicTextCacheEntry dynamicTextCache[FACE_MAX_OBJECTS] = {};
+
+void invalidateDynamicTextCache() {
+    memset(dynamicTextCache, 0, sizeof(dynamicTextCache));
+}
+
+bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
+                          const struct tm& timeInfo, const WeatherData& weather) {
+    if (objectIndex >= FACE_MAX_OBJECTS) return false;
+    char value[FACE_TEXT_CAPACITY] = {};
+    switch (object.type) {
+        case FaceElementType::DigitalClock:
+            formatTime(value, sizeof(value), object, timeInfo);
+            break;
+        case FaceElementType::Date:
+            formatDate(value, sizeof(value), object, timeInfo);
+            break;
+        case FaceElementType::Weather:
+            if (!weather.valid) {
+                snprintf(value, sizeof(value), "unavailable:%s", object.text);
+            } else {
+                snprintf(value, sizeof(value), "%d|%s|%u|%u",
+                         weather.currentTemp, weather.conditionText.c_str(),
+                         object.showWeatherTemperature ? 1U : 0U,
+                         object.showWeatherCondition ? 1U : 0U);
+            }
+            break;
+        default:
+            return false;
+    }
+
+    DynamicTextCacheEntry& entry = dynamicTextCache[objectIndex];
+    const bool unchanged = entry.valid &&
+        strcmp(entry.objectId, object.id) == 0 &&
+        strcmp(entry.value, value) == 0;
+    if (!unchanged) {
+        strncpy(entry.objectId, object.id, sizeof(entry.objectId) - 1);
+        entry.objectId[sizeof(entry.objectId) - 1] = '\0';
+        strncpy(entry.value, value, sizeof(entry.value) - 1);
+        entry.value[sizeof(entry.value) - 1] = '\0';
+        entry.valid = true;
+    }
+    return unchanged;
+}
+
 void formatDate(char* out, size_t capacity, const FaceObject& object,
                 const struct tm& timeInfo) {
     static const char* const weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
@@ -295,6 +346,7 @@ FaceRenderStatus validateFaceModelForRenderer(const FaceModel& face) {
 
 FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInfo,
                                  const WeatherData& weather) {
+    invalidateDynamicTextCache();
     const FaceRenderStatus status = preflight(face);
     if (status != FaceRenderStatus::Ok) return status;
 
@@ -318,6 +370,9 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
     for (uint8_t i = 0; i < face.objectCount; ++i) {
         const FaceObject& dynamicObject = face.objects[order[i]];
         if (!dynamicObject.visible || !isDynamic(dynamicObject.type)) continue;
+        // Date, minute-only clocks and unchanged weather should not clear and
+        // repaint their whole bounds on every one-second clock tick.
+        if (dynamicTextUnchanged(order[i], dynamicObject, timeInfo, weather)) continue;
 
         const int x = static_cast<int>(lroundf(dynamicObject.transform.x));
         const int y = static_cast<int>(lroundf(dynamicObject.transform.y));
