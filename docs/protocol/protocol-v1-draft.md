@@ -29,7 +29,7 @@ Existing text commands remain supported during migration.
 
 The Web Bluetooth request must include both the legacy service UUID and WFS service UUID in `optionalServices`.
 
-Both legacy and WFS protected characteristics require encrypted access. BLE bonding is configured with IO capability NONE (Just Works). This enables link encryption but does **not** provide MITM protection. Do not treat this as strong authentication.
+Legacy and WFS1 characteristics are intentionally accessible without BLE pairing, bonding or link encryption so Windows and Web Bluetooth clients can connect directly. BLE traffic (including commands and any Wi-Fi credentials sent over the legacy protocol) is therefore observable to nearby radio listeners and is not suitable for secrets.
 
 ## 2. Frame envelope
 
@@ -229,10 +229,10 @@ Do not infer that all planned command names (for example, every typed Wi-Fi/powe
 
 ## 9. Security and hardware verification
 
-BLE bonding uses IO capability NONE (Just Works). The protected characteristics require encrypted access, but there is no MITM protection. A secure product would need a reviewed passkey/authorization design, bond reset/revocation behavior and physical-device tests.
+BLE pairing, bonding and link encryption are intentionally disabled. GATT characteristics use plain read/write permissions. This is a usability choice for direct Windows/Web Bluetooth connectivity, not a secure transport; do not send secrets over BLE.
 
 Physical tests remain required for:
-- pairing and encrypted characteristic access on Android/browser;
+- direct unpaired connection and plain GATT read/write access from Windows and browser clients;
 - HELLO/capability/status exchange and repeated reconnect;
 - small and image-bearing uploads;
 - lost ACK/retry, cancel, disconnect and malformed package;
