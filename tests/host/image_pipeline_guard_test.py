@@ -16,7 +16,7 @@ assert "writeRgb888AsRgb565LE(rgba[i],rgba[i+1],rgba[i+2],bytes,p)" in WEB_APP
 
 DISPLAY_BACKEND = (ROOT / "src" / "display" / "display_manager.cpp").read_text(encoding="utf-8")
 assert "const bool previousSwapBytes = tft.getSwapBytes();" in DISPLAY_BACKEND
-assert "tft.setSwapBytes(false);" in DISPLAY_BACKEND
+assert "tft.setSwapBytes(true);" in DISPLAY_BACKEND
 assert "tft.pushImage(x, y, count, 1, pixels);" in DISPLAY_BACKEND
 assert "tft.setSwapBytes(previousSwapBytes);" in DISPLAY_BACKEND
 
