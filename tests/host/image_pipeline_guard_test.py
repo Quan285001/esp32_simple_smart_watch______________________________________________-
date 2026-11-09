@@ -10,6 +10,10 @@ assert "file.seek(asset->packageOffset, fs::SeekSet)" in SOURCE
 assert "decodeRgb565LittleEndianRow(encodedRow, rowBytes, row, asset->width)" in SOURCE
 assert "uint8_t encodedRow[DisplayProfileConfig::MAX_BITMAP_WIDTH * 2]" in SOURCE
 
+WEB_APP = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+assert "function writeRgb888AsRgb565LE(red,green,blue,output,offset)" in WEB_APP
+assert "writeRgb888AsRgb565LE(rgba[i],rgba[i+1],rgba[i+2],bytes,p)" in WEB_APP
+
 RGB565_HEADER = (ROOT / "src" / "watchface" / "elements" / "image_rgb565.h").read_text(encoding="utf-8")
 assert "decodeRgb565LittleEndianRow" in RGB565_HEADER
 assert "encodedLength != pixelCount * 2U" in RGB565_HEADER
