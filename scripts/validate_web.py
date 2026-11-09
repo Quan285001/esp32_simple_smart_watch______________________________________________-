@@ -43,6 +43,12 @@ if "new TextEncoder().encode(value)" not in app_js or "TFT_FONT1_GLYPHS.slice(of
     errors.append("Web text preview must use the firmware's byte-based GLCD glyph lookup")
 if "ctx.imageSmoothingEnabled=false" not in app_js:
     errors.append("Web text preview must keep bitmap glyphs pixel-aligned")
+if "roundFirmwarePixel(boxSize?.width??240)" not in app_js or "bitmap.width=width;bitmap.height=height" not in app_js:
+    errors.append("Web text preview must rasterize on the same integer pixel grid as the device")
+if "setPreviewText(el,objectText(o),s,t)" not in app_js:
+    errors.append("Text preview must use the firmware-rounded object dimensions")
+if "renderWeatherPreview(el,o,s,t)" not in app_js:
+    errors.append("Weather preview must use the firmware object geometry")
 if errors:
     print("\n".join("ERROR: " + e for e in errors))
     sys.exit(1)
