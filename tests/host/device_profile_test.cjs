@@ -18,7 +18,7 @@ assert.ok(Profile.validate({...custom,display:{...custom.display,safeArea:{top:2
 const objects=[{id:'a',transform:{x:20,y:30,width:100,height:50},textStyle:{scaleX:1,scaleY:1}}];
 const scaled=Profile.migrateObjects(objects,{width:200,height:100},{width:400,height:300},'scale');
 assert.deepEqual(scaled[0].transform,{x:40,y:90,width:200,height:150});
-assert.equal(scaled[0].textStyle.scaleX,2);
+assert.equal(scaled[0].textStyle.scaleX,2/3);
 assert.equal(scaled[0].textStyle.scaleY,1);
 assert.equal(scaled[0].textStyle.fontSize,48);
 assert.equal(scaled[0].textStyle.scaleX,2/3);
