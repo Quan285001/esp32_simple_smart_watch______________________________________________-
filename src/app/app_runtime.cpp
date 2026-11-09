@@ -17,6 +17,7 @@
 #include "../system/diagnostics.h"
 #include "../system/system_manager.h"
 #include "../display/display_manager.h"
+#include "../display/display_canvas.h"
 #include "../watchface/face_manager.h"
 #include "../communication/transfer_manager.h"
 
@@ -241,6 +242,10 @@ void loop() {
                     Serial.printf("[FACE] Custom renderer rejected frame (%u); reverting to built-in face.\n",
                                   static_cast<unsigned int>(status));
                     FaceManager::disableActive();
+                    // The built-in analog face occupies only its centered
+                    // sprite bounds. Clear the full canvas first so failed
+                    // custom-face pixels cannot remain around its edges.
+                    getDisplayCanvas().clearScreen(0x0000);
                     drawAnalogClockFace(cachedTime, static_cast<int>(elapsed), 0, 0);
                     lastCustomFaceSecond = cachedTime.tm_sec;
                 }
