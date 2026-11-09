@@ -1,10 +1,14 @@
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('web/app.js', 'utf8');
-const match = source.match(/function writeRgb888AsRgb565LE\(red,green,blue,output,offset\)\s*\{[\s\S]*?\n\}/);
-if (!match) throw new Error('RGB565LE encoder helper is missing');
+const start = source.indexOf('function writeRgb888AsRgb565LE(');
+if (start < 0) throw new Error('RGB565LE encoder helper is missing');
+const bodyStart = source.indexOf('{', start);
+const bodyEnd = source.indexOf('\n}', bodyStart);
+if (bodyStart < 0 || bodyEnd < 0) throw new Error('RGB565LE encoder helper is malformed');
+const helper = source.slice(start, bodyEnd + 2);
 const sandbox = {};
-vm.runInNewContext(match[0] + '\nglobalThis.encode = writeRgb888AsRgb565LE;', sandbox);
+vm.runInNewContext(helper + '\nglobalThis.encode = writeRgb888AsRgb565LE;', sandbox);
 const cases = [
   ['black', 0, 0, 0, 0x0000],
   ['white', 255, 255, 255, 0xffff],
