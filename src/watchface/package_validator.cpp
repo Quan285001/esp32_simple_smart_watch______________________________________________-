@@ -102,6 +102,9 @@ bool isSupportedCapability(const char* value) {
     return capabilityBit(value) != 0;
 }
 
+bool isIntegerJsonNumber(JsonVariantConst value) {
+    return value.is<int>() || value.is<unsigned int>();
+}
 
 }
 
@@ -262,7 +265,11 @@ bool validateWfsPackage(fs::File& file, size_t expectedFileLength,
         uint8_t expectedAssetDigest[32] = {};
         uint8_t actualAssetDigest[32] = {};
 
-        if (assetId[0] == '\0' || strlen(assetId) >= FACE_ASSET_ID_CAPACITY ||
+        if (!isIntegerJsonNumber(asset["width"]) ||
+            !isIntegerJsonNumber(asset["height"]) ||
+            !isIntegerJsonNumber(asset["byteLength"]) ||
+            !isIntegerJsonNumber(asset["offset"]) ||
+            assetId[0] == '\0' || strlen(assetId) >= FACE_ASSET_ID_CAPACITY ||
             parsedAssetCount >= DisplayProfileConfig::MAX_ASSETS || parsedAssetCount >= FACE_MAX_ASSETS || strcmp(encoding, "rgb565le") != 0 ||
             strcmp(mediaType, "image/rgb565") != 0 ||
             width == 0 || width > DisplayProfileConfig::MAX_BITMAP_WIDTH ||
