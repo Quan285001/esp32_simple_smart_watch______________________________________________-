@@ -258,6 +258,9 @@ void handleControlPacket(const WfsPacket& packet) {
             sendError(0x0001, "protocol_version_unsupported");
             return;
         }
+        // A repeated HELLO starts a new protocol session. Tear down any
+        // unfinished transfer from the previous session before changing IDs.
+        TransferManager::abortSession();
         sessionId = esp_random();
         if (sessionId == 0) sessionId = 1;
         txSequence = 0;
@@ -321,10 +324,19 @@ void handleControlPacket(const WfsPacket& packet) {
                 sendError(0x0022, "transfer_begin_json_invalid");
                 break;
             }
-            const uint32_t transferId = request["transferId"] | 0;
-            const uint32_t packageLength = request["packageLength"] | 0;
-            const char* designId = request["designId"] | "";
-            const char* digestText = request["payloadSha256"] | "";
+            const JsonVariantConst transferIdValue = request["transferId"];
+            const JsonVariantConst packageLengthValue = request["packageLength"];
+            const JsonVariantConst designIdValue = request["designId"];
+            const JsonVariantConst digestValue = request["payloadSha256"];
+            if (!transferIdValue.is<uint32_t>() || !packageLengthValue.is<uint32_t>() ||
+                !designIdValue.is<const char*>() || !digestValue.is<const char*>()) {
+                sendError(0x0022, "transfer_begin_fields_invalid");
+                break;
+            }
+            const uint32_t transferId = transferIdValue.as<uint32_t>();
+            const uint32_t packageLength = packageLengthValue.as<uint32_t>();
+            const char* designId = designIdValue.as<const char*>();
+            const char* digestText = digestValue.as<const char*>();
             uint8_t digest[32] = {};
             const uint16_t chunkSize = negotiatedChunkSize();
             if (chunkSize < 16) {
@@ -351,7 +363,12 @@ void handleControlPacket(const WfsPacket& packet) {
                 sendError(0x0022, "transfer_end_json_invalid");
                 break;
             }
-            const uint32_t transferId = request["transferId"] | 0;
+            const JsonVariantConst transferIdValue = request["transferId"];
+            if (!transferIdValue.is<uint32_t>() || transferIdValue.as<uint32_t>() == 0) {
+                sendError(0x0022, "transfer_end_transfer_id_invalid");
+                break;
+            }
+            const uint32_t transferId = transferIdValue.as<uint32_t>();
             const bool verified = TransferManager::finish(transferId);
             char response[160] = {};
             const int responseLength = snprintf(response, sizeof(response),
@@ -369,7 +386,12 @@ void handleControlPacket(const WfsPacket& packet) {
                 sendError(0x0022, "apply_json_invalid");
                 break;
             }
-            const uint32_t transferId = request["transferId"] | 0;
+            const JsonVariantConst transferIdValue = request["transferId"];
+            if (!transferIdValue.is<uint32_t>() || transferIdValue.as<uint32_t>() == 0) {
+                sendError(0x0022, "apply_transfer_id_invalid");
+                break;
+            }
+            const uint32_t transferId = transferIdValue.as<uint32_t>();
             const bool applied = TransferManager::apply(transferId);
             const FaceModel* active = FaceManager::getActiveFace();
             char response[180] = {};
@@ -388,7 +410,12 @@ void handleControlPacket(const WfsPacket& packet) {
                 sendError(0x0022, "cancel_json_invalid");
                 break;
             }
-            const uint32_t transferId = request["transferId"] | 0;
+            const JsonVariantConst transferIdValue = request["transferId"];
+            if (!transferIdValue.is<uint32_t>() || transferIdValue.as<uint32_t>() == 0) {
+                sendError(0x0022, "cancel_transfer_id_invalid");
+                break;
+            }
+            const uint32_t transferId = transferIdValue.as<uint32_t>();
             if (!TransferManager::cancel(transferId)) {
                 sendError(0x0026, "transfer_not_cancellable");
                 break;
