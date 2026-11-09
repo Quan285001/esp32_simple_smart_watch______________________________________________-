@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const compatibility = require('../../web/device-compatibility.js');
 
 const root = path.resolve(__dirname, '../..');
@@ -38,6 +39,31 @@ assert.deepEqual(errorsFor(fixture), [],
 
 assert.match(appSource, /id:'mono',name:'Monochrome'[^}]*weight:600/,
   'the built-in Monochrome template must use a renderer-supported font weight');
+
+const templateStart = appSource.indexOf('const templates=');
+const templateEnd = appSource.indexOf('\\nfunction blankDesign', templateStart);
+assert.ok(templateStart >= 0 && templateEnd > templateStart,
+  'built-in templates must remain extractable for compatibility checks');
+const templateContext = {};
+vm.runInNewContext(appSource.slice(templateStart, templateEnd) +
+  '\\nglobalThis.templates = templates;', templateContext);
+const supportedTemplateTypes = new Set([
+  'text', 'digital-clock', 'analog-clock', 'date', 'weather', 'shape', 'image'
+]);
+for (const template of templateContext.templates) {
+  for (const object of template.objects) {
+    assert.ok(supportedTemplateTypes.has(object.type),
+      template.name + ': unsupported built-in element type ' + object.type);
+    if (typeof object.text === 'string') {
+      assert.ok(/^[\\x20-\\x7E]*$/.test(object.text),
+        template.name + ': built-in static text must use printable ASCII');
+    }
+    if (object.weight !== undefined) {
+      assert.ok(object.weight === 400 || object.weight === 600,
+        template.name + ': font weight must match the firmware renderer');
+    }
+  }
+}
 
 const badCanvas = structuredClone(fixture);
 badCanvas.canvas.width = 320;
