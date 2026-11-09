@@ -144,6 +144,33 @@ void formatTime(char* out, size_t capacity, const FaceObject& object,
     if (twelveHour) appendText(out, capacity, suffix);
 }
 
+void formatDate(char* out, size_t capacity, const FaceObject& object,
+                const struct tm& timeInfo) {
+    static const char* const weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+    static const char* const months[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                                         "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+    const int weekday = (timeInfo.tm_wday >= 0 && timeInfo.tm_wday < 7) ? timeInfo.tm_wday : 0;
+    const int month = (timeInfo.tm_mon >= 0 && timeInfo.tm_mon < 12) ? timeInfo.tm_mon : 0;
+    const char* format = object.dataFormat[0] ? object.dataFormat : "ddd, DD MMM";
+    out[0] = '\0';
+    for (const char* cursor = format; *cursor != '\0';) {
+        if (strncmp(cursor, "YYYY", 4) == 0) {
+            appendNumber(out, capacity, timeInfo.tm_year + 1900, "%04d"); cursor += 4;
+        } else if (strncmp(cursor, "ddd", 3) == 0) {
+            appendText(out, capacity, weekdays[weekday]); cursor += 3;
+        } else if (strncmp(cursor, "MMM", 3) == 0) {
+            appendText(out, capacity, months[month]); cursor += 3;
+        } else if (strncmp(cursor, "MM", 2) == 0) {
+            appendNumber(out, capacity, month + 1, "%02d"); cursor += 2;
+        } else if (strncmp(cursor, "DD", 2) == 0) {
+            appendNumber(out, capacity, timeInfo.tm_mday, "%02d"); cursor += 2;
+        } else {
+            char literal[2] = {*cursor++, '\0'};
+            appendText(out, capacity, literal);
+        }
+    }
+}
+
 struct DynamicTextCacheEntry {
     char objectId[FACE_ID_CAPACITY];
     char value[FACE_TEXT_CAPACITY];
@@ -195,32 +222,6 @@ bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
     return unchanged;
 }
 
-void formatDate(char* out, size_t capacity, const FaceObject& object,
-                const struct tm& timeInfo) {
-    static const char* const weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
-    static const char* const months[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-                                         "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
-    const int weekday = (timeInfo.tm_wday >= 0 && timeInfo.tm_wday < 7) ? timeInfo.tm_wday : 0;
-    const int month = (timeInfo.tm_mon >= 0 && timeInfo.tm_mon < 12) ? timeInfo.tm_mon : 0;
-    const char* format = object.dataFormat[0] ? object.dataFormat : "ddd, DD MMM";
-    out[0] = '\0';
-    for (const char* cursor = format; *cursor != '\0';) {
-        if (strncmp(cursor, "YYYY", 4) == 0) {
-            appendNumber(out, capacity, timeInfo.tm_year + 1900, "%04d"); cursor += 4;
-        } else if (strncmp(cursor, "ddd", 3) == 0) {
-            appendText(out, capacity, weekdays[weekday]); cursor += 3;
-        } else if (strncmp(cursor, "MMM", 3) == 0) {
-            appendText(out, capacity, months[month]); cursor += 3;
-        } else if (strncmp(cursor, "MM", 2) == 0) {
-            appendNumber(out, capacity, month + 1, "%02d"); cursor += 2;
-        } else if (strncmp(cursor, "DD", 2) == 0) {
-            appendNumber(out, capacity, timeInfo.tm_mday, "%02d"); cursor += 2;
-        } else {
-            char literal[2] = {*cursor++, '\0'};
-            appendText(out, capacity, literal);
-        }
-    }
-}
 
 void drawShape(const FaceObject& object) {
     const int x = static_cast<int>(lroundf(object.transform.x));
