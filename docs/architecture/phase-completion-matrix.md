@@ -8,13 +8,17 @@
 |---|---|---|---|
 | 0 — Repository audit | Inventory, constraints, dependencies and risks | Complete Audit records and architecture constraints exist | Revisit only if scope/hardware changes |
 | 1 — Architecture foundation | Module ownership, runtime lifecycle and shared contracts | Complete Main-loop, service, display, storage and BLE ownership are implemented; transitional TFT wrappers are documented | Measure runtime behavior on target |
-| 2 — Web editor/project workflow | Declarative editor, local persistence, import/export, live preview and BLE connection workflow | Complete Web assets, syntax, compatibility preflight, portable project import/export and host guards pass | Browser/phone usability and Web Bluetooth need physical-device validation |
+| 2 — Web editor/project workflow | Declarative editor/project workflow, live preview, compatibility preflight and Device Profile editor | Existing editor/project workflow remains implemented. Device Profile editor now supports editable dimensions/shapes, saved profiles, profile JSON import/export, coordinate migration and safe-area guides; latest CI verification is pending. | Browser/mobile usability and Web Bluetooth require physical-device validation; custom profiles are preview/export only and cannot be uploaded to the fixed C3 firmware |
 | 3 — Watch Face engine | Model, parser, renderer, canvas, dynamic redraw and compatibility | Complete Parser/renderer host tests and compatibility checks pass | Compare fonts, geometry and dynamic redraw visually on GC9A01 |
 | 4 — Image/bitmap pipeline | Source assets, RGB565 conversion, WFS packaging and firmware streaming | Complete RGB565, dimensions, byte ranges, image element and Web import/package host tests pass | Upload/render opaque image-bearing faces and capture heap on hardware |
 | 5 — Firmware integration | App runtime, services, display, storage, power and diagnostics | Complete ESP32-C3 PlatformIO build and full host suite pass; transfer/apply/rollback/recovery paths are integrated | Verify boot, storage, UI, memory and sleep/wake on target |
 | 6 — Communication/sync | Legacy BLE, WFS framing, capabilities, transfer and session lifecycle | Complete WFS v1 codecs, Web uploader, stop-and-wait retry, strict digest/field validation, session reset and transfer lifecycle tests pass | Pairing, notifications, real upload/retry/cancel/reconnect and security UX remain unverified |
 | 7 — Hardware integration | Flash, TFT, button, Wi-Fi, BLE, storage, sleep and stress | Pending No physical test can be inferred from CI | Run every applicable item in `hardware-regression-checklist.md`; attach serial logs and outcomes |
 | 8 — Polish/release | Documentation, clean regression, release artifact and known-issue review | In progress Core documentation is being aligned to current source; CI artifact workflow is available | Final docs-only CI, hardware sign-off, version/release notes and final artifact after board validation |
+
+## Latest Device Profile implementation
+
+See [Phase 2 Device Profile Editor](./phase-2-device-profile-editor.md). The original `#deviceSettings` toast-only behavior has been replaced with an editable profile workflow. The editor canvas now uses profile width/height for layout, drag, resize and selection geometry rather than assuming 240 × 240. Custom dimensions do not imply firmware support: the current ESP32-C3 remains fixed at 240 × 240 circular RGB565, and compatibility preflight must reject other profiles.
 
 ## Software verification baseline
 
