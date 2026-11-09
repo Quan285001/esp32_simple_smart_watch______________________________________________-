@@ -245,6 +245,39 @@ int main() {
     assert(canvas.calls.front()=="clip" && canvas.calls.back()=="reset-clip");
     timeInfo.tm_sec=9;
 
+    // An analog redraw that fails in a later overlapping layer must remain
+    // retryable. The next successful frame must redraw the clock region and
+    // then seed the hand cache only after all intersecting layers succeed.
+    face=baseFace(); face.objectCount=2; face.assetCount=1;
+    face.objects[0]=baseObject(FaceElementType::AnalogClock,"analog-retry");
+    face.objects[0].transform.x=70; face.objects[0].transform.y=70;
+    face.objects[0].transform.width=100; face.objects[0].transform.height=100;
+    face.objects[0].transform.zIndex=0;
+    face.objects[1]=baseObject(FaceElementType::Image,"analog-overlay");
+    face.objects[1].transform.x=70; face.objects[1].transform.y=70;
+    face.objects[1].transform.width=100; face.objects[1].transform.height=100;
+    face.objects[1].transform.zIndex=1;
+    for(size_t i=0;i<10;++i)face.objects[1].assetId[i]="test-image"[i];
+    for(size_t i=0;i<10;++i)face.assets[0].id[i]="test-image"[i];
+    face.assets[0].width=100; face.assets[0].height=100;
+    timeInfo.tm_hour=13; timeInfo.tm_min=5; timeInfo.tm_sec=9;
+    imageDrawSucceeds=true;
+    canvas.reset();
+    assert(renderWatchFace(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    timeInfo.tm_sec=10;
+    imageDrawSucceeds=false;
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::AssetReadFailed);
+    imageDrawSucceeds=true;
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.clipCalls==1 && canvas.resetCalls==1);
+    assert(canvas.calls.front()=="clip" && canvas.calls.back()=="reset-clip");
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.calls.empty());
+    timeInfo.tm_sec=9;
+
     std::cout << "WFS Face renderer host tests passed.\n";
     return 0;
 }
