@@ -36,7 +36,16 @@ public:
         tft.drawLine(x0, y0, x1, y1, color);
     }
     void pushRgb565Row(int x, int y, uint16_t count, const uint16_t* pixels) override {
-        if (pixels != nullptr && count > 0) tft.pushImage(x, y, count, 1, pixels);
+        if (pixels == nullptr || count == 0) return;
+
+        // WFS assets are decoded from RGB565LE bytes into native uint16_t
+        // values. TFT_eSPI must swap each word when streaming those values
+        // over SPI (MSB first); keep this local so other drawing paths retain
+        // their existing byte-order configuration.
+        const bool previousSwapBytes = tft.getSwapBytes();
+        tft.setSwapBytes(true);
+        tft.pushImage(x, y, count, 1, pixels);
+        tft.setSwapBytes(previousSwapBytes);
     }
     void setClipRect(int x, int y, int w, int h) override { tft.setViewport(x, y, w, h, false); }
     void resetClip() override { tft.resetViewport(); }
