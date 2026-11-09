@@ -10,8 +10,9 @@ int main() {
     const char* lower =
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     assert(WfsDigest::parseSha256Hex(lower, digest));
+    const uint8_t expectedLower[8] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
     for (size_t i = 0; i < 32; ++i) {
-        assert(digest[i] == static_cast<uint8_t>(((i % 16) << 4) | (i % 16)));
+        assert(digest[i] == expectedLower[i % 8]);
     }
 
     const char* upper =
