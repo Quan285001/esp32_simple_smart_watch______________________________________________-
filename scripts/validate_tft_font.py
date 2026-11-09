@@ -94,7 +94,11 @@ write16_start = processor_header.find("#define tft_Write_16(C)")
 if write16_start < 0:
     print("ERROR: ESP32-C3 TFT_eSPI 16-bit write macro is missing")
     sys.exit(1)
-write16_body = processor_header[write16_start:processor_header.find("\n", write16_start)]
+write16_end = processor_header.find("#define tft_Write_16S", write16_start)
+if write16_end < 0:
+    print("ERROR: ESP32-C3 TFT_eSPI swapped-write macro boundary is missing")
+    sys.exit(1)
+write16_body = processor_header[write16_start:write16_end]
 msb_position = write16_body.find("(C) >> 8")
 lsb_position = write16_body.find("(C) >> 0")
 if msb_position < 0 or lsb_position < 0 or msb_position > lsb_position:
