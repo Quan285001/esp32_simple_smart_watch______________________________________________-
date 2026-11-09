@@ -31,7 +31,25 @@ function addObject(type){const labels={text:'Text',image:'Image',shape:'Shape','
 function roundFirmwarePixel(value){const number=Number(value);if(!Number.isFinite(number))return 0;return number<0?-Math.floor(-number+0.5):Math.floor(number+0.5)}
 function selectedObject(){return state.design?.objects.find(o=>o.id===state.selected)}
 function objectText(o){const now=new Date(),pad=n=>String(n).padStart(2,'0');if(o.type==='digital-clock'){let hour=now.getHours();if(o.timeFormat==='12h')hour=hour%12||12;const fmt=o.dataBinding?.format||'HH:mm';let value=fmt.replace(/HH/g,pad(hour)).replace(/mm/g,pad(now.getMinutes())).replace(/ss/g,pad(now.getSeconds()));if(o.showSeconds&&!fmt.includes('ss'))value+=':'+pad(now.getSeconds());if(o.timeFormat==='12h')value+=now.getHours()>=12?' PM':' AM';return value}if(o.type==='date'){const weekdays=['SUN','MON','TUE','WED','THU','FRI','SAT'],months=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],fmt=o.dataBinding?.format||'ddd, DD MMM';return fmt.replace(/YYYY|ddd|MMM|MM|DD/g,token=>token==='YYYY'?String(now.getFullYear()):token==='ddd'?weekdays[now.getDay()]:token==='MMM'?months[now.getMonth()]:token==='MM'?pad(now.getMonth()+1):pad(now.getDate()))}if(o.type==='weather')return '27 C';if(o.type==='analog-clock')return '◷';if(o.type==='image')return '';return o.text||o.name}
+// TFT_eSPI GLCD Font 1 (Adafruit_GFX 5x7), ASCII 32..126.
+// Kept as column bytes so the browser preview uses the same glyph bitmap
+// and 6x8 cell geometry as the firmware's TFT_eSprite rasterizer.
+const TFT_FONT1_ASCII='000000000000005f00000007000700147f147f14242a7f2a12231308646236495620500008070300001c2241000041221c002a1c7f1c2a08083e080800807030000808080808000060600020100804023e5149453e00427f400072494949462141494d331814127f1027454545393c4a49493141211109073649494936464949291e0000140000004034000000081422411414141414004122140802015909063e415d594e7c1211127c7f494949363e414141227f4141413e7f494949417f090909013e414151737f0808087f00417f41002040413f017f081422417f404040407f021c027f7f0408107f3e4141413e7f090909063e4151215e7f09192946264949493203017f01033f4040403f1f2040201f3f4038403f631408146303047804036159494d43007f4141410204081020004141417f04020102044040404040000307080020545478407f284444383844444428384444287f385454541800087e090218a4a49c787f0804047800447d40002040403d007f1028440000417f40007c047804787c080404783844444438fc1824241818242418fc7c08040408485454542404043f44243c4040207c1c2040201c3c4030403c44281028444c9090907c4464544c440008364100000077000000413608000201020402';
 function setPreviewText(element,text,style){
+ const value=String(text??''),scaleX=(Number(style.fontSize)||16)/8*(Number(style.scaleX)||1),scaleY=(Number(style.fontSize)||16)/8*(Number(style.scaleY)||1);
+ const advance=6*scaleX+(Number(style.letterSpacing)||0),textWidth=Math.max(0,value.length*advance-(Number(style.letterSpacing)||0)),glyphHeight=8*scaleY;
+ const clip=document.createElement('span');clip.className='glyph-preview';Object.assign(clip.style,{display:'flex',alignItems:'center',justifyContent:style.textAlign==='left'?'flex-start':style.textAlign==='right'?'flex-end':'center',width:'100%',height:'100%',overflow:'hidden',whiteSpace:'pre'});
+ const bitmap=document.createElement('canvas');bitmap.width=Math.max(1,value.length*6);bitmap.height=8;bitmap.style.width=(textWidth/240*100)+'cqw';bitmap.style.height=(glyphHeight/240*100)+'cqw';bitmap.style.maxWidth='100%';bitmap.style.maxHeight='100%';bitmap.style.imageRendering='pixelated';bitmap.style.flex='0 0 auto';
+ const ctx=bitmap.getContext('2d');if(ctx){ctx.clearRect(0,0,bitmap.width,bitmap.height);ctx.fillStyle=style.fill||'#ffffff';const bold=Number(style.fontWeight)>=600;
+  for(let index=0;index<value.length;index++){let code=value.charCodeAt(index);if(code<32||code>126)code=63;const offset=(code-32)*10;
+   for(let column=0;column<5;column++){const bits=parseInt(TFT_FONT1_ASCII.slice(offset+column*2,offset+column*2+2),16);
+    for(let row=0;row<8;row++)if(bits&(1<<row)){ctx.fillRect(index*6+column,row,1,1);if(bold)ctx.fillRect(index*6+column+1,row,1,1)}
+   }
+  }
+ }
+ clip.append(bitmap);element.append(clip)
+}
+
  const clip=document.createElement('span');clip.className='glyph-preview';clip.style.display='flex';clip.style.alignItems='center';clip.style.justifyContent=style.textAlign==='left'?'flex-start':style.textAlign==='right'?'flex-end':'center';clip.style.width='100%';clip.style.height='100%';clip.style.overflow='hidden';clip.style.whiteSpace='pre';
  // Match the firmware's built-in TFT font-1 geometry: 6x8 cells, with a
  // 0.75em character advance. A monospace face plus explicit tracking keeps
