@@ -150,15 +150,20 @@ bool activateSlot(uint8_t slot) {
     if (written != sizeof(uint8_t) || verified != slot) {
         // putUChar may have reached NVS even if the read-back check failed.
         // Restore the previous commit record before reporting activation failure.
+        bool rollbackVerified = false;
         if (previousSlot <= 1) {
             prefs.putUChar(ACTIVE_SLOT_KEY, previousSlot);
+            rollbackVerified =
+                prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT) == previousSlot;
         } else {
+            // INVALID_SLOT represents an absent commit record, not a stored
+            // byte value of 0xFF. Verify key absence explicitly.
             prefs.remove(ACTIVE_SLOT_KEY);
+            rollbackVerified = !prefs.isKey(ACTIVE_SLOT_KEY);
         }
-        const uint8_t restored = prefs.getUChar(ACTIVE_SLOT_KEY, INVALID_SLOT);
         prefs.end();
 
-        if (restored != previousSlot) {
+        if (!rollbackVerified) {
             // The persisted commit target is now unknown. Fail closed until
             // reboot/reinitialization rather than risk deleting the real active slot.
             markStorageUnavailable();
