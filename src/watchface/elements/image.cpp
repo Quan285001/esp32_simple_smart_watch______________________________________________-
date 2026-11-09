@@ -42,8 +42,9 @@ bool drawImageElement(const FaceModel& face, const FaceObject& object) {
             file.close();
             return false;
         }
-        for (uint16_t column = 0; column < asset->width; ++column) {
-            row[column] = decodeRgb565LittleEndian(encodedRow[column * 2U], encodedRow[column * 2U + 1U]);
+        if (!decodeRgb565LittleEndianRow(encodedRow, rowBytes, row, asset->width)) {
+            file.close();
+            return false;
         }
         getDisplayCanvas().pushRgb565Row(x, y + rowIndex, asset->width, row);
     }
