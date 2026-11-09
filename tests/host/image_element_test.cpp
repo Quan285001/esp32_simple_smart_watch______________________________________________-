@@ -122,6 +122,10 @@ int main() {
     assert(canvas.rows[1].pixels[1] == 0xFFFF);
     assert(canvas.rows[1].pixels[2] == 0x07FF);
 
+    // Restore the 2x2 object geometry so the following malformed-file cases
+    // exercise byte-length and file-range validation rather than size mismatch.
+    object = makeImageObject();
+
     // Reject malformed metadata and file ranges before touching the canvas.
     canvas.rows.clear();
     face = makeFace(0, 7);
