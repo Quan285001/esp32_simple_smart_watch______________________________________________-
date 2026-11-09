@@ -41,7 +41,7 @@ assert.match(appSource, /id:'mono',name:'Monochrome'[^}]*weight:600/,
   'the built-in Monochrome template must use a renderer-supported font weight');
 
 const templateStart = appSource.indexOf('const templates=');
-const templateEnd = appSource.indexOf('\nfunction blankDesign', templateStart);
+const templateEnd = appSource.indexOf('\nfunction toast', templateStart);
 assert.ok(templateStart >= 0 && templateEnd > templateStart,
   'built-in templates must remain extractable for compatibility checks');
 const templateContext = {};
