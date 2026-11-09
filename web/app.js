@@ -275,19 +275,17 @@ async function convertImageToRgb565(object,design){
  const maskCtx=maskCanvas.getContext('2d',{willReadFrequently:true});
  maskCtx.save();maskCtx.beginPath();maskCtx.arc(120,120,120,0,Math.PI*2);maskCtx.clip();
  const fitScale=Math.min(width/image.naturalWidth,height/image.naturalHeight);const drawWidth=image.naturalWidth*fitScale,drawHeight=image.naturalHeight*fitScale;const drawX=x+(width-drawWidth)/2,drawY=y+(height-drawHeight)/2;maskCtx.drawImage(image,drawX,drawY,drawWidth,drawHeight);maskCtx.restore();
- const maskPixels=maskCtx.getImageData(0,0,240,240).data;
- let hasTransparency=false;
- for(let py=0;py<240&&!hasTransparency;py++)for(let px=0;px<240;px++){
-  const dx=px+0.5-120,dy=py+0.5-120;
-  if(dx*dx+dy*dy>120*120)continue;
-  if(maskPixels[(py*240+px)*4+3]!==255){hasTransparency=true;break}
- }
+ const alphaCanvas=document.createElement('canvas');alphaCanvas.width=240;alphaCanvas.height=240;
+ const alphaCtx=alphaCanvas.getContext('2d',{willReadFrequently:true});alphaCtx.drawImage(image,0,0,240,240);
+ const sourcePixels=alphaCtx.getImageData(0,0,240,240).data;let hasTransparency=false;
+ for(let i=3;i<sourcePixels.length;i+=4){if(sourcePixels[i]!==255){hasTransparency=true;break}}
  const imagePosition=design.objects.indexOf(object),imageZ=transform.zIndex??0;
  const hasUnderlyingLayer=design.objects.some((candidate,index)=>{
   if(candidate===object||candidate.visible===false)return false;
   const t=candidate.transform||{};
   const lowerOrder=(t.zIndex??0)<imageZ||((t.zIndex??0)===imageZ&&index<imagePosition);
-  return lowerOrder&&t.x<240&&t.x+t.width>0&&t.y<240&&t.y+t.height>0;
+  const overlaps=t.x<x+width&&t.x+t.width>x&&t.y<y+height&&t.y+t.height>y;
+  return lowerOrder&&overlaps;
  });
  if(hasTransparency&&object.visible!==false&&hasUnderlyingLayer)
   throw Error(object.name+': transparent overlay images are not supported yet; place the transparent image below every other visible layer');
