@@ -271,9 +271,13 @@ void abortSession() {
     if (currentTransferId == 0 || !canCancel(currentState)) return;
     const uint32_t transferId = currentTransferId;
     if (!cancel(transferId)) {
-        // A disconnect must release the transfer lock even if cleanup failed.
-        // Leave the slot inactive; the next begin() retries its removal.
+        // Preserve the concrete cleanup error (for example, a storage failure)
+        // instead of hiding it behind SessionLost. Failed is not a busy state,
+        // so the next begin() can retry inactive-slot cleanup.
         currentState = State::Failed;
+        Serial.printf("[TRANSFER] CRITICAL: disconnect cleanup failed: %s.\\n",
+                      errorName(currentError));
+        return;
     }
     currentError = Error::SessionLost;
 }
