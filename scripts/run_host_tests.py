@@ -40,6 +40,12 @@ subprocess.run(
     check=True,
 )
 
+subprocess.run(
+    [sys.executable, str(ROOT / "tests" / "host" / "wfs_apply_reconcile_guard_test.py")],
+    cwd=ROOT,
+    check=True,
+)
+
 print("WFS cross-language golden-frame host tests passed.")
 
 TRANSFER_TEST = ROOT / "tests" / "host" / "transfer_sequence_test.cpp"
