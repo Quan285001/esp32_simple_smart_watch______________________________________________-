@@ -62,8 +62,9 @@ function renderWeatherPreview(element,object,style){
  if(showTemperature&&showCondition){
   element.style.position='relative';element.style.display='block';
   const top=document.createElement('div');Object.assign(top.style,{position:'absolute',left:'0',top:'0',width:'100%',height:'58%',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'});
-  const bottom=document.createElement('div');Object.assign(bottom.style,{position:'absolute',left:'0',top:'48%',width:'100%',height:'52%',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontSize:(((Number(style.fontSize)||16)>12?(Number(style.fontSize)||16)/2:8)/240*100)+'cqw'});
-  setPreviewText(top,'27 C',style);setPreviewText(bottom,'Cloudy',style);element.append(top);element.append(bottom);return;
+  const bottom=document.createElement('div');Object.assign(bottom.style,{position:'absolute',left:'0',top:'48%',width:'100%',height:'52%',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'});
+  const conditionStyle={...style,fontSize:(Number(style.fontSize)||16)>12?(Number(style.fontSize)||16)/2:8};
+  setPreviewText(top,'27 C',style);setPreviewText(bottom,'Cloudy',conditionStyle);element.append(top);element.append(bottom);return;
  }
  setPreviewText(element,showCondition?'Cloudy':'27 C',style);
 }
