@@ -184,9 +184,15 @@ void invalidateDynamicTextCache() {
 }
 
 bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
-                          const struct tm& timeInfo, const WeatherData& weather) {
+                          const struct tm& timeInfo, const WeatherData& weather,
+                          int& dirtyX, int& dirtyWidth) {
+    dirtyX = static_cast<int>(lroundf(object.transform.x));
+    dirtyWidth = static_cast<int>(lroundf(object.transform.width));
     if (objectIndex >= FACE_MAX_OBJECTS) return false;
+
     char value[FACE_TEXT_CAPACITY] = {};
+    const bool textElement = object.type == FaceElementType::DigitalClock ||
+                             object.type == FaceElementType::Date;
     switch (object.type) {
         case FaceElementType::DigitalClock:
             formatTime(value, sizeof(value), object, timeInfo);
@@ -209,19 +215,54 @@ bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
     }
 
     DynamicTextCacheEntry& entry = dynamicTextCache[objectIndex];
-    const bool unchanged = entry.valid &&
-        strcmp(entry.objectId, object.id) == 0 &&
-        strcmp(entry.value, value) == 0;
-    if (!unchanged) {
-        strncpy(entry.objectId, object.id, sizeof(entry.objectId) - 1);
-        entry.objectId[sizeof(entry.objectId) - 1] = '\0';
-        strncpy(entry.value, value, sizeof(entry.value) - 1);
-        entry.value[sizeof(entry.value) - 1] = '\0';
-        entry.valid = true;
-    }
-    return unchanged;
-}
+    const bool sameObject = entry.valid && strcmp(entry.objectId, object.id) == 0;
+    if (sameObject && strcmp(entry.value, value) == 0) return true;
 
+    // For fixed-width digital/date strings, repaint only the character cells
+    // that changed. The clipped redraw still restores every intersecting
+    // layer, but avoids blanking the entire clock box on each seconds tick.
+    if (textElement && sameObject) {
+        const size_t oldLength = strlen(entry.value);
+        const size_t newLength = strlen(value);
+        if (oldLength == newLength && newLength > 0) {
+            size_t first = newLength;
+            size_t last = 0;
+            for (size_t index = 0; index < newLength; ++index) {
+                if (entry.value[index] != value[index]) {
+                    if (first == newLength) first = index;
+                    last = index;
+                }
+            }
+            if (first < newLength) {
+                const float scaleX = (object.fontSize / 8.0f) * object.glyphScaleX;
+                const float advance = 6.0f * scaleX + object.letterSpacing;
+                const float textWidth = newLength * advance - object.letterSpacing;
+                float textStart = object.transform.x;
+                if (object.textAlign == FaceTextAlign::Center) {
+                    textStart += (object.transform.width - textWidth) * 0.5f;
+                } else if (object.textAlign == FaceTextAlign::Right) {
+                    textStart += object.transform.width - textWidth;
+                }
+                const int boundsLeft = static_cast<int>(lroundf(object.transform.x));
+                const int boundsRight = boundsLeft +
+                    static_cast<int>(lroundf(object.transform.width));
+                int left = static_cast<int>(floorf(textStart + first * advance)) - 1;
+                int right = static_cast<int>(ceilf(textStart + (last + 1) * advance)) + 1;
+                if (left < boundsLeft) left = boundsLeft;
+                if (right > boundsRight) right = boundsRight;
+                dirtyX = left;
+                dirtyWidth = right > left ? right - left : 0;
+            }
+        }
+    }
+
+    strncpy(entry.objectId, object.id, sizeof(entry.objectId) - 1);
+    entry.objectId[sizeof(entry.objectId) - 1] = '\0';
+    strncpy(entry.value, value, sizeof(entry.value) - 1);
+    entry.value[sizeof(entry.value) - 1] = '\0';
+    entry.valid = true;
+    return false;
+}
 
 void drawShape(const FaceObject& object) {
     const int x = static_cast<int>(lroundf(object.transform.x));
@@ -371,13 +412,17 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
     for (uint8_t i = 0; i < face.objectCount; ++i) {
         const FaceObject& dynamicObject = face.objects[order[i]];
         if (!dynamicObject.visible || !isDynamic(dynamicObject.type)) continue;
-        // Date, minute-only clocks and unchanged weather should not clear and
-        // repaint their whole bounds on every one-second clock tick.
-        if (dynamicTextUnchanged(order[i], dynamicObject, timeInfo, weather)) continue;
+        // Skip unchanged dynamic text and narrow changed time/date strings
+        // to their dirty character cells. Analog hands/weather retain a full
+        // object redraw because their geometry/content can change as a group.
+        int dirtyX = 0;
+        int dirtyWidth = 0;
+        if (dynamicTextUnchanged(order[i], dynamicObject, timeInfo, weather,
+                                 dirtyX, dirtyWidth)) continue;
 
-        const int x = static_cast<int>(lroundf(dynamicObject.transform.x));
+        const int x = dirtyX;
         const int y = static_cast<int>(lroundf(dynamicObject.transform.y));
-        const int w = static_cast<int>(lroundf(dynamicObject.transform.width));
+        const int w = dirtyWidth;
         const int h = static_cast<int>(lroundf(dynamicObject.transform.height));
         if (w <= 0 || h <= 0) continue;
 
