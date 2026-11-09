@@ -135,7 +135,7 @@ body[data-view]:not([data-view="editor"]) .sidebar [data-editor-tools]{display:n
 .profile-wide{grid-column:1/-1}
 .profile-form-grid .field{min-width:0}
 .profile-subheading{font-size:10px;font-weight:800;color:var(--muted);padding-top:8px;letter-spacing:.08em}
-.profile-dialog-actions{display:flex;align-items:center;gap:8px;margin-top:16px}
+.profile-dialog-actions{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
 .profile-dialog-actions span{flex:1}
 .profile-dialog-status{padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
 @media(max-width:520px){.profile-dialog form{padding:15px}.profile-form-grid{gap:0 8px}.profile-dialog-actions{flex-wrap:wrap}.profile-dialog-actions span{display:none}.profile-dialog-actions button{flex:1}}
