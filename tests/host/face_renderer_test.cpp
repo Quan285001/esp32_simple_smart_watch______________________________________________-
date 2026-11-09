@@ -36,8 +36,12 @@ public:
 };
 
 static TestCanvas canvas;
+static bool imageDrawSucceeds = true;
 DisplayCanvas& getDisplayCanvas() { return canvas; }
-bool drawImageElement(const FaceModel&, const FaceObject&) { canvas.calls.push_back("image"); return true; }
+bool drawImageElement(const FaceModel&, const FaceObject&) {
+    canvas.calls.push_back("image");
+    return imageDrawSucceeds;
+}
 
 static FaceObject baseObject(FaceElementType type, const char* id) {
     FaceObject object{};
@@ -180,6 +184,43 @@ int main() {
     assert(canvas.calls[0]=="clip" && canvas.calls[1]=="fill" &&
            canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05" &&
            canvas.calls[4]=="text:Top" && canvas.calls[5]=="reset-clip");
+
+    // A failed clipped redraw must not commit the dynamic text cache.
+    // The image layer overlaps the clock and deliberately fails once; the
+    // same timestamp must be retried instead of being treated as already drawn.
+    face=baseFace(); face.objectCount=2; face.assetCount=1;
+    face.objects[0]=baseObject(FaceElementType::DigitalClock,"retry-clock");
+    face.objects[0].transform.x=50; face.objects[0].transform.y=50;
+    face.objects[0].transform.width=100; face.objects[0].transform.height=30;
+    face.objects[0].dataFormat[0]='H'; face.objects[0].dataFormat[1]='H';
+    face.objects[0].dataFormat[2]=':'; face.objects[0].dataFormat[3]='m';
+    face.objects[0].dataFormat[4]='m';
+    face.objects[0].showSeconds=true;
+    face.objects[0].transform.zIndex=0;
+    face.objects[1]=baseObject(FaceElementType::Image,"overlay-image");
+    face.objects[1].transform.x=50; face.objects[1].transform.y=50;
+    face.objects[1].transform.width=100; face.objects[1].transform.height=30;
+    face.objects[1].transform.zIndex=1;
+    for(size_t i=0;i<10;++i)face.objects[1].assetId[i]="test-image"[i];
+    for(size_t i=0;i<10;++i)face.assets[0].id[i]="test-image"[i];
+    face.assets[0].width=100; face.assets[0].height=30;
+    timeInfo.tm_hour=13; timeInfo.tm_min=5; timeInfo.tm_sec=9;
+    imageDrawSucceeds=true;
+    canvas.reset();
+    assert(renderWatchFace(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    timeInfo.tm_sec=10;
+    imageDrawSucceeds=false;
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::AssetReadFailed);
+    imageDrawSucceeds=true;
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.calls.size()>=4 && canvas.calls.front()=="clip" &&
+           canvas.calls.back()=="reset-clip");
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.calls.empty());
+    timeInfo.tm_sec=9;
 
     // Analog clock updates should repaint only the union of old/new hand bounds.
     face=baseFace(); face.objectCount=1;
