@@ -275,7 +275,7 @@ void abortSession() {
         // instead of hiding it behind SessionLost. Failed is not a busy state,
         // so the next begin() can retry inactive-slot cleanup.
         currentState = State::Failed;
-        Serial.printf("[TRANSFER] CRITICAL: disconnect cleanup failed: %s.\\n",
+        Serial.printf("[TRANSFER] CRITICAL: disconnect cleanup failed: %s.\n",
                       errorName(currentError));
         return;
     }
