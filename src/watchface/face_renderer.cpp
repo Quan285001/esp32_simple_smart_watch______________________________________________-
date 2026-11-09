@@ -272,6 +272,46 @@ bool analogHandsUnchanged(uint8_t objectIndex, const FaceObject& object,
     return false;
 }
 
+bool formatDynamicTextValue(char* value, size_t capacity, const FaceObject& object,
+                            const struct tm& timeInfo, const WeatherData& weather) {
+    if (value == nullptr || capacity == 0) return false;
+    value[0] = '\0';
+    switch (object.type) {
+        case FaceElementType::DigitalClock:
+            formatTime(value, capacity, object, timeInfo);
+            return true;
+        case FaceElementType::Date:
+            formatDate(value, capacity, object, timeInfo);
+            return true;
+        case FaceElementType::Weather:
+            if (!weather.valid) {
+                snprintf(value, capacity, "unavailable:%.244s", object.text);
+            } else {
+                snprintf(value, capacity, "%d|%s|%u|%u",
+                         weather.currentTemp, weather.conditionText,
+                         object.showWeatherTemperature ? 1U : 0U,
+                         object.showWeatherCondition ? 1U : 0U);
+            }
+            return true;
+        default:
+            return false;
+    }
+}
+
+void commitDynamicTextCache(uint8_t objectIndex, const FaceObject& object,
+                            const struct tm& timeInfo, const WeatherData& weather) {
+    if (objectIndex >= FACE_MAX_OBJECTS) return;
+    char value[FACE_TEXT_CAPACITY] = {};
+    if (!formatDynamicTextValue(value, sizeof(value), object, timeInfo, weather)) return;
+
+    DynamicTextCacheEntry& entry = dynamicTextCache[objectIndex];
+    strncpy(entry.objectId, object.id, sizeof(entry.objectId) - 1);
+    entry.objectId[sizeof(entry.objectId) - 1] = '\0';
+    strncpy(entry.value, value, sizeof(entry.value) - 1);
+    entry.value[sizeof(entry.value) - 1] = '\0';
+    entry.valid = true;
+}
+
 bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
                           const struct tm& timeInfo, const WeatherData& weather,
                           int& dirtyX, int& dirtyWidth) {
@@ -282,26 +322,7 @@ bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
     char value[FACE_TEXT_CAPACITY] = {};
     const bool textElement = object.type == FaceElementType::DigitalClock ||
                              object.type == FaceElementType::Date;
-    switch (object.type) {
-        case FaceElementType::DigitalClock:
-            formatTime(value, sizeof(value), object, timeInfo);
-            break;
-        case FaceElementType::Date:
-            formatDate(value, sizeof(value), object, timeInfo);
-            break;
-        case FaceElementType::Weather:
-            if (!weather.valid) {
-                snprintf(value, sizeof(value), "unavailable:%.244s", object.text);
-            } else {
-                snprintf(value, sizeof(value), "%d|%s|%u|%u",
-                         weather.currentTemp, weather.conditionText,
-                         object.showWeatherTemperature ? 1U : 0U,
-                         object.showWeatherCondition ? 1U : 0U);
-            }
-            break;
-        default:
-            return false;
-    }
+    if (!formatDynamicTextValue(value, sizeof(value), object, timeInfo, weather)) return false;
 
     DynamicTextCacheEntry& entry = dynamicTextCache[objectIndex];
     const bool sameObject = entry.valid && strcmp(entry.objectId, object.id) == 0;
@@ -345,11 +366,8 @@ bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
         }
     }
 
-    strncpy(entry.objectId, object.id, sizeof(entry.objectId) - 1);
-    entry.objectId[sizeof(entry.objectId) - 1] = '\0';
-    strncpy(entry.value, value, sizeof(entry.value) - 1);
-    entry.value[sizeof(entry.value) - 1] = '\0';
-    entry.valid = true;
+    // Cache commit is deferred until the caller has completed the clipped
+    // redraw successfully. A failed draw must remain eligible for retry.
     return false;
 }
 
@@ -542,7 +560,12 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
         const int displayHeight = getDisplayCanvas().height();
         const int clipRight = x + w > displayWidth ? displayWidth : x + w;
         const int clipBottom = y + h > displayHeight ? displayHeight : y + h;
-        if (clipRight <= clipLeft || clipBottom <= clipTop) continue;
+        if (clipRight <= clipLeft || clipBottom <= clipTop) {
+            if (dynamicObject.type != FaceElementType::AnalogClock) {
+                commitDynamicTextCache(order[i], dynamicObject, timeInfo, weather);
+            }
+            continue;
+        }
 
         getDisplayCanvas().setClipRect(clipLeft, clipTop,
                         clipRight - clipLeft, clipBottom - clipTop);
@@ -559,7 +582,9 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
         getDisplayCanvas().resetClip();
         if (!drawOk) return FaceRenderStatus::AssetReadFailed;
 
-        if (dynamicObject.type == FaceElementType::AnalogClock) {
+        if (dynamicObject.type != FaceElementType::AnalogClock) {
+            commitDynamicTextCache(order[i], dynamicObject, timeInfo, weather);
+        } else {
             int centerX = 0, centerY = 0, endpointX[3] = {}, endpointY[3] = {};
             if (calculateAnalogHandEndpoints(dynamicObject, timeInfo,
                                              centerX, centerY, endpointX, endpointY)) {
