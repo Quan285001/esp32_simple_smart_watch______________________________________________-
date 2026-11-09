@@ -1,32 +1,38 @@
 # Phase Completion and Acceptance Matrix
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
-**Purpose:** prevent implementation activity from being mistaken for phase completion.
+**Main branch:** intentionally untouched.  
+**Rule:** source/host/CI completion and physical-board completion are tracked separately.
 
-A phase is complete only when its scope is implemented, its acceptance checks pass, its documentation reflects reality, and any hardware-only evidence is explicitly recorded. Work already present in later phases may remain in the branch, but phase ownership and acceptance are tracked sequentially.
-
-| Phase | Scope | Current assessment | Remaining acceptance |
+| Phase | Scope | Software implementation and CI | Physical-board status / remaining acceptance |
 |---|---|---|---|
-| 0 — Repository audit | Inventory, constraints, dependency and risk audit | Implemented; audit records exist | Re-audit only when scope or architecture materially changes |
-| 1 — Architecture foundation | Module ownership, runtime lifecycle, contracts | Implemented in source with documented transitional boundaries | Review remaining wrappers and enforce ownership boundaries |
-| 2 — Web App/PWA foundation | Editor, local project persistence, portable import/export, BLE connection workflow | Substantial implementation; not fully release-accepted | Complete end-to-end editor UX review, offline/project recovery cases and browser validation |
-| 3 — Watch Face Engine | Model, parser, renderer, canvas, dynamic redraw and compatibility | Core implementation and host checks exist | Complete schema-to-preview-to-firmware parity matrix; document unsupported properties and compare visual output on hardware |
-| 4 — Image/Bitmap pipeline | Source asset storage, conversion, WFS packaging, firmware streaming | RGB565 pipeline exists | Verify dimensions, byte limits, image decode/import errors, memory behavior and real-device image transfer/render |
-| 5 — Firmware rebuild | App runtime, services, display, storage, power and diagnostics | Major refactor implemented; build/host checks exist | Final ownership audit, integration regression and runtime measurements on target |
-| 6 — Communication/sync | Legacy BLE, WFS framing, capability exchange, transfer lifecycle | WFS v1 and compatibility paths implemented; CI/host tests exist | Physical browser/device handshake, repeated reconnect, transfer retry/cancel/disconnect and BLE security review |
-| 7 — Hardware integration | Flash, TFT, button, Wi-Fi, BLE, storage, sleep and resource stress | Pending physical-board evidence | Complete `hardware-regression-checklist.md` and attach logs/results |
-| 8 — Polish/release | UX polish, documentation, final regression and release artifact | Documentation is being consolidated; not release-complete | Resolve release blockers, clean full CI, hardware sign-off, known-issue and version/release notes |
+| 0 — Repository audit | Inventory, constraints, dependencies and risks | <badge label="Complete" color="success"/> Audit records and architecture constraints exist | Revisit only if scope/hardware changes |
+| 1 — Architecture foundation | Module ownership, runtime lifecycle and shared contracts | <badge label="Complete" color="success"/> Main-loop, service, display, storage and BLE ownership are implemented; transitional TFT wrappers are documented | Measure runtime behavior on target |
+| 2 — Web editor/project workflow | Declarative editor, local persistence, import/export, live preview and BLE connection workflow | <badge label="Complete" color="success"/> Web assets, syntax, compatibility preflight, portable project import/export and host guards pass | Browser/phone usability and Web Bluetooth need physical-device validation |
+| 3 — Watch Face engine | Model, parser, renderer, canvas, dynamic redraw and compatibility | <badge label="Complete" color="success"/> Parser/renderer host tests and compatibility checks pass | Compare fonts, geometry and dynamic redraw visually on GC9A01 |
+| 4 — Image/bitmap pipeline | Source assets, RGB565 conversion, WFS packaging and firmware streaming | <badge label="Complete" color="success"/> RGB565, dimensions, byte ranges, image element and Web import/package host tests pass | Upload/render opaque image-bearing faces and capture heap on hardware |
+| 5 — Firmware integration | App runtime, services, display, storage, power and diagnostics | <badge label="Complete" color="success"/> ESP32-C3 PlatformIO build and full host suite pass; transfer/apply/rollback/recovery paths are integrated | Verify boot, storage, UI, memory and sleep/wake on target |
+| 6 — Communication/sync | Legacy BLE, WFS framing, capabilities, transfer and session lifecycle | <badge label="Complete" color="success"/> WFS v1 codecs, Web uploader, stop-and-wait retry, strict digest/field validation, session reset and transfer lifecycle tests pass | Pairing, notifications, real upload/retry/cancel/reconnect and security UX remain unverified |
+| 7 — Hardware integration | Flash, TFT, button, Wi-Fi, BLE, storage, sleep and stress | <badge label="Pending"/> No physical test can be inferred from CI | Run every applicable item in `hardware-regression-checklist.md`; attach serial logs and outcomes |
+| 8 — Polish/release | Documentation, clean regression, release artifact and known-issue review | <badge label="In progress" color="warning"/> Core documentation is being aligned to current source; CI artifact workflow is available | Final docs-only CI, hardware sign-off, version/release notes and final artifact after board validation |
+
+## Software verification baseline
+
+The current code baseline `39c4a55edc004c57a2cace06df0cc59e7097bb34` passed:
+- PlatformIO Build workflow run [42577483237](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483237), including shared schema/profile/canvas checks, Web asset/syntax checks, full host protocol/transfer/parser/renderer tests, ESP32-C3 build and firmware artifact upload.
+- Pages deployment run [42577483245](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483245).
+
+The firmware artifact from that run is a time-limited GitHub Actions artifact named `esp32-c3-firmware`. A newer source or documentation commit requires its own workflow run before it can be called green.
 
 ## Execution policy
 
-1. Work on the earliest phase with an unmet software acceptance criterion.
-2. Do not begin optional work in later phases while an earlier phase has a known blocking defect.
-3. A later-phase dependency may receive a narrowly scoped fix if it blocks validation of the current phase; record why.
-4. Keep commits small and phase-coherent. Do not combine unrelated refactors and features.
-5. Run the narrowest relevant tests after each change, then the complete host suite and CI at phase gates.
-6. Never mark physical tests complete from source inspection or CI.
-7. Preserve the working branch; do not merge into `main` without a separate explicit instruction.
+1. Fix software blockers in the earliest unfinished phase before adding optional features.
+2. Keep hardware-only evidence separate from source review, host tests and CI.
+3. Run focused tests after changes, then the full host suite and PlatformIO CI at phase gates.
+4. Preserve the active custom-face slot during transfer; never promote an uncommitted staging slot during recovery.
+5. Keep uploaded watch-face packages declarative. Do not compile or execute arbitrary code from the editor.
+6. Continue only on `rebuild/watch-face-studio-v2`; do not merge or write to `main` without a separate explicit instruction.
 
-## Current next focus
+## Next acceptance gate
 
-Complete the Phase 2 acceptance review and close any real editor/project workflow gaps before taking Phase 3 through its parity matrix. Do not infer completion merely from the existence of source files or a passing firmware build.
+Software phases 0–6 have a passing CI baseline. The next decisive gate is physical validation using the hardware regression checklist. Do not claim hardware integration or release completion until the ESP32-C3/GC9A01 has been flashed and the results/logs have been recorded.
