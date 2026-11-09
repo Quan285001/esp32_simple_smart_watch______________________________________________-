@@ -56,6 +56,12 @@ with tempfile.TemporaryDirectory(prefix="wfs-lifecycle-test-") as tmp:
 
 print("WFS transfer lifecycle policy host tests passed.")
 
+subprocess.run(
+    [sys.executable, str(ROOT / "tests" / "host" / "transfer_begin_reset_guard_test.py")],
+    cwd=ROOT,
+    check=True,
+)
+
 STORAGE_POLICY_TEST = ROOT / "tests" / "host" / "face_storage_policy_test.cpp"
 
 with tempfile.TemporaryDirectory(prefix="wfs-storage-policy-test-") as tmp:
