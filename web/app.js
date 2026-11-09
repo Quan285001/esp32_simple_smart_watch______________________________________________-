@@ -340,8 +340,10 @@ async function convertImageToRgb565(object,design){
  // that are not actually rendered, or miss alpha after a different scale.
  const alphaCanvas=document.createElement('canvas');alphaCanvas.width=outputWidth;alphaCanvas.height=outputHeight;
  const alphaCtx=alphaCanvas.getContext('2d',{willReadFrequently:true});
- alphaCtx.save();alphaCtx.beginPath();alphaCtx.arc(120-left,120-top,120,0,Math.PI*2);alphaCtx.clip();
- alphaCtx.drawImage(image,drawX-left,drawY-top,drawWidth,drawHeight);alphaCtx.restore();
+ // Do not clip this probe: antialiased circle-edge coverage is a display mask,
+ // not source-image transparency. The pixel-center test below applies the
+ // circular visibility boundary without changing source alpha values.
+ alphaCtx.drawImage(image,drawX-left,drawY-top,drawWidth,drawHeight);
  const sourcePixels=alphaCtx.getImageData(0,0,outputWidth,outputHeight).data;let hasTransparency=false;
  for(let i=3,pixel=0;i<sourcePixels.length;i+=4,pixel++){
   const pixelX=left+(pixel%outputWidth)+0.5-120;
