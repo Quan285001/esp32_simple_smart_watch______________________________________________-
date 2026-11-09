@@ -69,7 +69,7 @@ This file distinguishes software verification from physical-board evidence. A gr
 
 ## 2. Current verification record
 
-The code and documentation baseline `39157c68939708d8e3410bde5980866235e4e916` passed:
+The last fully green code/docs baseline `39157c68939708d8e3410bde5980866235e4e916` passed:
 
 - [PlatformIO Build workflow run 42578621977](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483237)
   - shared JSON schema validation;
@@ -84,7 +84,7 @@ The code and documentation baseline `39157c68939708d8e3410bde5980866235e4e916` p
 
 The uploaded artifact is named `esp32-c3-firmware` (artifact ID `13655913958`; expires 2026-11-23) and is available from the workflow run's **Artifacts** section. The artifact is a CI build output; it is not a record of flashing or running on the physical board.
 
-The same run includes the current README, technical reference, WFS protocol/package specification, phase matrix and hardware checklist.
+The current branch has since received documentation-only refinements. The final workflow for the current branch head must pass before the branch is called fully green.
 
 ## 3. Remaining work and explicit limits
 
