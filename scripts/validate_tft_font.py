@@ -142,6 +142,21 @@ if any(position < 0 for position in dat8_positions) or dat8_positions != sorted(
     print("ERROR: ESP32-C3 SPI byte-pair packing order changed")
     sys.exit(1)
 
+def dat8_to_fifo_bytes(encoded):
+    # Mirror DAT8TO32(P), then model the little-endian SPI FIFO register write.
+    value = (encoded[0] << 8) | encoded[1] | (encoded[2] << 24) | (encoded[3] << 16)
+    return value.to_bytes(4, "little")
+
+spi_vectors = [
+    ("red+green", bytes((0x00, 0xF8, 0xE0, 0x07)), bytes((0xF8, 0x00, 0x07, 0xE0))),
+    ("orange+cyan", bytes((0x20, 0xFD, 0xFF, 0x07)), bytes((0xFD, 0x20, 0x07, 0xFF))),
+]
+for name, encoded, expected_wire in spi_vectors:
+    actual_wire = dat8_to_fifo_bytes(encoded)
+    if actual_wire != expected_wire:
+        print(f"ERROR: ESP32-C3 SPI byte packing failed {name}: {actual_wire.hex()}")
+        sys.exit(1)
+
 # WFS payloads decode to native uint16_t words whose memory bytes are LE.
 # Therefore use the byte-pair swap helper before the panel's MSB-first pixels.
 backend_start = display_source.find("void pushRgb565Row(")
