@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 class TestCanvas final : public DisplayCanvas {
 public:
@@ -12,6 +13,7 @@ public:
     int clipCalls = 0;
     int resetCalls = 0;
     int clipX = -1, clipY = -1, clipW = -1, clipH = -1;
+    bool allClipRowsOne = true;
 
     uint16_t width() const override { return 240; }
     uint16_t height() const override { return 240; }
@@ -25,14 +27,16 @@ public:
     void drawLine(int, int, int, int, uint16_t) override { calls.push_back("line"); }
     void pushRgb565Row(int, int, uint16_t, const uint16_t*) override { calls.push_back("image-row"); }
     void setClipRect(int x, int y, int w, int h) override {
-        ++clipCalls; clipX=x; clipY=y; clipW=w; clipH=h; calls.push_back("clip");
+        ++clipCalls; clipX=x; clipY=y; clipW=w; clipH=h;
+        if (h != 1) allClipRowsOne = false;
+        calls.push_back("clip");
     }
     void resetClip() override { ++resetCalls; calls.push_back("reset-clip"); }
     void drawText(const char* text, int, int, int, int, uint16_t, float, float, float,
                   uint16_t, float, CanvasTextAlignment) override {
         calls.push_back(std::string("text:") + text);
     }
-    void reset() { calls.clear(); clipCalls=0; resetCalls=0; clipX=clipY=clipW=clipH=-1; }
+    void reset() { calls.clear(); clipCalls=0; resetCalls=0; clipX=clipY=clipW=clipH=-1; allClipRowsOne=true; }
 };
 
 static TestCanvas canvas;
@@ -40,6 +44,11 @@ static bool imageDrawSucceeds = true;
 DisplayCanvas& getDisplayCanvas() { return canvas; }
 bool drawImageElement(const FaceModel&, const FaceObject&) {
     canvas.calls.push_back("image");
+    return imageDrawSucceeds;
+}
+bool drawImageElementMasked(const FaceModel&, const FaceObject&, const uint8_t*,
+                            uint16_t, uint16_t) {
+    canvas.calls.push_back("image-mask");
     return imageDrawSucceeds;
 }
 
@@ -239,10 +248,9 @@ int main() {
     timeInfo.tm_sec=10;
     canvas.reset();
     assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
-    assert(canvas.clipCalls==1 && canvas.resetCalls==1);
-    assert(canvas.clipW>0 && canvas.clipW<100);
-    assert(canvas.clipH>0 && canvas.clipH<100);
-    assert(canvas.calls.front()=="clip" && canvas.calls.back()=="reset-clip");
+    assert(canvas.clipCalls>1 && canvas.clipCalls==canvas.resetCalls);
+    assert(canvas.allClipRowsOne);
+    assert(canvas.calls.front()=="fill" && canvas.calls.back()=="reset-clip");
     timeInfo.tm_sec=9;
 
     // An analog redraw that fails in a later overlapping layer must remain
@@ -271,8 +279,9 @@ int main() {
     imageDrawSucceeds=true;
     canvas.reset();
     assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
-    assert(canvas.clipCalls==1 && canvas.resetCalls==1);
-    assert(canvas.calls.front()=="clip" && canvas.calls.back()=="reset-clip");
+    assert(canvas.clipCalls>1 && canvas.clipCalls==canvas.resetCalls);
+    assert(canvas.allClipRowsOne);
+    assert(std::find(canvas.calls.begin(), canvas.calls.end(), "image-mask") != canvas.calls.end());
     canvas.reset();
     assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
     assert(canvas.calls.empty());
