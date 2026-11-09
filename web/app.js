@@ -36,25 +36,26 @@ function objectText(o){const now=new Date(),pad=n=>String(n).padStart(2,'0');if(
 // and 6x8 cell geometry as the firmware's TFT_eSprite rasterizer.
 const TFT_FONT1_ASCII='000000000000005f00000007000700147f147f14242a7f2a12231308646236495620500008070300001c2241000041221c002a1c7f1c2a08083e080800807030000808080808000060600020100804023e5149453e00427f400072494949462141494d331814127f1027454545393c4a49493141211109073649494936464949291e0000140000004034000000081422411414141414004122140802015909063e415d594e7c1211127c7f494949363e414141227f4141413e7f494949417f090909013e414151737f0808087f00417f41002040413f017f081422417f404040407f021c027f7f0408107f3e4141413e7f090909063e4151215e7f09192946264949493203017f01033f4040403f1f2040201f3f4038403f631408146303047804036159494d43007f4141410204081020004141417f04020102044040404040000307080020545478407f284444383844444428384444287f385454541800087e090218a4a49c787f0804047800447d40002040403d007f1028440000417f40007c047804787c080404783844444438fc1824241818242418fc7c08040408485454542404043f44243c4040207c1c2040201c3c4030403c44281028444c9090907c4464544c440008364100000077000000413608000201020402';
 function setPreviewText(element,text,style){
- const value=String(text??''),scaleX=(Number(style.fontSize)||16)/8*(Number(style.scaleX)||1),scaleY=(Number(style.fontSize)||16)/8*(Number(style.scaleY)||1);
- const advance=6*scaleX+(Number(style.letterSpacing)||0),textWidth=Math.max(0,value.length*advance-(Number(style.letterSpacing)||0)),glyphHeight=8*scaleY;
+ const value=String(text??''),fontSize=Number(style.fontSize)||16,scaleX=(fontSize/8)*(Number(style.scaleX)||1),scaleY=(fontSize/8)*(Number(style.scaleY)||1),spacing=Number(style.letterSpacing)||0;
+ const advance=6*scaleX+spacing,textWidth=Math.max(0,value.length*advance-spacing),glyphHeight=8*scaleY;
  const clip=document.createElement('span');clip.className='glyph-preview';Object.assign(clip.style,{display:'flex',alignItems:'center',justifyContent:style.textAlign==='left'?'flex-start':style.textAlign==='right'?'flex-end':'center',width:'100%',height:'100%',overflow:'hidden',whiteSpace:'pre'});
- const bitmap=document.createElement('canvas');bitmap.width=Math.max(1,value.length*6);bitmap.height=8;bitmap.style.width=(textWidth/240*100)+'cqw';bitmap.style.height=(glyphHeight/240*100)+'cqw';bitmap.style.maxWidth='100%';bitmap.style.maxHeight='100%';bitmap.style.imageRendering='pixelated';bitmap.style.flex='0 0 auto';
- const ctx=bitmap.getContext('2d');if(ctx){ctx.clearRect(0,0,bitmap.width,bitmap.height);ctx.fillStyle=style.fill||'#ffffff';const bold=Number(style.fontWeight)>=600;
+ const bitmap=document.createElement('canvas');bitmap.width=Math.max(1,Math.ceil(textWidth));bitmap.height=Math.max(1,Math.ceil(glyphHeight));bitmap.style.width=(textWidth/240*100)+'cqw';bitmap.style.height=(glyphHeight/240*100)+'cqw';bitmap.style.imageRendering='pixelated';bitmap.style.flex='0 0 auto';
+ const ctx=bitmap.getContext('2d');if(ctx){ctx.imageSmoothingEnabled=false;ctx.fillStyle=style.fill||'#ffffff';const bold=Number(style.fontWeight)>=600;
+  let cursorX=0;
   for(let index=0;index<value.length;index++){let code=value.charCodeAt(index);if(code<32||code>126)code=63;const offset=(code-32)*10;
-   for(let column=0;column<5;column++){const bits=parseInt(TFT_FONT1_ASCII.slice(offset+column*2,offset+column*2+2),16);
-    for(let row=0;row<8;row++)if(bits&(1<<row)){ctx.fillRect(index*6+column,row,1,1);if(bold)ctx.fillRect(index*6+column+1,row,1,1)}
+   for(let row=0;row<8;row++){let runStart=-1;
+    for(let column=0;column<=6;column++){const pixelOn=column<5&&(parseInt(TFT_FONT1_ASCII.slice(offset+column*2,offset+column*2+2),16)&(1<<row))!==0;
+     if(pixelOn&&runStart<0)runStart=column;
+     else if(!pixelOn&&runStart>=0){const left=Math.floor(cursorX+runStart*scaleX),right=Math.ceil(cursorX+column*scaleX),top=Math.floor(row*scaleY),bottom=Math.ceil((row+1)*scaleY);
+      if(right>left&&bottom>top){ctx.fillRect(left,top,right-left,bottom-top);if(bold&&left+1<bitmap.width)ctx.fillRect(left+1,top,Math.min(right-left,bitmap.width-left-1),bottom-top)}
+      runStart=-1;
+     }
+    }
    }
+   cursorX+=advance;
   }
  }
  clip.append(bitmap);element.append(clip)
-}
-
- const clip=document.createElement('span');clip.className='glyph-preview';clip.style.display='flex';clip.style.alignItems='center';clip.style.justifyContent=style.textAlign==='left'?'flex-start':style.textAlign==='right'?'flex-end':'center';clip.style.width='100%';clip.style.height='100%';clip.style.overflow='hidden';clip.style.whiteSpace='pre';
- // Match the firmware's built-in TFT font-1 geometry: 6x8 cells, with a
- // 0.75em character advance. A monospace face plus explicit tracking keeps
- // the browser preview from silently substituting proportional glyph widths.
- const glyph=document.createElement('span');glyph.textContent=text;glyph.style.display='inline-block';glyph.style.whiteSpace='pre';glyph.style.fontFamily='monospace';glyph.style.lineHeight='1';glyph.style.letterSpacing='.15em';glyph.style.paddingRight='.15em';glyph.style.fontWeight=Number(style.fontWeight)>=600?'600':'400';glyph.style.transform='scaleX('+(style.scaleX??1)+') scaleY('+(style.scaleY??1)+')';glyph.style.transformOrigin='center center';clip.append(glyph);element.append(clip)
 }
 function renderWeatherPreview(element,object,style){
  const fields=Array.isArray(object.weatherFields)?object.weatherFields:['temperature'];
@@ -155,7 +156,7 @@ if(o.type==='digital-clock'){host.append(field('TIME FORMAT','timeFormat',o.time
 if(['text','moon','sunrise-sunset'].includes(o.type)){host.append(field('TEXT CONTENT','text',o.text||'','text',{target:o,prop:'text'}))}
 host.append(field('FONT SIZE','fontSize',s.fontSize||16,'number',{target:s,prop:'fontSize',min:1,max:120}),field('TEXT COLOR','fill',s.fill||'#ffffff','color',{target:s,prop:'fill'}));
  if(['text','digital-clock','date','weather'].includes(o.type))host.append(field('GLYPH WIDTH SCALE','scaleX',s.scaleX??1,'number',{target:s,prop:'scaleX',min:0.1,max:8,step:0.1}),field('GLYPH HEIGHT SCALE','scaleY',s.scaleY??1,'number',{target:s,prop:'scaleY',min:0.1,max:8,step:0.1}));
-host.append(field('FONT FAMILY','fontFamily',s.fontFamily||'system-ui','select',{target:s,prop:'fontFamily',options:[['system-ui','System'],['Inter','Inter'],['Roboto','Roboto'],['DM Sans','DM Sans'],['Space Grotesk','Space Grotesk'],['monospace','Monospace']]}));
+host.append(field('FONT FAMILY','fontFamily',s.fontFamily||'system-ui','select',{target:s,prop:'fontFamily',options:[['system-ui','Watch built-in (TFT GLCD)']]}));
 host.append(field('FONT WEIGHT','fontWeight',s.fontWeight||400,'select',{target:s,prop:'fontWeight',options:[[400,'Regular'],[600,'Semibold']]}));
 host.append(field('TEXT ALIGNMENT','textAlign',s.textAlign||'center','select',{target:s,prop:'textAlign',options:[['left','Left'],['center','Center'],['right','Right']]}));
 host.append(field('OPACITY','opacity',t.opacity??1,'number',{target:t,prop:'opacity',min:0,max:1,step:0.05}),field('ROTATION','rotation',t.rotation||0,'number',{target:t,prop:'rotation',min:-360,max:360}));
