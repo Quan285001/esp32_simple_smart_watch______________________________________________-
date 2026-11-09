@@ -277,7 +277,11 @@ async function convertImageToRgb565(object,design){
  const fitScale=Math.min(width/image.naturalWidth,height/image.naturalHeight);const drawWidth=image.naturalWidth*fitScale,drawHeight=image.naturalHeight*fitScale;const drawX=x+(width-drawWidth)/2,drawY=y+(height-drawHeight)/2;maskCtx.drawImage(image,drawX,drawY,drawWidth,drawHeight);maskCtx.restore();
  const maskPixels=maskCtx.getImageData(0,0,240,240).data;
  let hasTransparency=false;
- for(let i=3;i<maskPixels.length;i+=4){if(maskPixels[i]!==255){hasTransparency=true;break}}
+ for(let py=0;py<240&&!hasTransparency;py++)for(let px=0;px<240;px++){
+  const dx=px+0.5-120,dy=py+0.5-120;
+  if(dx*dx+dy*dy>120*120)continue;
+  if(maskPixels[(py*240+px)*4+3]!==255){hasTransparency=true;break}
+ }
  const imagePosition=design.objects.indexOf(object),imageZ=transform.zIndex??0;
  const hasUnderlyingLayer=design.objects.some((candidate,index)=>{
   if(candidate===object||candidate.visible===false)return false;
