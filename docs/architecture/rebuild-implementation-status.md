@@ -2,7 +2,7 @@
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
 **Main branch:** untouched.  
-**Code verification baseline:** `39c4a55edc004c57a2cace06df0cc59e7097bb34`  
+**Code verification baseline:** `39157c68939708d8e3410bde5980866235e4e916`  
 **Scope:** ESP32-C3 firmware, Watch Face Studio Web editor, WFS BLE v1, package/image pipeline and shared contracts.
 
 This file distinguishes software verification from physical-board evidence. A green CI run is not a hardware test.
@@ -54,7 +54,7 @@ This file distinguishes software verification from physical-board evidence. A gr
 - BLE callbacks only copy bounded packets into a FreeRTOS queue; the app loop parses and processes them.
 - Session generations reject queued stale packets after connect/disconnect. Repeated HELLO with session ID zero aborts cancellable prior-session transfers before establishing a new session.
 - Control and Data channels share one incoming sequence space; retransmission is limited to an identical retry of the last accepted DATA chunk.
-- Transfer uses stop-and-wait ACKs, bounded same-frame retry, strict transfer-field types and strict 64-character hexadecimal SHA-256 parsing.
+- Transfer uses stop-and-wait ACKs, bounded same-frame retry, strict transfer-field types and strict 64-character hexadecimal SHA-256 parsing for transfer, manifest-layout and asset digests.
 - Failed GATT writes cancel their response waiters so stale promises do not accumulate.
 - TransferManager handles receive, verify, apply, cancel and disconnect cleanup; failed cleanup preserves its concrete storage error.
 - Capability exchange reports profile, canvas, elements, bitmap/object/asset limits, image support, chunk size and staging capacity.
@@ -69,9 +69,9 @@ This file distinguishes software verification from physical-board evidence. A gr
 
 ## 2. Current verification record
 
-The code baseline `39c4a55edc004c57a2cace06df0cc59e7097bb34` passed:
+The code and documentation baseline `39157c68939708d8e3410bde5980866235e4e916` passed:
 
-- [PlatformIO Build workflow run 42577483237](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483237)
+- [PlatformIO Build workflow run 42578621977](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483237)
   - shared JSON schema validation;
   - device compatibility and display profile/canvas boundary checks;
   - Web asset validation and `node --check web/app.js`;
@@ -80,11 +80,11 @@ The code baseline `39c4a55edc004c57a2cace06df0cc59e7097bb34` passed:
   - Watch Face parser host tests;
   - Watch Face renderer host tests;
   - firmware artifact upload.
-- [GitHub Pages deployment run 42577483245](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483245).
+- [GitHub Pages deployment run 42578621242](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483245).
 
-The uploaded artifact is named `esp32-c3-firmware` and is available from the workflow run for a limited retention period. The artifact is a CI build output; it is not a record of flashing or running on the physical board.
+The uploaded artifact is named `esp32-c3-firmware` (artifact ID `13655913958`; expires 2026-11-23) and is available from the workflow run's **Artifacts** section. The artifact is a CI build output; it is not a record of flashing or running on the physical board.
 
-The documentation commits after this code baseline must receive their own final CI run before the branch is declared fully green again.
+The same run includes the current README, technical reference, WFS protocol/package specification, phase matrix and hardware checklist.
 
 ## 3. Remaining work and explicit limits
 
