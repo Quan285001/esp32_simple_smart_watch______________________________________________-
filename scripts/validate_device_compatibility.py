@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -21,6 +22,16 @@ SUPPORTED_FONTS = {"system-ui", "sans-serif", "inherit"}
 def load_json(path: Path):
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def is_supported_font_weight(value: object) -> bool:
+    """Match the renderer's exact numeric font-weight contract without coercion."""
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(value)
+        and value in (400, 600)
+    )
 
 
 def main() -> int:
@@ -79,8 +90,8 @@ def main() -> int:
                 errors.append(f"{label}: image has no assetId")
 
         if text_style:
-            weight = int(text_style.get("fontWeight", 400))
-            if weight not in (400, 600):
+            weight = text_style.get("fontWeight", 400)
+            if not is_supported_font_weight(weight):
                 errors.append(f"{label}: renderer supports only font weights 400 and 600")
             size = float(text_style.get("fontSize", 16))
             if not 0 < size <= 256:
