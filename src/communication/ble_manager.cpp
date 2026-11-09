@@ -232,8 +232,11 @@ void sendCapabilities() {
 
 void handleControlPacket(const WfsPacket& packet) {
     WfsProtocol::FrameView frame{};
+    // Decode without a session constraint first so a fresh HELLO (session 0)
+    // can explicitly replace an existing session. All other control messages
+    // are checked against the active session immediately below.
     const WfsProtocol::FrameError decodeError =
-        WfsProtocol::decodeFrame(packet.bytes, packet.length, sessionId, frame);
+        WfsProtocol::decodeFrame(packet.bytes, packet.length, 0, frame);
     if (decodeError != WfsProtocol::FrameError::None) {
         sendError(0x0002, WfsProtocol::frameErrorName(decodeError));
         return;
@@ -244,6 +247,10 @@ void handleControlPacket(const WfsPacket& packet) {
     }
 
     if (frame.type == WfsProtocol::MessageType::Hello) {
+        if (frame.sessionId != 0) {
+            sendError(0x0003, "hello_session_must_be_zero");
+            return;
+        }
         JsonDocument hello;
         const DeserializationError jsonError =
             deserializeJson(hello, frame.payload, frame.payloadLength,
