@@ -10,6 +10,7 @@ namespace FaceManager {
 
 bool begin();
 bool hasActiveFace();
+bool needsFullRender();
 bool setActiveModel(const FaceModel& model);
 void disableActive();
 const FaceModel* getActiveFace();
