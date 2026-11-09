@@ -85,6 +85,21 @@ if not processor_path.is_file():
     print(f"ERROR: ESP32-C3 TFT_eSPI processor source not found: {processor_path}")
     sys.exit(1)
 processor_source = processor_path.read_text(encoding="utf-8", errors="replace")
+processor_header_path = font_path.parents[1] / "Processors" / "TFT_eSPI_ESP32_C3.h"
+if not processor_header_path.is_file():
+    print(f"ERROR: ESP32-C3 TFT_eSPI processor header not found: {processor_header_path}")
+    sys.exit(1)
+processor_header = processor_header_path.read_text(encoding="utf-8", errors="replace")
+write16_start = processor_header.find("#define tft_Write_16(C)")
+if write16_start < 0:
+    print("ERROR: ESP32-C3 TFT_eSPI 16-bit write macro is missing")
+    sys.exit(1)
+write16_body = processor_header[write16_start:processor_header.find("\n", write16_start)]
+msb_position = write16_body.find("(C) >> 8")
+lsb_position = write16_body.find("(C) >> 0")
+if msb_position < 0 or lsb_position < 0 or msb_position > lsb_position:
+    print("ERROR: ESP32-C3 TFT_eSPI no longer transmits RGB565 MSB before LSB")
+    sys.exit(1)
 push_pixels_start = processor_source.find("void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)")
 if push_pixels_start < 0:
     print("ERROR: ESP32-C3 TFT_eSPI pushPixels implementation is missing")
