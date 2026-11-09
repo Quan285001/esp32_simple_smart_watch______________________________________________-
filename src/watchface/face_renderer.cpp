@@ -199,7 +199,7 @@ bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
                 snprintf(value, sizeof(value), "unavailable:%s", object.text);
             } else {
                 snprintf(value, sizeof(value), "%d|%s|%u|%u",
-                         weather.currentTemp, weather.conditionText.c_str(),
+                         weather.currentTemp, weather.conditionText,
                          object.showWeatherTemperature ? 1U : 0U,
                          object.showWeatherCondition ? 1U : 0U);
             }
