@@ -179,8 +179,101 @@ struct DynamicTextCacheEntry {
 
 DynamicTextCacheEntry dynamicTextCache[FACE_MAX_OBJECTS] = {};
 
+struct AnalogHandCacheEntry {
+    char objectId[FACE_ID_CAPACITY];
+    int centerX;
+    int centerY;
+    int endpointX[3];
+    int endpointY[3];
+    bool valid;
+};
+
+AnalogHandCacheEntry analogHandCache[FACE_MAX_OBJECTS] = {};
+
 void invalidateDynamicTextCache() {
     memset(dynamicTextCache, 0, sizeof(dynamicTextCache));
+    memset(analogHandCache, 0, sizeof(analogHandCache));
+}
+
+bool calculateAnalogHandEndpoints(const FaceObject& object, const struct tm& timeInfo,
+                                  int& centerX, int& centerY,
+                                  int (&endpointX)[3], int (&endpointY)[3]) {
+    const int width = static_cast<int>(lroundf(object.transform.width));
+    const int height = static_cast<int>(lroundf(object.transform.height));
+    centerX = static_cast<int>(lroundf(object.transform.x)) + width / 2;
+    centerY = static_cast<int>(lroundf(object.transform.y)) + height / 2;
+    const int radius = (width < height ? width : height) / 2 - 2;
+    if (radius < 8) return false;
+
+    const float seconds = static_cast<float>(timeInfo.tm_sec);
+    const float minutes = static_cast<float>(timeInfo.tm_min) + seconds / 60.0f;
+    const float hours = static_cast<float>(timeInfo.tm_hour % 12) + minutes / 60.0f;
+    const float angles[3] = {
+        (hours * 30.0f - 90.0f) * PI_F / 180.0f,
+        (minutes * 6.0f - 90.0f) * PI_F / 180.0f,
+        (seconds * 6.0f - 90.0f) * PI_F / 180.0f
+    };
+    const float lengths[3] = {radius * 0.48f, radius * 0.72f, radius * 0.86f};
+    for (int hand = 0; hand < 3; ++hand) {
+        endpointX[hand] = centerX + static_cast<int>(cosf(angles[hand]) * lengths[hand]);
+        endpointY[hand] = centerY + static_cast<int>(sinf(angles[hand]) * lengths[hand]);
+    }
+    return true;
+}
+
+bool analogHandsUnchanged(uint8_t objectIndex, const FaceObject& object,
+                          const struct tm& timeInfo,
+                          int& dirtyX, int& dirtyY, int& dirtyWidth, int& dirtyHeight) {
+    dirtyX = dirtyY = dirtyWidth = dirtyHeight = 0;
+    if (objectIndex >= FACE_MAX_OBJECTS) return false;
+
+    int centerX = 0, centerY = 0, endpointX[3] = {}, endpointY[3] = {};
+    if (!calculateAnalogHandEndpoints(object, timeInfo, centerX, centerY, endpointX, endpointY)) {
+        return true;
+    }
+
+    AnalogHandCacheEntry& entry = analogHandCache[objectIndex];
+    const bool sameObject = entry.valid && strcmp(entry.objectId, object.id) == 0;
+    if (sameObject && entry.centerX == centerX && entry.centerY == centerY &&
+        memcmp(entry.endpointX, endpointX, sizeof(endpointX)) == 0 &&
+        memcmp(entry.endpointY, endpointY, sizeof(endpointY)) == 0) {
+        return true;
+    }
+
+    int minX = centerX, maxX = centerX, minY = centerY, maxY = centerY;
+    if (sameObject) {
+        minX = entry.centerX < minX ? entry.centerX : minX;
+        maxX = entry.centerX > maxX ? entry.centerX : maxX;
+        minY = entry.centerY < minY ? entry.centerY : minY;
+        maxY = entry.centerY > maxY ? entry.centerY : maxY;
+        for (int hand = 0; hand < 3; ++hand) {
+            if (entry.endpointX[hand] < minX) minX = entry.endpointX[hand];
+            if (entry.endpointX[hand] > maxX) maxX = entry.endpointX[hand];
+            if (entry.endpointY[hand] < minY) minY = entry.endpointY[hand];
+            if (entry.endpointY[hand] > maxY) maxY = entry.endpointY[hand];
+        }
+    }
+    for (int hand = 0; hand < 3; ++hand) {
+        if (endpointX[hand] < minX) minX = endpointX[hand];
+        if (endpointX[hand] > maxX) maxX = endpointX[hand];
+        if (endpointY[hand] < minY) minY = endpointY[hand];
+        if (endpointY[hand] > maxY) maxY = endpointY[hand];
+    }
+
+    const int padding = 4; // line thickness plus the center hub
+    dirtyX = minX - padding;
+    dirtyY = minY - padding;
+    dirtyWidth = maxX - minX + padding * 2 + 1;
+    dirtyHeight = maxY - minY + padding * 2 + 1;
+
+    strncpy(entry.objectId, object.id, sizeof(entry.objectId) - 1);
+    entry.objectId[sizeof(entry.objectId) - 1] = '\0';
+    entry.centerX = centerX;
+    entry.centerY = centerY;
+    memcpy(entry.endpointX, endpointX, sizeof(endpointX));
+    memcpy(entry.endpointY, endpointY, sizeof(endpointY));
+    entry.valid = true;
+    return false;
 }
 
 bool dynamicTextUnchanged(uint8_t objectIndex, const FaceObject& object,
@@ -396,7 +489,22 @@ FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInf
     uint8_t order[FACE_MAX_OBJECTS] = {};
     sortObjectIndices(face, order);
     for (uint8_t i = 0; i < face.objectCount; ++i) {
-        if (!drawObject(face, face.objects[order[i]], timeInfo, weather)) return FaceRenderStatus::AssetReadFailed;
+        const FaceObject& object = face.objects[order[i]];
+        if (!drawObject(face, object, timeInfo, weather)) return FaceRenderStatus::AssetReadFailed;
+        if (object.visible && object.type == FaceElementType::AnalogClock) {
+            int centerX = 0, centerY = 0, endpointX[3] = {}, endpointY[3] = {};
+            if (calculateAnalogHandEndpoints(object, timeInfo, centerX, centerY, endpointX, endpointY) &&
+                order[i] < FACE_MAX_OBJECTS) {
+                AnalogHandCacheEntry& entry = analogHandCache[order[i]];
+                strncpy(entry.objectId, object.id, sizeof(entry.objectId) - 1);
+                entry.objectId[sizeof(entry.objectId) - 1] = '\0';
+                entry.centerX = centerX;
+                entry.centerY = centerY;
+                memcpy(entry.endpointX, endpointX, sizeof(endpointX));
+                memcpy(entry.endpointY, endpointY, sizeof(endpointY));
+                entry.valid = true;
+            }
+        }
     }
     return FaceRenderStatus::Ok;
 }
@@ -412,18 +520,21 @@ FaceRenderStatus renderWatchFaceDynamic(const FaceModel& face, const struct tm& 
     for (uint8_t i = 0; i < face.objectCount; ++i) {
         const FaceObject& dynamicObject = face.objects[order[i]];
         if (!dynamicObject.visible || !isDynamic(dynamicObject.type)) continue;
-        // Skip unchanged dynamic text and narrow changed time/date strings
-        // to their dirty character cells. Analog hands/weather retain a full
-        // object redraw because their geometry/content can change as a group.
-        int dirtyX = 0;
-        int dirtyWidth = 0;
-        if (dynamicTextUnchanged(order[i], dynamicObject, timeInfo, weather,
-                                 dirtyX, dirtyWidth)) continue;
-
-        const int x = dirtyX;
-        const int y = static_cast<int>(lroundf(dynamicObject.transform.y));
-        const int w = dirtyWidth;
-        const int h = static_cast<int>(lroundf(dynamicObject.transform.height));
+        // Skip unchanged dynamic text. Analog clocks calculate a dirty union
+        // from the previous and current hand endpoints; text uses changed glyph cells.
+        int x = 0, y = 0, w = 0, h = 0;
+        if (dynamicObject.type == FaceElementType::AnalogClock) {
+            if (analogHandsUnchanged(order[i], dynamicObject, timeInfo, x, y, w, h)) continue;
+        } else {
+            int dirtyX = 0;
+            int dirtyWidth = 0;
+            if (dynamicTextUnchanged(order[i], dynamicObject, timeInfo, weather,
+                                     dirtyX, dirtyWidth)) continue;
+            x = dirtyX;
+            y = static_cast<int>(lroundf(dynamicObject.transform.y));
+            w = dirtyWidth;
+            h = static_cast<int>(lroundf(dynamicObject.transform.height));
+        }
         if (w <= 0 || h <= 0) continue;
 
         // Clear only the dynamic element's bounds. A TFT viewport clips
