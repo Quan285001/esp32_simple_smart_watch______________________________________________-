@@ -18,6 +18,20 @@ with tempfile.TemporaryDirectory(prefix="wfs-host-test-") as tmp:
     )
     subprocess.run([str(binary)], cwd=ROOT, check=True)
 
+DIGEST_TEST = ROOT / "tests" / "host" / "digest_parser_test.cpp"
+
+with tempfile.TemporaryDirectory(prefix="wfs-digest-test-") as tmp:
+    binary = Path(tmp) / "digest_parser_test"
+    subprocess.run(
+        ["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+         str(DIGEST_TEST), "-o", str(binary)],
+        cwd=ROOT,
+        check=True,
+    )
+    subprocess.run([str(binary)], cwd=ROOT, check=True)
+
+print("WFS strict SHA-256 digest parser host tests passed.")
+
 print("WFS C++ protocol codec host tests passed.")
 
 subprocess.run(
