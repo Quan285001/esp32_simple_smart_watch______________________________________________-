@@ -145,4 +145,10 @@ subprocess.run(
     check=True,
 )
 
+subprocess.run(
+    [sys.executable, str(ROOT / "tests" / "host" / "device_compatibility_validator_test.py")],
+    cwd=ROOT,
+    check=True,
+)
+
 print("WFS device compatibility preflight host tests passed.")
