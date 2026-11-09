@@ -57,7 +57,7 @@ const sandbox = {
 };
 vm.runInNewContext(compatibilitySource, sandbox, { filename: 'web/device-compatibility.js' });
 vm.runInNewContext(
-  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, sendFrameAndWait: wfsSendFrameAndWait, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, renderAnalogClockPreview, roundFirmwarePixel, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
+  appSource + '\n;globalThis.__wfsCodecTest = { state, encode: wfsEncodeFrame, decode: wfsDecodeFrame, waitFor: waitForWfsMessage, sendFrameAndWait: sendWfsFrameAndWait, buildPackage: buildWfsPackage, sendFrame: sendWfsFrame, renderShapePreview, renderAnalogClockPreview, roundFirmwarePixel, setPreviewText, renderWeatherPreview, crc32: wfsCrc32, hex: wfsHex };',
   sandbox,
   { filename: 'web/app.js' },
 );
