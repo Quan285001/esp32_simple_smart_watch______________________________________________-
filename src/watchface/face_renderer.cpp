@@ -518,6 +518,13 @@ FaceRenderStatus renderWatchFace(const FaceModel& face, const struct tm& timeInf
                 memcpy(entry.endpointY, endpointY, sizeof(endpointY));
                 entry.valid = true;
             }
+        } else if (object.visible &&
+                   (object.type == FaceElementType::DigitalClock ||
+                    object.type == FaceElementType::Date ||
+                    object.type == FaceElementType::Weather)) {
+            // Seed dynamic text state from the full initial render. Without
+            // this, the first periodic tick would repaint the whole text box.
+            commitDynamicTextCache(order[i], object, timeInfo, weather);
         }
     }
     return FaceRenderStatus::Ok;
