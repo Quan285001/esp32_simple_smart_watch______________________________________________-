@@ -144,6 +144,7 @@ int main() {
     assert(canvas.calls.empty());
 
     // Dynamic redraw must restore intersecting layers above the changing element.
+    assert(renderWatchFace(face,timeInfo,weather)==FaceRenderStatus::Ok); // invalidate cache for the next face
     face=baseFace(); face.objectCount=3;
     face.objects[0]=baseObject(FaceElementType::Shape,"lower");
     face.objects[0].transform.x=50; face.objects[0].transform.y=50;
