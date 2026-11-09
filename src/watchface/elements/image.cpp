@@ -1,4 +1,5 @@
 #include "image.h"
+#include "image_rgb565.h"
 
 #include <math.h>
 #include <string.h>
@@ -33,12 +34,16 @@ bool drawImageElement(const FaceModel& face, const FaceObject& object) {
 
     const int x = static_cast<int>(lroundf(object.transform.x));
     const int y = static_cast<int>(lroundf(object.transform.y));
-    uint16_t row[240] = {};
-    const size_t rowBytes = static_cast<size_t>(asset->width) * sizeof(uint16_t);
+    uint8_t encodedRow[DisplayProfileConfig::MAX_BITMAP_WIDTH * 2] = {};
+    uint16_t row[DisplayProfileConfig::MAX_BITMAP_WIDTH] = {};
+    const size_t rowBytes = static_cast<size_t>(asset->width) * 2U;
     for (uint16_t rowIndex = 0; rowIndex < asset->height; ++rowIndex) {
-        if (file.read(reinterpret_cast<uint8_t*>(row), rowBytes) != rowBytes) {
+        if (file.read(encodedRow, rowBytes) != rowBytes) {
             file.close();
             return false;
+        }
+        for (uint16_t column = 0; column < asset->width; ++column) {
+            row[column] = decodeRgb565LittleEndian(encodedRow[column * 2U], encodedRow[column * 2U + 1U]);
         }
         getDisplayCanvas().pushRgb565Row(x, y + rowIndex, asset->width, row);
     }
