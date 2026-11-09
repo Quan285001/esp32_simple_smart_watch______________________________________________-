@@ -379,6 +379,8 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
     transform: { x: 100, y: 100, width: 20, height: 20, anchor: 'top-left', zIndex: -1 },
     style: { fill: '#ffffff' },
   });
+  transparentOverlay.objects[1].transform.x = 100;
+  transparentOverlay.objects[1].transform.y = 100;
   transparentOverlay.objects[1].transform.zIndex = 0;
   await assert.rejects(buildPackage(transparentOverlay), /transparent overlay images/,
     'transparent images above lower layers must be rejected before RGB565 flattening');
