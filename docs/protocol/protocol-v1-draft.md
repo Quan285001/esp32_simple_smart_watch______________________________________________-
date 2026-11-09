@@ -1,190 +1,242 @@
 # Watch Face Studio Communication Protocol — WFS BLE v1
 
-**Status:** WFS v1 GATT, Web transport and package-transfer paths exist in source. PlatformIO firmware build, parser host tests, protocol host tests, shared schema checks, Web syntax checks and profile-contract validation passed on commit `664de2d`. The current branch continues to receive changes; physical browser-to-device interoperability, repeated reconnects, transfer interruption and sleep/wake behavior still require board testing. The frame payload-length offset defect was corrected in commit 679f610; golden host coverage was added in commit 51590e7.  
-**Legacy compatibility:** the existing text service remains available during migration.
+**Status:** WFS v1 framing, GATT service, capability/status exchange, Web uploader, transfer verification and apply path are implemented. Host protocol/golden-frame and lifecycle tests pass, and the ESP32-C3 target compiles in CI. Physical browser-to-watch interoperability is not yet verified.  
+**Compatibility:** the legacy text BLE service remains available.
+
+This document describes the implemented v1 behavior. Message IDs reserved for future use are not evidence that their full semantics are implemented.
 
 ## 1. BLE services
 
-### Legacy service (preserved)
+### Legacy service
 
-- Device name: ESP32_Watch_C3 (the Web filter prefix remains ESP32_Watch).
-- Service: 4fafc201-1fb5-459e-8fcc-c5c9c331914b
-- Characteristic: beb5483e-36e1-4688-b7f5-ea07361b26a8
+- Device name: `ESP32_Watch_C3` (Web filter prefix: `ESP32_Watch`)
+- Service UUID: `4fafc201-1fb5-459e-8fcc-c5c9c331914b`
+- Characteristic UUID: `beb5483e-36e1-4688-b7f5-ea07361b26a8`
 - Properties: READ, WRITE, WRITE_NR, NOTIFY
 - Descriptor: BLE2902
 
-This characteristic remains for the existing text commands until regression tests confirm the new control service can replace each operation. Do not change its current meaning silently.
+Existing text commands remain supported during migration.
 
-### New v1 service
+### WFS v1 service
 
 | Characteristic | UUID | Properties | Direction |
 |---|---|---|---|
-| WFS Service | f2c6b100-2f3a-4c1b-9d70-8e4a5c6b7100 | Primary service | — |
-| Control RX | f2c6b101-2f3a-4c1b-9d70-8e4a5c6b7100 | WRITE, WRITE_NR | Web → Device |
-| Control TX | f2c6b102-2f3a-4c1b-9d70-8e4a5c6b7100 | READ, NOTIFY | Device → Web |
-| Data RX | f2c6b103-2f3a-4c1b-9d70-8e4a5c6b7100 | WRITE, WRITE_NR | Web → Device |
-| Data TX | f2c6b104-2f3a-4c1b-9d70-8e4a5c6b7100 | READ, NOTIFY | Device → Web |
+| WFS Service | `f2c6b100-2f3a-4c1b-9d70-8e4a5c6b7100` | Primary service | — |
+| Control RX | `f2c6b101-2f3a-4c1b-9d70-8e4a5c6b7100` | WRITE, WRITE_NR | Web → Device |
+| Control TX | `f2c6b102-2f3a-4c1b-9d70-8e4a5c6b7100` | READ, NOTIFY | Device → Web |
+| Data RX | `f2c6b103-2f3a-4c1b-9d70-8e4a5c6b7100` | WRITE, WRITE_NR | Web → Device |
+| Data TX | `f2c6b104-2f3a-4c1b-9d70-8e4a5c6b7100` | READ, NOTIFY | Device → Web |
 
-The Web client must request both the legacy service UUID and the new WFS service UUID in optionalServices during migration.
+The Web Bluetooth request must include both the legacy service UUID and WFS service UUID in `optionalServices`.
+
+Both legacy and WFS protected characteristics require encrypted access. BLE bonding is configured with IO capability NONE (Just Works). This enables link encryption but does **not** provide MITM protection. Do not treat this as strong authentication.
 
 ## 2. Frame envelope
 
-All multi-byte integers are little-endian. Header size is 16 bytes.
+All multi-byte fields are little-endian. Header size is 16 bytes.
 
-| Offset | Size | Field | Meaning |
+| Offset | Size | Field | Rule |
 |---:|---:|---|---|
-| 0 | 2 | Magic | 0x57 0x46 (\"WF\") |
-| 2 | 1 | Protocol major | 1 |
-| 3 | 1 | Protocol minor | 0 for initial implementation |
-| 4 | 1 | Message type | Enumerated below |
-| 5 | 1 | Flags | Must be zero in v1 |
-| 6 | 2 | Sequence | Per-direction monotonically increasing sequence |
-| 8 | 4 | Session ID | Nonzero session identifier |
-| 12 | 2 | Payload length | Exact payload length |
-| 14 | 2 | Header CRC16 | CRC-16/CCITT-FALSE over bytes 0–13 |
-| 16 | N | Payload | Message-specific bytes |
+| 0 | 2 | Magic | `0x57 0x46` (ASCII `WF`) |
+| 2 | 1 | Major | 1 |
+| 3 | 1 | Minor | 0 |
+| 4 | 1 | Message type | See table below |
+| 5 | 1 | Flags | Must be zero |
+| 6 | 2 | Sequence | uint16 |
+| 8 | 4 | Session ID | uint32 |
+| 12 | 2 | Payload length | Exact payload bytes |
+| 14 | 2 | Header CRC | CRC-16/CCITT-FALSE over bytes 0–13 |
+| 16 | N | Payload | Message-specific |
 
-**Implementation invariant:** session ID occupies bytes 8–11; payload length occupies bytes 12–13. Do not use offset 10 for payload length. The host golden fixture uses a JavaScript-compatible frame with session ID 0x12345678 and payload length 4.
+The session ID occupies bytes 8–11. Payload length occupies bytes 12–13. The C++ and JavaScript codecs share a byte-exact golden frame test.
 
-Reject invalid magic/version, unknown mandatory message types, nonzero reserved flags, oversized payloads, bad header CRC, truncated frames, wrong session IDs and invalid sequence transitions.
+Limits:
+- Control payload: 220 bytes (maximum complete frame: 236 bytes).
+- Data payload: 224 bytes (maximum complete frame: 240 bytes).
+- DATA's 8-byte transfer prefix leaves 216 package bytes per chunk.
 
-Control RX payloads are compact UTF-8 JSON and are limited to 220 bytes. Data RX payloads are binary and are limited to 224 bytes per frame; the 8-byte DATA transfer prefix leaves at most 216 package bytes per chunk. BLE callbacks only copy bounded bytes into queues; parsing, flash writes and command execution happen in the application loop.
+The firmware rejects malformed magic/version/type/flags/length/CRC/session frames and applies channel-specific payload limits.
+
+### Sequence semantics
+
+There is one incoming sequence space shared across Control RX and Data RX, and one outgoing sequence space shared across Control TX and Data TX. Sequence values wrap as uint16.
+
+- After HELLO, the next client control/data frame must use the next sequence value.
+- DATA retransmission may reuse the current last accepted sequence only when it is a byte-identical retry of the last accepted DATA chunk.
+- A skipped, stale or modified duplicate sequence is rejected.
+- The Web uploader uses stop-and-wait: one DATA chunk is outstanding at a time.
 
 ## 3. Message types
 
-| Value | Name | Direction | Purpose |
+| Value | Name | Direction | Implemented behavior |
 |---:|---|---|---|
-| 0x01 | HELLO | Web → Device | Offer protocol range and client nonce |
-| 0x02 | HELLO_ACK | Device → Web | Selected protocol, session and device identity |
-| 0x03 | GET_CAPABILITIES | Web → Device | Request static and runtime capabilities |
-| 0x04 | CAPABILITIES | Device → Web | Schema, elements, formats, memory/storage and transfer limits |
-| 0x05 | GET_STATUS | Web → Device | Request current runtime status |
-| 0x06 | STATUS | Device → Web | Wi-Fi, BLE, weather, screen, auto-sleep and heap snapshot |
-| 0x10 | COMMAND | Web → Device | Typed device command with requestId |
-| 0x11 | RESPONSE | Device → Web | Correlated command result |
-| 0x12 | EVENT | Device → Web | State change or asynchronous result |
-| 0x20 | TRANSFER_BEGIN | Web → Device | Package length, digest, design ID and transfer ID |
-| 0x21 | TRANSFER_READY | Device → Web | Reservation result, accepted chunk size and transfer ID |
-| 0x22 | DATA | Web → Device | Chunk index and binary bytes |
-| 0x23 | DATA_ACK | Device → Web | Highest contiguous accepted chunk and byte count |
-| 0x24 | TRANSFER_END | Web → Device | Declare all bytes sent |
-| 0x25 | VERIFY_RESULT | Device → Web | Package integrity/schema/capability result |
-| 0x26 | APPLY | Web → Device | Request activation of validated inactive slot |
-| 0x27 | APPLY_RESULT | Device → Web | Activation result and active design identity |
-| 0x28 | CANCEL | Web → Device | Cancel a cancellable operation |
-| 0x29 | TRANSFER_PROGRESS | Device → Web | Stage and verified byte progress |
-| 0x30 | PING | Either | Liveness request |
-| 0x31 | PONG | Either | Liveness response |
-| 0x7F | ERROR | Device → Web | Stable error code and safe diagnostic context |
+| 0x01 | HELLO | Web → Device | Negotiate major version; must use session ID zero |
+| 0x02 | HELLO_ACK | Device → Web | Selected version, device ID and new session ID |
+| 0x03 | GET_CAPABILITIES | Web → Device | Request capability snapshot |
+| 0x04 | CAPABILITIES | Device → Web | Device profile, element and transfer limits |
+| 0x05 | GET_STATUS | Web → Device | Request runtime status |
+| 0x06 | STATUS | Device → Web | Wi-Fi/BLE/weather/screen/power/heap snapshot |
+| 0x07 | GET_FACE_STATUS | Web → Device | Request active-face and storage status |
+| 0x08 | FACE_STATUS | Device → Web | Active face, transfer and SPIFFS status |
+| 0x10 | COMMAND | Web → Device | Structured command dispatch |
+| 0x11 | RESPONSE | Device → Web | Structured command response |
+| 0x12 | EVENT | Device → Web | Event envelope; not all draft event types are emitted |
+| 0x20 | TRANSFER_BEGIN | Web → Device | Request inactive-slot reservation |
+| 0x21 | TRANSFER_READY | Device → Web | Accepted transfer ID and chunk size |
+| 0x22 | DATA | Web → Device | Transfer ID, chunk index and bytes |
+| 0x23 | DATA_ACK | Device → Web | Accepted chunk index, bytes written and status |
+| 0x24 | TRANSFER_END | Web → Device | Finish receive and verify package |
+| 0x25 | VERIFY_RESULT | Device → Web | Package verification result |
+| 0x26 | APPLY | Web → Device | Activate the verified package |
+| 0x27 | APPLY_RESULT | Device → Web | Activation result and design ID |
+| 0x28 | CANCEL | Web → Device | Cancel a cancellable transfer |
+| 0x29 | TRANSFER_PROGRESS | Device → Web | Reserved; not currently emitted |
+| 0x30 | PING | Web → Device | Liveness request |
+| 0x31 | PONG | Device → Web | Liveness response |
+| 0x7F | ERROR | Device → Web | Bounded JSON error |
 
-Every COMMAND/RESPONSE pair includes a requestId. Events include eventId. Transfer messages include transferId and sequence/chunk indexes. A successful GATT write is not proof of command processing.
+A successful GATT write only confirms that the BLE stack accepted the write. The Web app waits for the protocol response/ACK before advancing.
 
-### DATA payload layout
+## 4. Handshake and session lifecycle
 
-The DATA frame payload begins with an 8-byte transfer prefix followed by raw package bytes:
-- transferId: uint32 little-endian;
-- chunkIndex: uint32 little-endian, starting at zero;
-- chunkBytes: 1–216 bytes.
+1. Web connects to the peripheral and subscribes to Control TX and Data TX.
+2. Web sends HELLO with JSON fields `minMajor`, `maxMajor`, and `client`. HELLO's frame session ID must be zero.
+3. Device validates the supported major version, aborts any cancellable transfer from a previous session, creates a nonzero random session ID and sends HELLO_ACK.
+4. Web stores the session ID and requests CAPABILITIES and STATUS.
+5. Web checks the design against the negotiated profile before enabling upload.
 
-DATA_ACK payload is exactly 14 bytes:
-- transferId: uint32 little-endian;
-- highest contiguous accepted chunk index: uint32 little-endian;
-- total bytes written: uint32 little-endian;
-- status code: uint16 little-endian (zero means accepted).
+HELLO_ACK JSON:
+- `major`: selected protocol major
+- `minor`: selected protocol minor
+- `device`: `ESP32_Watch_C3`
+- `session`: nonzero session ID
 
-TRANSFER_BEGIN JSON fields are transferId, packageLength, payloadSha256 (hex SHA-256 of the WFS1 payload), and designId. TRANSFER_READY returns transferId, chunkSize and nextChunk. TRANSFER_END and APPLY JSON payloads contain transferId. VERIFY_RESULT returns transferId, ok and error. APPLY_RESULT returns transferId, ok and designId.
+A repeated HELLO with session ID zero explicitly replaces the prior session. Any cancellable transfer from that session is aborted before the new session is published.
 
-## 4. Negotiated chunk size and reliability
+Connect/disconnect callbacks advance an RX generation counter. The application loop applies session reset outside BLE callbacks and discards queued frames stamped with an old generation. Disconnect does not resume a transfer on reconnect; a new upload starts from byte zero.
 
-- Request an ATT MTU suitable for bulk transfer where the stack/platform allows it.
-- Current Web uploader uses stop-and-wait and waits for one ACK per chunk. Bounded retransmission of the same chunk after ACK timeout, idempotent duplicate handling, and reconnect recovery remain required work; they must not be considered implemented merely because the message IDs exist.
-- Device capabilities report the maximum complete framed write accepted by the active connection.
-- Maximum DATA payload = negotiated framed-write limit minus the 16-byte WFS frame header and the DATA message's fixed payload fields.
-- The Web client must use the reported chunk size; it must not assume a 20-byte or 244-byte payload.
-- If the browser/OS cannot use the reported size, it must reconnect or renegotiate a smaller size before starting the transfer.
-- Start with one unacknowledged DATA chunk at a time. This bounded stop-and-wait behavior is slower but simple to verify on the first ESP32-C3 implementation.
-- A chunk is accepted only after sequence, transfer ID, expected length and flash write have succeeded.
-- Duplicate last-accepted chunks are acknowledged without writing them twice.
-- Out-of-order chunks are rejected with the expected next index.
-- Timeout, disconnect, flash error or digest mismatch invalidates the inactive staging session. Retry starts from byte zero with a new transfer ID.
-- The active slot is never modified during reception.
+## 5. Capability and status payloads
 
-## 5. Handshake and capability exchange
+### CAPABILITIES
 
-1. Web connects and subscribes to Control TX and Data TX notifications.
-2. Web sends HELLO with client protocol range and nonce.
-3. Device returns HELLO_ACK with selected protocol, device ID, firmware build ID and session ID.
-4. Web requests GET_CAPABILITIES.
-5. Device returns:
-   - supported schema and package versions;
-   - supported element types and rendering features;
-   - display profile;
-   - supported asset encodings;
-   - maximum object count and JSON size;
-   - current free heap and largest contiguous block;
-   - SPIFFS total/used/free bytes;
-   - maximum package size that can currently be staged while preserving the active package;
-   - accepted framed-write and data chunk sizes;
-   - legacy feature availability.
-6. Web runs compatibility validation before enabling Upload.
+Compact JSON keys:
+- `sv`, `pv`: schema and package versions
+- `pid`: device profile ID
+- `cw`, `ch`, `cs`: canvas width, height and shape
+- `bw`, `bh`: maximum bitmap width and height
+- `obj`, `assets`: object and asset limits
+- `json`: maximum layout JSON bytes
+- `img`: image support flag
+- `el`: comma-separated supported element codes: `t,dc,ac,d,w,s,i`
+- `wc`: weather-condition text support flag
+- `upload`: package upload availability
+- `chunk`: maximum package bytes per DATA chunk
+- `stage`: current inactive-slot staging capacity
 
-The STATUS JSON payload contains wifiEnabled, wifiConnected, bleConnected, weatherValid, temperature, screen, autoSleepSeconds, powerState and heapFree. The current compact CAPABILITIES JSON payload uses these keys: sv (schema version), pv (package version), pid (active device profile ID), cw/ch (canvas width/height), cs (canvas shape), bw/bh (maximum bitmap width/height), obj (maximum objects), assets (maximum image assets), json (maximum layout JSON bytes), img (1 if image assets are supported), el (comma-separated element codes: t=text, dc=digital-clock, ac=analog-clock, d=date, w=weather, s=shape, i=image), wc (1 if weather-condition text is supported), upload (1 if package installation is enabled), chunk (maximum raw DATA chunk bytes after frame and transfer headers), and stage (maximum current inactive-slot staging capacity). The current firmware advertises all seven implemented element types and weather-condition rendering on its 240×240 circular GC9A01 profile. Earlier WFS v1 builds may omit pid/bw/bh/assets; Web compatibility retains conservative ESP32-C3 defaults for those older builds. When present, negotiated profile and limits take precedence over Web defaults.
+The active profile is `esp32-c3-gc9a01-240`, 240×240 circle. Older v1 firmware may omit some newer fields; Web preflight has conservative defaults for those older builds.
 
-Runtime heap/storage values are snapshots. TRANSFER_BEGIN must reserve storage again and can still reject if resources changed.
+The firmware sets local BLE MTU to 247. The current chunk calculation is `min(MTU - 27, 216)`, where 27 bytes account for ATT overhead, the 16-byte WFS header and the 8-byte DATA prefix. The reported `chunk` value is the maximum raw package bytes in one DATA frame. TransferBegin rechecks and reserves storage; the CAPABILITIES `stage` value is only a snapshot.
 
-## 6. Transfer lifecycle
+### STATUS
 
-IDLE → PREPARING → NEGOTIATING → RECEIVING → VERIFYING → VALIDATING → READY_TO_APPLY → APPLYING → COMPLETE
+JSON fields:
+- `wifiEnabled`, `wifiConnected`, `bleConnected`
+- `weatherValid`, `temperature`
+- `screen`, `autoSleepSeconds`, `powerState`
+- `heapFree`
 
-Terminal states: FAILED, CANCELLED.
+### FACE_STATUS
 
-TRANSFER_BEGIN declares exact package length and expected package payload digest. TRANSFER_READY confirms that the inactive slot has been reserved and reports the accepted chunk size. DATA frames are written sequentially. TRANSFER_END triggers full validation and read-back verification. APPLY is a separate explicit action. APPLY_RESULT is the only success confirmation.
+JSON fields:
+- `faceId`, `faceName`
+- `transfer`, `rx`, `total`
+- `fsUsed`, `fsFree`
 
-Progress must distinguish received bytes, written bytes, verified bytes and applied state. Do not show 100% success when only the final GATT write has completed.
+## 6. Transfer payloads and reliability
 
-## 7. Typed command mapping
+### TRANSFER_BEGIN
 
-| Command | New v1 command name | Legacy path during migration |
-|---|---|---|
-| Time sync | TIME_SET {unixEpoch, timezone/offset} | SYNC_TIME:<epoch> |
-| Weather refresh | WEATHER_REFRESH | SYNC_WEATHER |
-| Location | LOCATION_SET {latitude, longitude} | GPS:<lat>,<lon> |
-| Wi-Fi scan | WIFI_SCAN | SCAN_WIFI |
-| Wi-Fi credentials | WIFI_CONFIG {ssid, password} | WIFI:<ssid>,<pass> |
-| Sleep request | POWER_SLEEP | SLEEP_ON |
-| Wake acknowledgement/status | POWER_STATUS | SLEEP_OFF remains status-only |
-| Auto-sleep read/write | AUTO_SLEEP_GET / AUTO_SLEEP_SET | GET_AUTO_SLEEP / AUTO_SLEEP:<seconds> |
+Control JSON fields:
+- `transferId`: nonzero uint32
+- `packageLength`: uint32
+- `payloadSha256`: exactly 64 hexadecimal characters; SHA-256 of WFS1 payload bytes
+- `designId`: non-empty design identifier
 
-Credentials must be JSON-escaped and must never appear in serial logs or error events. The firmware now configures BLE bonding with link encryption and marks both legacy command access and WFS control/data characteristic access as encrypted. The current pairing mode is BLE bonding with IO capability NONE (Just Works): it encrypts the link but does not provide MITM protection. A user-approved OS pairing/bond is required before accessing protected characteristics. Do not describe this as strong MITM authentication. Production hardening still requires a reviewed passkey/authorization UX, bond reset/revocation behavior, and physical-device pairing tests. Credentials are never logged and the typed WIFI_CONFIG payload is JSON-based rather than comma-delimited.
+Fields are type-checked before conversion. The digest parser accepts only ASCII hexadecimal characters; malformed input is rejected before storage reservation.
 
-## 8. Stable error codes
+### TRANSFER_READY
 
-Initial codes:
-- 0x0001 PROTOCOL_VERSION_UNSUPPORTED
-- 0x0002 FRAME_INVALID
-- 0x0003 SESSION_INVALID
-- 0x0004 SEQUENCE_INVALID
-- 0x0010 COMMAND_INVALID
-- 0x0020 TRANSFER_BUSY
-- 0x0021 TRANSFER_ID_INVALID
-- 0x0022 TRANSFER_SIZE_INVALID
-- 0x0023 STORAGE_RESERVATION_FAILED
-- 0x0024 CHUNK_SEQUENCE_INVALID
-- 0x0025 CHUNK_WRITE_FAILED
-- 0x0026 TRANSFER_DIGEST_MISMATCH
-- 0x0030 PACKAGE_HEADER_INVALID
-- 0x0031 PACKAGE_VERSION_UNSUPPORTED
-- 0x0032 PACKAGE_LAYOUT_INVALID
-- 0x0033 PACKAGE_ASSET_INVALID
-- 0x0034 SCHEMA_INVALID
-- 0x0035 CAPABILITY_UNSUPPORTED
-- 0x0040 APPLY_FAILED
-- 0x0041 ROLLBACK_ACTIVE
-- 0x0050 DEVICE_BUSY
-- 0x0051 MEMORY_RESERVATION_FAILED
+Returns:
+- `transferId`
+- `chunkSize`
+- `nextChunk` (initially zero)
 
-Error context must be bounded and must not contain credentials or full package contents.
+### DATA
 
-## 9. Legacy compatibility and migration exit
+Payload layout:
+- offset 0, 4 bytes: `transferId` uint32
+- offset 4, 4 bytes: `chunkIndex` uint32, starting at zero
+- offset 8 onward: 1–216 package bytes
 
-Keep the existing service/characteristic and command semantics while the new service is introduced. Migrate one operation at a time and run regression tests for each. Remove legacy support only in a separately reviewed change after the Web client no longer depends on it and physical hardware tests pass.
+The receiver accepts only the next chunk index. After a successful flash write and flush, it commits the sequence state. An exact retransmission of the last accepted chunk is ACKed without writing it twice. Same index with different bytes, skipped indexes and invalid lengths are rejected.
+
+### DATA_ACK
+
+Exactly 14 bytes:
+- offset 0: transfer ID, uint32
+- offset 4: last accepted chunk index, uint32
+- offset 8: total bytes written, uint32
+- offset 12: status, uint8 (zero means success)
+- offset 13: reserved, zero
+
+The Web client validates transfer ID, chunk index, status and cumulative byte count before moving to the next chunk. It retries the same encoded frame up to three attempts when an ACK times out.
+
+### TRANSFER_END, VERIFY_RESULT, APPLY
+
+- TRANSFER_END JSON contains `transferId`. The device flushes/closes the writer, reopens the staging package and validates length, header, hashes, manifest, layout, assets and device capabilities.
+- VERIFY_RESULT JSON contains `transferId`, `ok` and `error`.
+- APPLY JSON contains `transferId`. Apply is accepted only from Verified state.
+- APPLY_RESULT JSON contains `transferId`, `ok` and `designId`.
+
+### CANCEL and disconnect
+
+CANCEL JSON contains `transferId`. It is accepted only in cancellable states. A failed cancel returns an error; the firmware does not emit a false cancellation success. Disconnect cleanup is deferred to the application loop. If staging cleanup fails, the concrete storage error is retained and a critical diagnostic is logged.
+
+Firmware transfer states are:
+`Idle`, `Receiving`, `Verifying`, `Verified`, `Applying`, `Complete`, `Failed`, `Cancelled`.
+
+No resume-from-offset protocol is implemented. On reconnect, the client must start a fresh transfer.
+
+## 7. Error behavior
+
+ERROR payload is bounded JSON with `code` and `message`. Current errors distinguish:
+- malformed frame/version/session/sequence;
+- oversized control/data payload;
+- malformed HELLO/control JSON or transfer fields;
+- unsupported protocol version;
+- resource busy or MTU too small;
+- invalid digest or transfer reservation failure;
+- transfer/chunk state, sequence or write failures;
+- non-cancellable transfer.
+
+The numeric codes are an implementation detail of this initial version and are not yet a separately frozen public error registry. Use the returned message and transfer error name; do not assume all codes from older planning drafts are emitted.
+
+## 8. Structured commands and legacy migration
+
+The firmware has a CommandHandler dispatch path for structured WFS commands, but the current Web editor still uses the legacy characteristic for several existing controls. The legacy command set includes time sync, weather refresh, GPS/location, Wi-Fi scan/configuration, sleep and Auto Sleep get/set.
+
+Do not infer that all planned command names (for example, every typed Wi-Fi/power event) are implemented just because COMMAND/RESPONSE/EVENT message IDs exist. Keep legacy UUIDs and semantics until each operation has an implemented Web path and physical regression coverage.
+
+## 9. Security and hardware verification
+
+BLE bonding uses IO capability NONE (Just Works). The protected characteristics require encrypted access, but there is no MITM protection. A secure product would need a reviewed passkey/authorization design, bond reset/revocation behavior and physical-device tests.
+
+Physical tests remain required for:
+- pairing and encrypted characteristic access on Android/browser;
+- HELLO/capability/status exchange and repeated reconnect;
+- small and image-bearing uploads;
+- lost ACK/retry, cancel, disconnect and malformed package;
+- reboot after apply and interrupted transfer;
+- Wi-Fi/weather arbitration and Light Sleep interaction.
+
+Host tests and PlatformIO compilation are necessary, but are not substitutes for the hardware checklist.
