@@ -41,5 +41,22 @@ int main() {
     receiver.reset();
     assert(receiver.nextIndex() == 0);
     assert(receiver.inspect(0, first, sizeof(first)) == Decision::Accept);
+
+    // Transfer inactivity uses unsigned elapsed time so millis() wraparound
+    // cannot keep an abandoned session alive forever.
+    WfsTransferSequence::InactivityTimer timer;
+    timer.start(1000);
+    assert(!timer.expired(1000, 100));
+    assert(!timer.expired(1099, 100));
+    assert(timer.expired(1100, 100));
+    timer.touch(1100);
+    assert(!timer.expired(1199, 100));
+    assert(timer.expired(1200, 100));
+
+    timer.start(0xFFFFFFF0U);
+    assert(!timer.expired(0x0000000FU, 32));
+    assert(timer.expired(0x00000010U, 32));
+    timer.clear();
+    assert(!timer.expired(0x00000020U, 1));
     return 0;
 }
