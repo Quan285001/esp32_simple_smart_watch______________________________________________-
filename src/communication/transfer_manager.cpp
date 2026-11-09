@@ -46,6 +46,9 @@ void clearTransferFields() {
     previousActiveSlot = FaceStorage::INVALID_SLOT;
     memset(expectedDigest, 0, sizeof(expectedDigest));
     memset(expectedDesignId, 0, sizeof(expectedDesignId));
+    verifiedFace = FaceModel{};
+    transferStartedAtMs = 0;
+    transferStartMemory = {};
 }
 }
 
@@ -98,10 +101,9 @@ bool begin(uint32_t transferId, uint32_t packageLength,
         return false;
     }
 
-    clearTransferFields();
-    // clearTransferFields resets slot metadata, so restore the reservation.
-    stagingSlot = FaceStorage::inactiveSlot();
-    previousActiveSlot = FaceStorage::activeSlot();
+    // Keep the exact slot reservation made before opening the staging file.
+    // Re-deriving it here could silently bind the file to a different slot if
+    // the persisted active pointer changed during setup.
     currentTransferId = transferId;
     totalLength = packageLength;
     memcpy(expectedDigest, expectedPayloadDigestValue, sizeof(expectedDigest));
