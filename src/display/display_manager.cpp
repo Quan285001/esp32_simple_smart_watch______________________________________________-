@@ -39,13 +39,12 @@ public:
         if (pixels == nullptr || count == 0) return;
 
         // WFS assets are decoded from RGB565LE bytes into native uint16_t
-        // colour values. ESP32 is little-endian, so the in-memory bytes are
-        // low-byte first; the GC9A01 SPI stream requires the RGB565 high byte
-        // first. TFT_eSPI's swap path writes each uint16_t as MSB then LSB.
-        // Do not copy TFT_eSprite's false setting: sprite storage has a
-        // different byte-layout contract from this decoded native-word row.
+        // colour values. On ESP32-C3, TFT_eSPI's normal SPI pushPixels path
+        // sends those native words in RGB565 MSB-first wire order. Enabling
+        // swapBytes selects pushSwapBytePixels(), which swaps the two bytes
+        // again and corrupts the colour. Preserve the caller's setting.
         const bool previousSwapBytes = tft.getSwapBytes();
-        tft.setSwapBytes(true);
+        tft.setSwapBytes(false);
         tft.pushImage(x, y, count, 1, pixels);
         tft.setSwapBytes(previousSwapBytes);
     }
