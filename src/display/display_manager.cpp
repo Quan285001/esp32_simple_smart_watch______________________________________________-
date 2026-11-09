@@ -39,11 +39,11 @@ public:
         if (pixels == nullptr || count == 0) return;
 
         // WFS assets are decoded from RGB565LE bytes into native uint16_t
-        // values. TFT_eSPI must swap each word when streaming those values
-        // over SPI (MSB first); keep this local so other drawing paths retain
-        // their existing byte-order configuration.
+        // colour values. pushImage(uint16_t*) expects native RGB565 words,
+        // so do not reinterpret their in-memory byte order as pre-swapped data.
+        // Keep the setting local in case another drawing path changes it later.
         const bool previousSwapBytes = tft.getSwapBytes();
-        tft.setSwapBytes(true);
+        tft.setSwapBytes(false);
         tft.pushImage(x, y, count, 1, pixels);
         tft.setSwapBytes(previousSwapBytes);
     }
