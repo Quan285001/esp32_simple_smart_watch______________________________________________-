@@ -1,107 +1,124 @@
 # Firmware Rebuild — Implementation Status
 
 **Working branch:** `rebuild/watch-face-studio-v2`  
-**Last source audit:** `9d2afe4` (BLE lifecycle guard review); technical reference added at `2644af0`.  
-**Scope:** ESP32-C3 firmware, WFS BLE v1, Watch Face renderer, shared Web editor contract.
+**Main branch:** untouched.  
+**Code verification baseline:** `39c4a55edc004c57a2cace06df0cc59e7097bb34`  
+**Scope:** ESP32-C3 firmware, Watch Face Studio Web editor, WFS BLE v1, package/image pipeline and shared contracts.
 
-This document records implementation state. It is not a declaration that the full rebuild prompt is complete.
+This file distinguishes software verification from physical-board evidence. A green CI run is not a hardware test.
 
-## Implemented in this pass
+## 1. Implemented software scope
 
-### Shared design and device compatibility
+### Architecture and runtime
 
-- Web preflight rejects several invalid or unsupported element/property combinations before packaging.
-- Parser host tests cover invalid JSON field types, schema versions, unsupported properties, invalid time modes, non-ASCII text and object-count limits.
-- A central compile-time active display profile now holds the profile ID, dimensions, bitmap limits, object/asset limits and shape.
-- Parser, face manager, package validator, image bounds and renderer limits consume the centralized profile values.
-- CI checks parity between firmware profile constants and the shared JSON device profile.
+- `AppRuntime` owns the main Arduino loop; `main.cpp` retains setup and compatibility wrappers.
+- `BootCoordinator` owns persistent restore and ordered startup network work.
+- `WifiService` owns Wi-Fi connection monitoring, reconnect policy and asynchronous scans.
+- `WeatherCoordinator` owns single-flight fetch, cooldown, location refresh and notification lifecycle.
+- `SystemManager` owns Auto Sleep and Light Sleep state transitions.
+- `DisplayManager` owns the physical TFT; Watch Face rendering uses the backend-neutral `DisplayCanvas` interface.
+- Built-in clock/weather/menu/boot-terminal rendering still has transitional direct TFT access.
 
-### Display/rendering boundary
+### Watch Face engine and device compatibility
 
-- `DisplayCanvas` defines the logical drawing API for geometry, text, clipping and RGB565 row output.
-- The existing TFT_eSPI/GC9A01 driver is wrapped by `TftDisplayCanvas`.
-- Watch Face renderer, image element and app screen controller use the canvas API rather than directly calling TFT_eSPI.
-- CI checks those source boundaries and compiles a small fake canvas implementation without TFT_eSPI.
+- Fixed-capacity FaceModel, bounded JSON parser, renderer, element modules and package validator are integrated.
+- Active profile: `esp32-c3-gc9a01-240`, 240×240 circular GC9A01, RGB565.
+- Supported objects: text, digital clock, analog clock, date, weather temperature/condition, shape and image.
+- Device compatibility preflight uses the negotiated profile/capabilities and rejects unsupported features before upload.
+- Dynamic redraw invalidates changed regions and redraws intersecting objects in z-order.
+- Font parity is not pixel-identical to the browser. Rotation, alpha blending, arbitrary fonts, compressed image decoding and advanced weather bindings are unsupported.
 
-### WFS BLE and Web editor
+### Image and portable project pipeline
 
-- `WifiService` owns station credential persistence/configuration, saved-credential enable, station disable, asynchronous scan start/poll/result handling, reconnect retry/log cadence, and connected/disconnected transition tracking. `main.cpp` retains UI-level arbitration and reacts to connection transitions to refresh time/weather.
-- `WeatherCoordinator` owns the single-flight background fetch task, manual cooldown, location-refresh pending/retry behavior, periodic refresh policy, boot-fetch lifecycle and BLE completion notifications.
-- `BootCoordinator` owns persistent-state restoration (storage, location, clock checkpoint, Auto Sleep and weather cache), ordered Wi-Fi/NTP/weather/lunar startup, and the handoff signal for BLE initialization. Its state transitions are protected by a FreeRTOS critical section; the main loop yields a scheduler tick after the worker signals completion so the worker can self-delete and the idle task can reclaim its stack before BLE initialization.
-- `AppRuntime` now owns the Arduino `loop()` entry point, startup-to-UI handoff, button/BLE servicing, periodic service scheduling and screen animation/render cadence. `main.cpp` retains `setup()` and compatibility service wrappers.
-- BLE initialization publishes `bleStackInitialized` only after the legacy GATT server, service, characteristic and advertising instance are available. Partial failures deinitialize the stack, clear WFS state and permit a later retry instead of leaving a false-ready flag. If the optional WFS GATT service alone fails to initialize, its RX queue and protocol state are rolled back while legacy BLE remains available.
-- WFS write callbacks copy bounded packets into a FreeRTOS queue; protocol parsing and transfer/storage operations run in the application loop, not the Bluetooth host callback.
-- WFS session epochs invalidate packets queued before connect/disconnect transitions. Session reset clears protocol sequencing and aborts any cancellable in-progress transfer. Explicit cancel commands now return a rejection when the transfer ID/state is not cancellable, rather than emitting a false cancellation event.
-- BLE shutdown deinitializes the host/controller before deleting the WFS and legacy command queues, preventing queue handles from outliving their callback producer.
-- Radio arbitration is applied to both the legacy BLE command path and WFS structured commands: Wi-Fi credential changes and location updates are rejected while startup/weather network work is active; location updates are also rejected during Wi-Fi scanning.
-- WFS capability exchange advertises the active profile ID, canvas size/shape, bitmap limits, object/asset limits, JSON size, image support, the compact supported-element set (el), weather-condition support (wc), upload availability, chunk size and current staging capacity. Web preflight decodes these negotiated fields and rejects unsupported element/condition combinations before package transfer.
-- Web preflight consumes the negotiated profile and resource limits. Older WFS v1 firmware that omits the newer fields retains conservative ESP32-C3 defaults.
-- Web preflight now rejects numeric fields with coercible-but-invalid string/null types and values outside the firmware renderer's supported opacity, font-weight and glyph-spacing contract.
-- Web preflight and the firmware parser now require rounded-rectangle corner radii to be integral pixels in the `uint8_t` range (0–255), and reject nonzero radii on non-rounded-shape elements so CSS preview styling cannot silently disappear on-device.
-- Web preflight and firmware renderer preflight now require object opacity to equal 1.0; near-opaque values are rejected because the GC9A01 renderer does not implement alpha blending.
-- WFS package manifests now declare optional weather-condition support when used, and firmware package validation verifies that every element's required capability is declared before accepting the package.
-- Portable `.wfsproject.json` files bundle the design and its referenced source images.
-- The project envelope has a shared schema and a golden fixture. Legacy raw Watch Face JSON remains importable when referenced images already exist in the browser's IndexedDB.
+- Source images are persisted in browser IndexedDB.
+- `.wfsproject.json` bundles the design and referenced source image data for cross-browser backup/import.
+- Web preflight validates references and transparent overlays, converts device images to RGB565 little-endian and builds WFS1 packages.
+- Firmware validates asset dimensions/byte lengths/offsets and streams RGB565 rows from package storage to the canvas.
+- Host coverage includes image import, duplicate IDs, transparent compositing checks, RGB565 byte order, image element bounds and storage-to-canvas behavior.
 
-### Storage and BLE lifecycle hardening
+### Firmware storage and activation
 
-- Storage boot selection is governed exclusively by the NVS active-slot commit pointer. A missing, invalid or dangling pointer never promotes the other SPIFFS slot.
-- Transfer verification requires flushing and closing the staging writer before reopening the package for validation. Apply is gated by the Verified state.
-- Failed activation attempts restore and read back the previous commit pointer; first-install rollback removes the pointer. If rollback cannot be verified, storage is disabled until reinitialization.
-- Added host source guards for BLE callback/session teardown ordering and storage recovery/rollback invariants. These are source-contract checks, not simulated NVS/SPIFFS power-loss tests.
+- Two SPIFFS package slots are governed by an NVS active-slot commit pointer.
+- Transfer setup preserves the exact active/inactive slot reservation and never deletes the active package.
+- Receive, flush/close, reopen, package verification and Apply are separate stages.
+- Apply persists and reads back the active pointer before treating the model as installed.
+- Failed model installation restores the previous pointer; first-install rollback removes the pointer.
+- If rollback cannot be verified, storage is disabled until reinitialization.
+- Boot does not promote an uncommitted/other slot automatically; it falls back to the built-in face if the committed slot is invalid.
 
-### Power and diagnostics
+### BLE and WFS communication
 
-- Light Sleep entry/wake lifecycle and Auto Sleep idle policy are owned by `SystemManager`, not embedded in the main loop.
-- Runtime diagnostics report free heap, minimum free heap, largest free block, a heap-fragmentation estimate and current-task stack high-water mark. The boot-network and weather-fetch workers also emit exit snapshots so their own stack high-water marks are captured after TLS/network work. ESP-IDF returns this high-water mark in bytes (unlike vanilla FreeRTOS), so the diagnostic stores the value directly without multiplying by the stack word size.
-- WFS transfer instrumentation now captures a memory baseline at receive start, then reports receive duration, package verification duration, package bytes, free-heap change and minimum-heap drop; apply duration and post-apply memory are also logged. This provides real-device measurements for the package upload path without adding a full-package RAM buffer.
-- `main.cpp` is approximately 145 lines; it retains hardware setup and compatibility wrappers while `AppRuntime` owns the main loop.
+- Legacy BLE service and commands remain for compatibility.
+- WFS v1 GATT has Control RX/TX and Data RX/TX characteristics.
+- The 16-byte WFS frame codec has C++/JavaScript golden-frame coverage.
+- BLE callbacks only copy bounded packets into a FreeRTOS queue; the app loop parses and processes them.
+- Session generations reject queued stale packets after connect/disconnect. Repeated HELLO with session ID zero aborts cancellable prior-session transfers before establishing a new session.
+- Control and Data channels share one incoming sequence space; retransmission is limited to an identical retry of the last accepted DATA chunk.
+- Transfer uses stop-and-wait ACKs, bounded same-frame retry, strict transfer-field types and strict 64-character hexadecimal SHA-256 parsing.
+- Failed GATT writes cancel their response waiters so stale promises do not accumulate.
+- TransferManager handles receive, verify, apply, cancel and disconnect cleanup; failed cleanup preserves its concrete storage error.
+- Capability exchange reports profile, canvas, elements, bitmap/object/asset limits, image support, chunk size and staging capacity.
 
-## Remaining work
+### Diagnostics and power
 
-1. **Application orchestration:** narrow remaining compatibility wrappers and make service/resource arbitration explicit without duplicating ownership of the TFT instance or UI state.
-2. **Display backend completion:** only the GC9A01/TFT_eSPI backend exists. The active profile is compile-time selected; runtime profile selection and alternative backends (ST7789, OLED, monochrome/e-paper, RGB888) are not implemented.
-3. **Legacy UI migration:** built-in clock, weather, menu and boot-terminal renderers still use the transitional global `tft` handle.
-4. **Renderer parity:** browser and firmware fonts are not pixel-identical; advanced schema elements and weather bindings remain unsupported. Web shape, analog-clock, text clipping and weather previews now follow the supported firmware geometry/field contract, but pixel-level font parity still requires device comparison.
-5. **Storage fault coverage:** add host/mock tests for interrupted writes, full storage, corrupt metadata and power loss. Failed apply now restores the prior active-slot pointer, including removing it on a first-install rollback; actual NVS/SPIFFS fault injection is still outstanding. Preserve the two-slot rule: never replace the active package before the candidate verifies.
-6. **Runtime profiling:** capture representative heap/stack snapshots during image rendering, TLS weather fetch and repeated screen transitions; WFS transfer/verification/apply timing and heap snapshots are now instrumented, but still need measurements from the physical board.
-7. **Hardware regression:** execute the step-by-step [ESP32-C3 hardware regression checklist](hardware-regression-checklist.md), including BLE MTU/notifications, repeated connect/disconnect, package retry/cancel/apply, screen rendering, Wi-Fi/weather concurrency, sleep/wake and recovery. CI cannot substitute for this.
+- Diagnostics capture free heap, minimum free heap, largest free block, fragmentation estimate and task stack high-water values.
+- Worker tasks emit memory snapshots before exit; ESP-IDF stack high-water values are reported in bytes.
+- WFS receive/verify/apply timing and heap deltas are logged.
+- Auto Light Sleep applies only on the clock screen after the configured idle timeout (15 seconds default), and is suppressed during active BLE or background work.
+- Manual Light Sleep shuts down Wi-Fi/BLE, blanks the TFT and wakes on GPIO9. Radios remain off after wake until explicitly enabled.
 
-## Verification record
+## 2. Current verification record
 
-- Commit `e79f44e`: PlatformIO Build and Pages deployment completed successfully after aligning Web and firmware opacity handling; host compatibility tests reject 0.9995 opacity and verify the renderer's exact full-opacity guard.
+The code baseline `39c4a55edc004c57a2cace06df0cc59e7097bb34` passed:
 
-- Commit `bc745ee`: PlatformIO Build and Pages deployment completed successfully after adding negotiated element and weather-condition capabilities to WFS CAPABILITIES; host compatibility tests verify compact element-code decoding and rejection when weather-condition support is absent.
+- [PlatformIO Build workflow run 42577483237](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483237)
+  - shared JSON schema validation;
+  - device compatibility and display profile/canvas boundary checks;
+  - Web asset validation and `node --check web/app.js`;
+  - complete host protocol/transfer/digest/session/Web tests;
+  - ESP32-C3 PlatformIO firmware build;
+  - Watch Face parser host tests;
+  - Watch Face renderer host tests;
+  - firmware artifact upload.
+- [GitHub Pages deployment run 42577483245](https://github.com/Quan285001/esp32_very_simple_smart_watch./actions/runs/42577483245).
 
-- Commit `fad0ba2`: PlatformIO Build and Pages deployment completed successfully after adding WFS receive, verification and apply timing plus heap snapshots; firmware artifact upload and parser/host tests passed.
+The uploaded artifact is named `esp32-c3-firmware` and is available from the workflow run for a limited retention period. The artifact is a CI build output; it is not a record of flashing or running on the physical board.
 
-- Commit `f4213b8`: PlatformIO Build and Pages deployment completed successfully after aligning rounded-rectangle corner-radius validation across the browser preflight and firmware parser; compatibility and parser host tests cover fractional, out-of-range, misplaced and valid radii.
+The documentation commits after this code baseline must receive their own final CI run before the branch is declared fully green again.
 
-- Commit `310ddaa`: PlatformIO Build completed successfully; schema validation, device compatibility, canvas boundary, host canvas contract, profile contract, Web asset validation, JavaScript syntax, protocol host tests and parser host tests all passed.
-- Commit `2b9dc1f`: PlatformIO Build completed successfully after moving Auto Sleep policy into `SystemManager`.
-- Commit `42502d2`: PlatformIO Build completed successfully after extracting asynchronous Wi-Fi scanning into `WifiService`.
-- Commit `3a7e0b7`: PlatformIO Build completed successfully after moving Wi-Fi reconnect monitoring and connection transition tracking into `WifiService`.
-- Commit `4a3348e`: PlatformIO Build and Pages deployment completed successfully after adding radio-arbitration guards to WFS and legacy BLE location/network commands.
-- Commit `d161ef4`: PlatformIO Build and Pages deployment completed successfully after moving persistent-state restoration into `BootCoordinator`.
-- Commit `83e8235`: PlatformIO Build and Pages deployment completed successfully after extracting the Arduino `loop()` into `AppRuntime`.
-- Commit `fda3881`: PlatformIO Build and Pages deployment completed successfully after adding BLE partial-initialization rollback.
-- Commit `a955927`: PlatformIO Build and Pages deployment completed successfully; host protocol tests passed and the ESP32-C3 firmware build, Watch Face parser tests and artifact upload completed successfully.
-- Commit `caa1b50`: PlatformIO Build and Pages deployment completed successfully after adding WFS session-generation and queue-teardown guard tests.
-- Commit `509ad06`: PlatformIO Build and Pages deployment completed successfully after correcting ESP-IDF stack high-water units and adding worker-task memory snapshots. Static build usage was 103,476 / 327,680 bytes RAM (31.6%) and 1,802,826 / 3,145,728 bytes flash (57.3%). These are link-time image metrics, not runtime free-heap measurements.
-- Commit `70da942`: PlatformIO Build and Pages deployment completed successfully after making transfer cancellation return an explicit result; host BLE/session, transfer transaction, worker diagnostics and parser tests passed, and the firmware artifact was uploaded.
-- Commit `484cd61`: PlatformIO Build and Pages deployment completed successfully after adding the physical-board regression checklist and clarifying BLE advertising-toggle test cases.
-- Commit `11af28a`: PlatformIO Build and Pages deployment completed successfully after rolling back optional WFS GATT setup failures and releasing the unused RX queue while retaining legacy BLE.
-- Commit `47aa20b`: PlatformIO Build and Pages deployment completed successfully after closing the boot-network worker handoff window; the boot coordinator guard verifies the worker logs before signalling completion and yields a tick before BLE initialization.
-- Commit `ff53541`: PlatformIO Build and Pages deployment completed successfully after keeping the weather worker marked active through its exit memory snapshot, preventing service/auto-sleep logic from treating the worker as finished while it is still logging.
-- Commit `21efdf3`: PlatformIO Build and Pages deployment completed successfully after tightening Web preflight numeric type/range checks; regression cases cover out-of-range opacity and string/null numeric values.
-- Commit `cdf9985`: PlatformIO Build and Pages deployment completed successfully after aligning package manifest capability declarations with the actual Watch Face elements, including `weather.condition`; firmware now rejects manifests that omit capabilities required by the parsed design.
-- Commit `6c295a2`: PlatformIO Build and Pages deployment completed successfully after adding rollback to the no-active-face state when first-install apply fails; host storage recovery guards and parser tests passed.
-- Commit `072364e`: PlatformIO Build and Pages deployment completed successfully after adding rate-limited slow Watch Face render timing diagnostics (frames taking at least 8 ms).
-- No physical ESP32-C3 test is claimed. The user performs board flashing and hardware regression.
+## 3. Remaining work and explicit limits
 
-## Migration constraints
+### Physical hardware validation — not complete
 
-- Continue only on `rebuild/watch-face-studio-v2`; do not modify `main`.
-- Keep legacy BLE identifiers/commands and existing face package compatibility until a separately reviewed migration is complete.
-- Keep packages declarative; do not compile or execute arbitrary C++ from the Web editor.
-- Commit logical units and report exact test evidence. A queued/running workflow is not a pass.
+Run `docs/architecture/hardware-regression-checklist.md` on the actual ESP32-C3/GC9A01 and record:
+- cold boot, serial startup and button/menu behavior;
+- clock/weather rendering, NTP, Wi-Fi and cached weather;
+- BLE bonding/encrypted access, WFS handshake, status and reconnect;
+- small and image-bearing Watch Face upload;
+- ACK retry, cancel, disconnect, invalid digest/package and reboot recovery;
+- Wi-Fi/weather/transfer resource arbitration;
+- Light Sleep and repeated wake cycles;
+- heap, largest-block, fragmentation and task stack snapshots.
+
+### Known engineering limitations
+
+1. Only the ESP32-C3 + GC9A01/TFT_eSPI backend is implemented; no runtime profile switching or alternate display backend.
+2. Built-in legacy UI/boot-terminal code still has direct TFT access.
+3. Browser and firmware font rendering require visual comparison on hardware.
+4. Alpha blending, arbitrary rotation/fonts, compressed PNG/JPEG device decoding and advanced weather fields are unsupported.
+5. BLE Just Works bonding encrypts the link but does not provide MITM protection.
+6. SPIFFS/NVS power-loss fault injection and actual storage-capacity behavior remain hardware-pending.
+7. Physical BLE/browser interoperability, image rendering, reconnect stability, sleep/wake and long-duration reliability have not been demonstrated.
+
+## 4. Phase assessment
+
+- Phases 0–6: software implementation and CI acceptance are complete at the current code baseline, subject to the physical verification items above.
+- Phase 7: pending physical-board testing.
+- Phase 8: documentation/release polish in progress; final CI after documentation changes and hardware sign-off remain required.
+
+## 5. Migration constraints
+
+- Continue on `rebuild/watch-face-studio-v2`; do not modify or merge into `main` without explicit instruction.
+- Preserve legacy BLE IDs/commands until a separately reviewed migration.
+- Keep watch-face packages declarative; never compile or execute arbitrary code from the editor.
+- Do not claim hardware testing unless the physical board has actually been flashed and the results recorded.
