@@ -211,9 +211,17 @@ bool apply(uint32_t transferId) {
     if (!modelInstalled) {
         // Restore the exact previous commit state. On a first install that
         // means removing the active pointer, not leaving the new slot committed.
-        FaceStorage::restoreActiveSlot(previousActiveSlot);
-        Serial.printf("[PERF] WFS apply failed after %lu ms.\n",
-                      static_cast<unsigned long>(applyDurationMs));
+        const bool rollbackRestored =
+            FaceStorage::restoreActiveSlot(previousActiveSlot);
+        if (!rollbackRestored) {
+            // FaceStorage disables further writes when the persisted pointer
+            // cannot be restored and verified. Make this critical condition
+            // visible separately from an ordinary model-install failure.
+            Serial.println("[TRANSFER] CRITICAL: active-slot rollback could not be verified; persistent face storage is disabled.");
+        }
+        Serial.printf("[PERF] WFS apply failed after %lu ms. rollback=%s\n",
+                      static_cast<unsigned long>(applyDurationMs),
+                      rollbackRestored ? "restored" : "FAILED");
         SystemDiagnostics::logMemory("WFS apply failed");
         currentState = State::Failed;
         currentError = Error::ApplyFailed;
