@@ -40,7 +40,8 @@ enum class Error : uint8_t {
     LengthMismatch,
     PackageInvalid,
     ApplyFailed,
-    SessionLost
+    SessionLost,
+    Timeout
 };
 
 struct Snapshot {
@@ -60,6 +61,7 @@ bool finish(uint32_t transferId);
 bool apply(uint32_t transferId);
 bool cancel(uint32_t transferId);
 void abortSession();
+void service();
 Snapshot snapshot();
 bool isBusy();
 const char* stateName(State state);
