@@ -138,6 +138,11 @@ int main() {
            canvas.calls[2]=="fill" && canvas.calls[3]=="text:13:05" && canvas.calls[4]=="reset-clip");
     assert(canvas.clipX==50 && canvas.clipY==50 && canvas.clipW==100 && canvas.clipH==30);
 
+    // An unchanged minute-only clock must not clear/repaint its region.
+    canvas.reset();
+    assert(renderWatchFaceDynamic(face,timeInfo,weather)==FaceRenderStatus::Ok);
+    assert(canvas.calls.empty());
+
     // Dynamic redraw must restore intersecting layers above the changing element.
     face=baseFace(); face.objectCount=3;
     face.objects[0]=baseObject(FaceElementType::Shape,"lower");
