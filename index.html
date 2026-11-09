@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="./web/styles.css">
 <script defer src="./web/device-compatibility.js"></script>
+<script defer src="./web/device-profile.js"></script>
 <script defer src="./web/app.js"></script>
 </head>
 <body>
@@ -150,6 +151,28 @@
 </div>
 <input id="imageInput" class="hidden" type="file" accept="image/*">
 <input id="jsonInput" class="hidden" type="file" accept="application/json,.json">
+<dialog id="deviceProfileDialog" class="profile-dialog" aria-labelledby="deviceProfileTitle">
+ <form method="dialog" id="deviceProfileForm">
+  <header class="profile-dialog-header"><div><div class="eyebrow">DISPLAY CONFIGURATION</div><h2 id="deviceProfileTitle">Device Profile</h2></div><button class="tool-btn" id="deviceProfileClose" type="button" aria-label="Close">×</button></header>
+  <p class="profile-dialog-note">Define the design canvas independently from the connected watch. Changing this profile does not change the physical display or firmware.</p>
+  <div class="profile-form-grid">
+   <label class="field profile-wide">PROFILE NAME<input id="profileName" maxlength="80" required value="Custom display"></label>
+   <label class="field">WIDTH (PX)<input id="profileWidth" type="number" min="1" max="1024" step="1" required></label>
+   <label class="field">HEIGHT (PX)<input id="profileHeight" type="number" min="1" max="1024" step="1" required></label>
+   <label class="field">DISPLAY SHAPE<select id="profileShape"><option value="circle">Circle</option><option value="square">Square</option><option value="rectangle">Rectangle</option><option value="rounded-square">Rounded square</option><option value="rounded-rectangle">Rounded rectangle</option></select></label>
+   <label class="field">ROTATION<select id="profileRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
+   <label class="field profile-wide">COLOR FORMAT<select id="profileColorFormat"><option>RGB565</option><option>RGB888</option><option>INDEXED8</option><option>MONO1</option></select></label>
+   <div class="profile-wide profile-subheading">SAFE AREA (PX)</div>
+   <label class="field">TOP<input id="profileSafeTop" type="number" min="0" step="1" value="0"></label>
+   <label class="field">RIGHT<input id="profileSafeRight" type="number" min="0" step="1" value="0"></label>
+   <label class="field">BOTTOM<input id="profileSafeBottom" type="number" min="0" step="1" value="0"></label>
+   <label class="field">LEFT<input id="profileSafeLeft" type="number" min="0" step="1" value="0"></label>
+   <label class="field profile-wide">WHEN DIMENSIONS CHANGE<select id="profileScaleStrategy"><option value="scale">Scale object positions and sizes proportionally</option><option value="keep">Keep existing pixel coordinates</option></select></label>
+  </div>
+  <p class="profile-dialog-status" id="profileCompatibilityStatus" role="status">Custom profiles are available for design and preview. Firmware upload remains limited to capabilities advertised by the connected device.</p>
+  <footer class="profile-dialog-actions"><button class="btn ghost" id="deviceProfileReset" type="button">Reset fields</button><span></span><button class="btn" id="deviceProfileCancel" type="button">Cancel</button><button class="btn primary" id="deviceProfileApply" type="button">Apply profile</button></footer>
+ </form>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
