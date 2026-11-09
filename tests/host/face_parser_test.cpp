@@ -135,13 +135,13 @@ int main(int argc, char** argv) {
         R"JSON("cornerRadius": 8)JSON",
         R"JSON("cornerRadius": 8, "strokeWidth": 0.5)JSON");
     result = parse(fractionalStroke, model);
-    assert(!result && result.error == FaceParseError::InvalidField);
+    assert(!result && result.error == FaceParseError::UnsupportedProperty);
 
     std::string oversizedStroke = replaceOnce(validRoundedShape,
         R"JSON("cornerRadius": 8)JSON",
         R"JSON("cornerRadius": 8, "strokeWidth": 2)JSON");
     result = parse(oversizedStroke, model);
-    assert(!result && result.error == FaceParseError::InvalidField);
+    assert(!result && result.error == FaceParseError::UnsupportedProperty);
 
     std::string supportedStroke = replaceOnce(validRoundedShape,
         R"JSON("cornerRadius": 8)JSON",
