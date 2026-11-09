@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "protocol.h"
+#include "digest.h"
 #include "../storage/storage_manager.h"
 #include "../storage/face_storage.h"
 #include "../watchface/face_model.h"
@@ -120,17 +121,6 @@ void writeU32(uint8_t* p, uint32_t value) {
     p[3] = static_cast<uint8_t>((value >> 24) & 0xFF);
 }
 
-bool parseDigest(const char* hex, uint8_t output[32]) {
-    if (hex == nullptr || strlen(hex) != 64) return false;
-    for (size_t i = 0; i < 32; ++i) {
-        char pair[3] = {hex[i * 2], hex[i * 2 + 1], '\0'};
-        char* end = nullptr;
-        const unsigned long value = strtoul(pair, &end, 16);
-        if (end == nullptr || *end != '\0' || value > 255) return false;
-        output[i] = static_cast<uint8_t>(value);
-    }
-    return true;
-}
 
 void sendDataAck(uint32_t transferId) {
     const TransferManager::Snapshot status = TransferManager::snapshot();
@@ -341,7 +331,7 @@ void handleControlPacket(const WfsPacket& packet) {
                 sendError(0x0023, "negotiated_mtu_too_small");
                 break;
             }
-            if (!parseDigest(digestText, digest) ||
+            if (!WfsDigest::parseSha256Hex(digestText, digest) ||
                 !TransferManager::begin(transferId, packageLength, digest, designId)) {
                 sendError(0x0023, TransferManager::errorName(TransferManager::snapshot().error));
                 break;
