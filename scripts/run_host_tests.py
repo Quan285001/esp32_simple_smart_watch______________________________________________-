@@ -139,6 +139,19 @@ subprocess.run(
     check=True,
 )
 
+RGB565_TEST = ROOT / "tests" / "host" / "image_rgb565_test.cpp"
+
+with tempfile.TemporaryDirectory(prefix="wfs-rgb565-test-") as tmp:
+    binary = Path(tmp) / "image_rgb565_test"
+    subprocess.run(
+        ["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+         "-I", str(ROOT / "src" / "watchface" / "elements"),
+         str(RGB565_TEST), "-o", str(binary)],
+        cwd=ROOT,
+        check=True,
+    )
+    subprocess.run([str(binary)], cwd=ROOT, check=True)
+
 subprocess.run(
     [sys.executable, str(ROOT / "tests" / "host" / "image_pipeline_guard_test.py")],
     cwd=ROOT,
