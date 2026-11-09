@@ -7,6 +7,11 @@ assert "asset->byteLength != static_cast<size_t>(asset->width) * asset->height *
 assert "const size_t fileSize = file.size();" in SOURCE
 assert "asset->byteLength > fileSize - asset->packageOffset" in SOURCE
 assert "file.seek(asset->packageOffset, fs::SeekSet)" in SOURCE
+assert "decodeRgb565LittleEndian(encodedRow[column * 2U], encodedRow[column * 2U + 1U])" in SOURCE
+assert "uint8_t encodedRow[DisplayProfileConfig::MAX_BITMAP_WIDTH * 2]" in SOURCE
+
+RGB565_HEADER = (ROOT / "src" / "watchface" / "elements" / "image_rgb565.h").read_text(encoding="utf-8")
+assert "decodeRgb565LittleEndian" in RGB565_HEADER
 
 PACKAGE_VALIDATOR = (ROOT / "src" / "watchface" / "package_validator.cpp").read_text(encoding="utf-8")
 assert "bool isIntegerJsonNumber(JsonVariantConst value)" in PACKAGE_VALIDATOR
