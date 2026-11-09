@@ -124,3 +124,18 @@ body[data-view]:not([data-view="editor"]) .sidebar [data-editor-tools]{display:n
 .canvas-footer-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;flex:1;min-width:150px}
 .upload-watch-btn{white-space:nowrap;flex-shrink:0}
 @media(max-width:520px){.canvas-footer-meta{width:100%}.upload-watch-btn{width:100%}}
+
+.profile-dialog{width:min(560px,calc(100vw - 28px));max-height:min(90vh,820px);padding:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--text);box-shadow:0 24px 90px #0009}
+.profile-dialog::backdrop{background:#05080dcc;backdrop-filter:blur(4px)}
+.profile-dialog form{padding:20px;overflow:auto;max-height:90vh}
+.profile-dialog-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.profile-dialog-header h2{font-size:21px;margin:4px 0 0}
+.profile-dialog-note,.profile-dialog-status{font-size:12px;line-height:1.55;color:var(--muted)}
+.profile-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+.profile-wide{grid-column:1/-1}
+.profile-form-grid .field{min-width:0}
+.profile-subheading{font-size:10px;font-weight:800;color:var(--muted);padding-top:8px;letter-spacing:.08em}
+.profile-dialog-actions{display:flex;align-items:center;gap:8px;margin-top:16px}
+.profile-dialog-actions span{flex:1}
+.profile-dialog-status{padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
+@media(max-width:520px){.profile-dialog form{padding:15px}.profile-form-grid{gap:0 8px}.profile-dialog-actions{flex-wrap:wrap}.profile-dialog-actions span{display:none}.profile-dialog-actions button{flex:1}}
