@@ -29,6 +29,29 @@ begin_end = ble.index("void applyPendingSessionReset()", begin_start)
 begin_wfs = ble[begin_start:begin_end]
 assert begin_wfs.count("rollbackWfsGattSetup();") == 2
 
+# HELLO is the explicit session-replacement handshake. Decode it without
+# the previous session constraint, require session zero, and abort old transfer
+# state before publishing the replacement session ID.
+control_start = ble.index("void handleControlPacket(")
+control_end = ble.index("\nvoid handleDataPacket(", control_start)
+control = ble[control_start:control_end]
+assert "decodeFrame(packet.bytes, packet.length, 0, frame)" in control
+hello_start = control.index("if (frame.type == WfsProtocol::MessageType::Hello)")
+hello_end = control.index("if (sessionId == 0 || frame.sessionId != sessionId)", hello_start)
+hello = control[hello_start:hello_end]
+assert "frame.sessionId != 0" in hello
+assert "TransferManager::abortSession();" in hello
+assert hello.index("TransferManager::abortSession();") < hello.index("sessionId = esp_random();")
+assert "transfer_begin_fields_invalid" in control
+assert "transferIdValue.is<uint32_t>()" in control
+assert "packageLengthValue.is<uint32_t>()" in control
+for action in ("TransferEnd", "Apply", "Cancel"):
+    action_start = control.index(f"case WfsProtocol::MessageType::{action}:")
+    action_end = control.find("case WfsProtocol::MessageType::", action_start + 10)
+    if action_end < 0:
+        action_end = len(control)
+    assert "transferIdValue.is<uint32_t>()" in control[action_start:action_end], action
+
 # Connect/disconnect callbacks invalidate queued packets by advancing an epoch.
 server_start = legacy.index("class ServerCallbacks")
 server_end = legacy.index("class CharacteristicCallbacks", server_start)
