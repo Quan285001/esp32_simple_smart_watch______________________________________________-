@@ -41,12 +41,12 @@ assert.match(appSource, /id:'mono',name:'Monochrome'[^}]*weight:600/,
   'the built-in Monochrome template must use a renderer-supported font weight');
 
 const templateStart = appSource.indexOf('const templates=');
-const templateEnd = appSource.indexOf('\\nfunction blankDesign', templateStart);
+const templateEnd = appSource.indexOf('\nfunction blankDesign', templateStart);
 assert.ok(templateStart >= 0 && templateEnd > templateStart,
   'built-in templates must remain extractable for compatibility checks');
 const templateContext = {};
 vm.runInNewContext(appSource.slice(templateStart, templateEnd) +
-  '\\nglobalThis.templates = templates;', templateContext);
+  '\nglobalThis.templates = templates;', templateContext);
 const supportedTemplateTypes = new Set([
   'text', 'digital-clock', 'analog-clock', 'date', 'weather', 'shape', 'image'
 ]);
@@ -55,7 +55,7 @@ for (const template of templateContext.templates) {
     assert.ok(supportedTemplateTypes.has(object.type),
       template.name + ': unsupported built-in element type ' + object.type);
     if (typeof object.text === 'string') {
-      assert.ok(/^[\\x20-\\x7E]*$/.test(object.text),
+      assert.ok(/^[\x20-\x7E]*$/.test(object.text),
         template.name + ': built-in static text must use printable ASCII');
     }
     if (object.weight !== undefined) {
