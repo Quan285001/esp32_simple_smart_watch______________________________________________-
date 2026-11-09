@@ -27,7 +27,9 @@ function normalize(profile){
 function validate(profile){
  const raw=profile&&typeof profile==='object'?profile:{},rawDisplay=raw.display&&typeof raw.display==='object'?raw.display:{};
  const p=normalize(raw),d=p.display,errors=[];
- if(typeof raw.name!=='string'||!raw.name.trim())errors.push('Profile name is required.');
+ if(raw.profileVersion!==1)errors.push('Unsupported Device Profile version.');
+ if(typeof raw.id!=='string'||!raw.id.trim()||raw.id.length>64)errors.push('Profile ID must contain 1 to 64 characters.');
+ if(typeof raw.name!=='string'||!raw.name.trim()||raw.name.length>80)errors.push('Profile name must contain 1 to 80 characters.');
  if(!Number.isInteger(Number(rawDisplay.width))||Number(rawDisplay.width)<1||Number(rawDisplay.width)>1024)errors.push('Width must be an integer from 1 to 1024 pixels.');
  if(!Number.isInteger(Number(rawDisplay.height))||Number(rawDisplay.height)<1||Number(rawDisplay.height)>1024)errors.push('Height must be an integer from 1 to 1024 pixels.');
  if(!SHAPES.includes(rawDisplay.shape))errors.push('Choose a supported display shape.');
