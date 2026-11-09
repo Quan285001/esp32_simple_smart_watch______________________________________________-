@@ -103,7 +103,7 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
     /simulated GATT write failure/,
     'a failed GATT write must reject the request'
   );
-  assert.equal(state.wfs.pending.size, 0,
+  assert.equal(state.wfs.pending.has(0x06), false,
     'a failed GATT write must cancel and remove its response waiter');
   state.wfs.controlRx.writeValueWithResponse = originalWrite;
   console.log('WFS Web failed-write waiter cleanup tests passed.');
@@ -114,14 +114,14 @@ assert.throws(() => decode(corrupted), /CRC mismatch/);
 
 (async () => {
   const pendingAck = waitFor(0x23, 60000);
-  assert.equal(state.wfs.pending.size, 1, 'ACK waiter should be registered');
+  assert.equal(state.wfs.pending.has(0x23), true, 'ACK waiter should be registered');
   pendingAck.cancel();
   assert.equal(await pendingAck, null, 'cancelled ACK waiter should resolve without rejection');
-  assert.equal(state.wfs.pending.size, 0, 'cancelled ACK waiter should be removed');
+  assert.equal(state.wfs.pending.has(0x23), false, 'cancelled ACK waiter should be removed');
 
   const timedOut = waitFor(0x24, 5);
   await assert.rejects(timedOut, /WFS response timeout/);
-  assert.equal(state.wfs.pending.size, 0, 'timed-out waiter should be removed');
+  assert.equal(state.wfs.pending.has(0x24), false, 'timed-out waiter should be removed');
 
   console.log('WFS Web protocol codec and waiter lifecycle tests passed.');
 })().catch(error => {
