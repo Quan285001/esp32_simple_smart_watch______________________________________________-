@@ -13,6 +13,7 @@ class FakeElement {
   getContext() {
     let fillStyle = '';
     return {
+      fillRects: this.fillRects,
       set fillStyle(value) { fillStyle = value; },
       get fillStyle() { return fillStyle; },
       clearRect() {},
