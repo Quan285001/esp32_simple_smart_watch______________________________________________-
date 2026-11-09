@@ -55,6 +55,14 @@ bool begin(uint32_t transferId, uint32_t packageLength,
         currentError = Error::Busy;
         return false;
     }
+
+    // A previous completed/failed/cancelled attempt must not leak its
+    // transfer ID or staging-slot metadata into this new request. Keep the
+    // busy check first so an active session is never reset by a second begin.
+    clearTransferFields();
+    currentState = State::Idle;
+    currentError = Error::None;
+
     if (transferId == 0 || packageLength < MIN_PACKAGE_LENGTH ||
         expectedPayloadDigestValue == nullptr || designId == nullptr ||
         designId[0] == '\0' || strlen(designId) >= sizeof(expectedDesignId)) {
