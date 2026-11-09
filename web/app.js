@@ -312,23 +312,39 @@ async function convertImageToRgb565(object,design){
  const right=Math.min(240,Math.ceil(x+width)),bottom=Math.min(240,Math.ceil(y+height));
  const outputWidth=right-left,outputHeight=bottom-top;
  if(outputWidth<=0||outputHeight<=0)throw Error(object.name+': image is outside the visible watch area');
+ const fitScale=Math.min(width/image.naturalWidth,height/image.naturalHeight);
+ const drawWidth=image.naturalWidth*fitScale,drawHeight=image.naturalHeight*fitScale;
+ const drawX=x+(width-drawWidth)/2,drawY=y+(height-drawHeight)/2;
  const imagePosition=design.objects.indexOf(object),imageZ=transform.zIndex??0;
+ const intersectsRoundDisplay=(rect)=>{
+  const nearestX=Math.max(rect.x,Math.min(120,rect.x+rect.width));
+  const nearestY=Math.max(rect.y,Math.min(120,rect.y+rect.height));
+  const dx=nearestX-120,dy=nearestY-120;
+  return dx*dx+dy*dy<120*120;
+ };
+ const visibleImageRect={x:drawX,y:drawY,width:drawWidth,height:drawHeight};
  const hasUnderlyingLayer=design.objects.some((candidate,index)=>{
   if(candidate===object||candidate.visible===false)return false;
   const t=candidate.transform||{};
   const lowerOrder=(t.zIndex??0)<imageZ||((t.zIndex??0)===imageZ&&index<imagePosition);
-  return lowerOrder&&t.x<x+width&&t.x+t.width>x&&t.y<y+height&&t.y+t.height>y;
+  const candidateRect={x:Number(t.x)||0,y:Number(t.y)||0,width:Number(t.width)||0,height:Number(t.height)||0};
+  const overlapsImage=candidateRect.x<visibleImageRect.x+visibleImageRect.width&&
+   candidateRect.x+candidateRect.width>visibleImageRect.x&&
+   candidateRect.y<visibleImageRect.y+visibleImageRect.height&&
+   candidateRect.y+candidateRect.height>visibleImageRect.y;
+  return lowerOrder&&overlapsImage&&intersectsRoundDisplay(candidateRect)&&intersectsRoundDisplay(visibleImageRect);
  });
- const alphaCanvas=document.createElement('canvas');alphaCanvas.width=240;alphaCanvas.height=240;
- const alphaCtx=alphaCanvas.getContext('2d',{willReadFrequently:true});alphaCtx.drawImage(image,0,0,240,240);
- const sourcePixels=alphaCtx.getImageData(0,0,240,240).data;let hasTransparency=false;
+ // Inspect alpha at the exact output raster size and placement. Scaling every
+ // source to an unrelated 240x240 square can report transparency in pixels
+ // that are not actually rendered, or miss alpha after a different scale.
+ const alphaCanvas=document.createElement('canvas');alphaCanvas.width=outputWidth;alphaCanvas.height=outputHeight;
+ const alphaCtx=alphaCanvas.getContext('2d',{willReadFrequently:true});
+ alphaCtx.save();alphaCtx.beginPath();alphaCtx.arc(120-left,120-top,120,0,Math.PI*2);alphaCtx.clip();
+ alphaCtx.drawImage(image,drawX-left,drawY-top,drawWidth,drawHeight);alphaCtx.restore();
+ const sourcePixels=alphaCtx.getImageData(0,0,outputWidth,outputHeight).data;let hasTransparency=false;
  for(let i=3;i<sourcePixels.length;i+=4){if(sourcePixels[i]!==255){hasTransparency=true;break}}
  if(hasTransparency&&object.visible!==false&&hasUnderlyingLayer)
   throw Error(object.name+': transparent overlay images are not supported yet; place the transparent image below every other visible layer');
-
- const fitScale=Math.min(width/image.naturalWidth,height/image.naturalHeight);
- const drawWidth=image.naturalWidth*fitScale,drawHeight=image.naturalHeight*fitScale;
- const drawX=x+(width-drawWidth)/2,drawY=y+(height-drawHeight)/2;
  const canvas=document.createElement('canvas');canvas.width=outputWidth;canvas.height=outputHeight;
  const ctx=canvas.getContext('2d',{willReadFrequently:true});
  ctx.fillStyle=design.canvas.backgroundColor||'#000000';ctx.fillRect(0,0,outputWidth,outputHeight);
