@@ -18,6 +18,8 @@ extern void toggleWiFi();
 extern void requestLightSleep();
 extern uint8_t requestWeatherFetch();
 
+extern void invalidateAnalogClockFace();
+
 extern void drawAnalogClockFace(
     struct tm timeinfo,
     int millisValue,
@@ -99,6 +101,7 @@ void drawCurrentScreen(bool force) {
     switch (currentScreen) {
 
         case SCREEN_CLOCK: {
+            invalidateAnalogClockFace();
             struct tm timeinfo = {};
 
             if (!readLocalTime(timeinfo)) {
