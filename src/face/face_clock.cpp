@@ -38,7 +38,6 @@ TFT_eSprite backgroundCache(&tft);
 TFT_eSprite workingTile(&tft);
 bool backgroundCacheReady = false;
 bool workingTileReady = false;
-bool rendererReady = false;
 bool fullRefreshPending = true;
 
 struct HandGeometry {
@@ -272,6 +271,16 @@ bool sameHands(const HandGeometry& a, const HandGeometry& b) {
  * @brief Renders the built-in analog clock using cached background and
  *        bounded partial updates instead of clearing and pushing a full sprite.
  */
+void invalidateAnalogClockFace() {
+    fullRefreshPending = true;
+    previousHandsValid = false;
+    previousTimeText[0] = '\0';
+    previousDayText[0] = '\0';
+    previousDate = -1;
+    previousConnectionLabel[0] = '\0';
+    previousIconHour = -1;
+}
+
 void drawAnalogClockFace(struct tm timeinfo, int millisValue,
                          int heartRate, int steps) {
     (void)heartRate;
@@ -308,7 +317,6 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue,
         workingTileReady = workingTile.createSprite(
             TILE_SIZE, TILE_SIZE) != nullptr;
     }
-    rendererReady = backgroundCacheReady && workingTileReady;
 
     if (!rendererReady) {
         drawFallbackDirect(timeinfo, timeText, days[wday], date,
@@ -341,7 +349,7 @@ void drawAnalogClockFace(struct tm timeinfo, int millisValue,
             markHandsDirty(dirty, hands);
         }
         if (strcmp(previousTimeText, timeText) != 0) {
-            markDirtyRect(dirty, 34, 78, 56, 18);
+            markDirtyRect(dirty, 10, 78, 62, 18);
         }
         if (strcmp(previousDayText, days[wday]) != 0 || previousDate != date) {
             markDirtyRect(dirty, 104, 64, 52, 30);
